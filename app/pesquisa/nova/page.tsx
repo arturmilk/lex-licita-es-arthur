@@ -505,7 +505,7 @@ export default function NovaPesquisaPage() {
                 fileName={`estimativa_${processo.numero.replace("/", "_")}.pdf`}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors"
               >
-                {({ loading }: { loading: boolean }) => loading ? "Gerando..." : "Baixar PDF"}
+                {"Baixar PDF"}
               </PDFDownloadLink>
             </div>
           </div>

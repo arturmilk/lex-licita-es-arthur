@@ -1,63 +1,107 @@
-# Estima.IA - Versao Local (Demonstracao)
+# Estima.IA v2
 
-## Como executar
+Sistema de pesquisa de preços para licitações públicas com integração real ao PNCP.
 
-### Requisitos
-- Node.js 18+ (https://nodejs.org)
+## Stack
 
-### Passos
+- **Next.js 14** (App Router + Server Actions)
+- **PostgreSQL** via Docker
+- **Drizzle ORM** (TypeScript-first)
+- **NextAuth.js v5** (autenticação com JWT)
+- **MinIO** (storage de arquivos, S3-compatível)
+- **API do PNCP** (real, sem mock)
 
-1. Entre na pasta do projeto:
+## Iniciar em desenvolvimento
+
+### 1. Pré-requisitos
+- Node.js 18+
+- Docker + Docker Compose
+
+### 2. Subir serviços
 ```bash
-cd estima-ia
+docker compose up -d
 ```
 
-2. Instale as dependencias:
+### 3. Instalar dependências
 ```bash
 npm install
 ```
 
-3. Execute o servidor de desenvolvimento:
+### 4. Configurar variáveis
+```bash
+cp .env.example .env.local
+# Edite .env.local com seus valores
+```
+
+### 5. Criar tabelas e seed inicial
+```bash
+npm run db:push
+npm run db:seed
+```
+
+### 6. Iniciar aplicação
 ```bash
 npm run dev
 ```
 
-4. Acesse no navegador:
+Acesse: http://localhost:3000
+
+**Login padrão:** admin@estima.ia / Admin@123
+
+## Integração com Agentes
+
+A API de agentes usa autenticação por API Key. Gere uma chave em Admin > API Keys.
+
+### Headers
 ```
-http://localhost:3000
+X-API-Key: eia_xxxxx
+```
+ou
+```
+Authorization: Bearer eia_xxxxx
 ```
 
-5. Login:
-- Use qualquer e-mail e senha (modo demonstracao)
-- Ou clique diretamente em "Entrar"
+### Endpoints disponíveis
+- `GET /api/agent` - Documentação
+- `GET /api/agent/pesquisas` - Listar pesquisas do órgão
+- `POST /api/agent/pesquisas` - Criar pesquisa via agente
+- `POST /api/agent/pncp` - Buscar no PNCP
+- `POST /api/agent/calcular` - Calcular preço estimado
 
----
+## Deploy no VPS / Produção
 
-## O que funciona nesta versao
+```bash
+# Na VPS
+docker compose up -d postgres minio
 
-- Todas as 7 telas navegaveis (Dashboard, Nova pesquisa, Processos, etc.)
-- Wizard de 13 passos completo
-- Extracao de caracteristicas por IA (simulada)
-- Pesquisa no PNCP (simulada com dados mockados)
-- Tabela comparativa com aceitar/rejeitar/justificar
-- Calculos estatisticos deterministicos (media, mediana, DP, CV)
-- Geracao de preco estimado com justificativa
-- Download de PDF e XLSX com memoria de calculo
-- Design responsivo
+# Configurar variáveis de produção
+AUTH_SECRET=$(openssl rand -base64 32)
+AGENT_API_KEY=$(openssl rand -hex 32)
 
-## O que NAO funciona (requer Supabase real)
+npm run build
+npm run db:push
+npm run db:seed
+npm start
+```
 
-- Autenticacao real (login e simulado)
-- Persistencia de dados no banco
-- Consulta real a API do PNCP (usa mock)
-- Upload de arquivos para Storage
-- Row Level Security
-
----
-
-## Para conectar ao Supabase real
-
-Substitua os arquivos:
-- `lib/supabase.ts` -> use o cliente real do Supabase
-- `lib/actions.ts` -> use Server Actions reais
-- `.env.local` -> preencha com credenciais reais
+## Estrutura
+```
+app/
+  api/
+    auth/         - NextAuth handlers
+    register/     - Cadastro de órgão
+    processos/    - CRUD processos
+    pesquisas/    - CRUD pesquisas + resultados
+    evidencias/   - CRUD evidências
+    upload/       - Upload de arquivos (MinIO)
+    pncp/         - Consulta PNCP (autenticado)
+    admin/        - Usuários, configurações, API keys
+    agent/        - API para agentes externos
+lib/
+  db/             - Drizzle schema + migrations
+  auth.ts         - NextAuth config
+  storage.ts      - MinIO helpers
+  pncp.ts         - PNCP API client
+  math.ts         - Cálculos estatísticos
+  agent-auth.ts   - Auth para agentes
+```

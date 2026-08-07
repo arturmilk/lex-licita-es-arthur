@@ -1,47 +1,95 @@
-import React from "react";
-import Link from "next/link";
-import { LayoutDashboard, Plus, FileText, Search, BarChart3, Paperclip, Settings, Layers, LogOut } from "lucide-react";
+import type { Metadata } from "next";
 import "./globals.css";
+import { auth } from "@/auth";
+import { Layers, LayoutDashboard, Plus, FileText, Search, BarChart3, Paperclip, Settings, LogOut, Key } from "lucide-react";
+import Link from "next/link";
+
+export const metadata: Metadata = {
+  title: "Estima.IA - Pesquisa de Preços",
+  description: "Sistema de pesquisa de preços para licitações públicas",
+};
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/pesquisa/nova", label: "Nova pesquisa", icon: Plus },
-  { href: "/processos", label: "Processos", icon: FileText },
-  { href: "/pesquisas", label: "Pesquisas realizadas", icon: Search },
-  { href: "/relatorios", label: "Relatorios", icon: BarChart3 },
-  { href: "/evidencias", label: "Evidencias", icon: Paperclip },
-  { href: "/admin", label: "Administracao", icon: Settings },
+  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/pesquisa/nova", icon: Plus, label: "Nova pesquisa" },
+  { href: "/processos", icon: FileText, label: "Processos" },
+  { href: "/pesquisas", icon: Search, label: "Pesquisas" },
+  { href: "/relatorios", icon: BarChart3, label: "Relatórios" },
+  { href: "/evidencias", icon: Paperclip, label: "Evidências" },
+  { href: "/admin", icon: Settings, label: "Administração" },
 ];
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const session = await auth();
+  const isAuth = !!session;
+
+  if (!isAuth) {
+    return (
+      <html lang="pt-BR">
+        <body className="bg-neutral-50">{children}</body>
+      </html>
+    );
+  }
+
+  const user = session.user as any;
+
   return (
     <html lang="pt-BR">
-      <body className="bg-white text-neutral-900 antialiased">
-        <div className="flex min-h-screen">
-          <aside className="hidden md:flex w-64 flex-col border-r border-neutral-200 bg-neutral-50">
-            <div className="flex items-center gap-3 px-5 py-5 border-b border-neutral-200">
-              <Layers className="w-6 h-6 text-neutral-900" />
-              <span className="text-lg font-medium tracking-wide">Estima.IA</span>
+      <body className="bg-neutral-50">
+        <div className="flex h-screen">
+          {/* Sidebar */}
+          <aside className="hidden md:flex w-60 bg-neutral-900 flex-col">
+            <div className="p-5 border-b border-neutral-800">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
+                  <Layers className="w-4 h-4 text-neutral-900" />
+                </div>
+                <span className="text-white font-bold text-lg">Estima.IA</span>
+              </div>
+              <p className="text-neutral-400 text-xs mt-2 truncate">{user.orgaoNome || "Órgão"}</p>
             </div>
-            <nav className="flex-1 px-3 py-4 space-y-1">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link key={item.href} href={item.href} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors">
-                    <Icon className="w-[18px] h-[18px]" />{item.label}
-                  </Link>
-                );
-              })}
+
+            <nav className="flex-1 p-4 space-y-1">
+              {navItems.map(({ href, icon: Icon, label }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className="flex items-center gap-3 px-3 py-2 rounded-lg text-neutral-300 hover:bg-neutral-800 hover:text-white transition-colors text-sm"
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </Link>
+              ))}
             </nav>
-            <div className="px-3 py-4 border-t border-neutral-200">
-              <button className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors w-full">
-                <LogOut className="w-[18px] h-[18px]" />Sair
-              </button>
+
+            <div className="p-4 border-t border-neutral-800">
+              <div className="mb-3">
+                <p className="text-white text-sm font-medium truncate">{user.name}</p>
+                <p className="text-neutral-400 text-xs truncate">{user.email}</p>
+                <span className="inline-block mt-1 px-2 py-0.5 bg-neutral-700 text-neutral-300 text-xs rounded">
+                  {user.perfil}
+                </span>
+              </div>
+              <form
+                action={async () => {
+                  "use server";
+                  const { signOut } = await import("@/auth");
+                  await signOut({ redirectTo: "/login" });
+                }}
+              >
+                <button
+                  type="submit"
+                  className="flex items-center gap-2 w-full px-3 py-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg text-sm transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sair
+                </button>
+              </form>
             </div>
           </aside>
-          <main className="flex-1">
-            <div className="max-w-6xl mx-auto px-4 md:px-8 py-6">{children}</div>
-          </main>
+
+          {/* Main */}
+          <main className="flex-1 overflow-auto">{children}</main>
         </div>
       </body>
     </html>

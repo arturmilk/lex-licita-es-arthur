@@ -1,54 +1,112 @@
 "use client";
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Layers, Mail, Lock, Loader2 } from "lucide-react";
+
+import { useState } from "react";
+import { signIn } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Layers, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("demo@estima.ia");
-  const [password, setPassword] = useState("demo123");
-  const [loading, setLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
-  const handleLogin = (e: React.FormEvent) => {
+  const [form, setForm] = useState({ email: "", senha: "" });
+  const [showSenha, setShowSenha] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => { router.push("/dashboard"); }, 800);
-  };
+    setError("");
+
+    const result = await signIn("credentials", {
+      email: form.email,
+      password: form.senha,
+      redirect: false,
+    });
+
+    if (result?.error) {
+      setError("Email ou senha inválidos");
+      setLoading(false);
+    } else {
+      router.push(callbackUrl);
+      router.refresh();
+    }
+  }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
+    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-neutral-900 text-white mb-4">
-            <Layers className="w-6 h-6" />
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-neutral-900 rounded-xl flex items-center justify-center">
+              <Layers className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-neutral-900">Estima.IA</h1>
+              <p className="text-xs text-neutral-500">Pesquisa de Preços para Licitações</p>
+            </div>
           </div>
-          <h1 className="text-2xl font-medium">Estima.IA</h1>
-          <p className="text-sm text-neutral-500 mt-1">Pesquisa e formacao de precos publicos</p>
-        </div>
-        <div className="bg-white rounded-xl border border-neutral-200 p-8 shadow-sm">
-          <h2 className="text-base font-medium mb-6">Entrar na plataforma</h2>
-          <form onSubmit={handleLogin} className="space-y-4">
+
+          <h2 className="text-lg font-semibold text-neutral-800 mb-6">Acesse sua conta</h2>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1.5">E-mail</label>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Email</label>
+              <input
+                type="email"
+                required
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                placeholder="seu@orgao.gov.br"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1">Senha</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                <input type="email" required className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-400" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <input
+                  type={showSenha ? "text" : "password"}
+                  required
+                  value={form.senha}
+                  onChange={(e) => setForm({ ...form, senha: e.target.value })}
+                  className="w-full px-3 py-2 pr-10 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowSenha(!showSenha)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                >
+                  {showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-neutral-500 mb-1.5">Senha</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-                <input type="password" required className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-400" value={password} onChange={(e) => setPassword(e.target.value)} />
-              </div>
-            </div>
-            <button type="submit" disabled={loading} className="w-full py-2.5 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Entrar"}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-2.5 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? "Entrando..." : "Entrar"}
             </button>
           </form>
-          <div className="mt-6 pt-4 border-t border-neutral-100 text-center">
-            <p className="text-xs text-neutral-400">Ambiente de demonstracao local</p>
-            <p className="text-xs text-neutral-400 mt-1">Use qualquer e-mail e senha</p>
+
+          <div className="mt-6 text-center">
+            <p className="text-sm text-neutral-500">
+              Não tem conta?{" "}
+              <a href="/register" className="text-neutral-900 font-medium hover:underline">
+                Cadastre seu órgão
+              </a>
+            </p>
           </div>
         </div>
       </div>
