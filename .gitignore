@@ -35,3 +35,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# docker / vps
+.env.production
+docker-compose.override.yml
+
+# dados locais
+data/
+*.db
+*.sqlite

@@ -1,65 +1,122 @@
-"use client";
-import React, { useState } from "react";
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
+import { db } from "@/lib/db";
+import { processos, usuarios } from "@/lib/db/schema";
+import { eq, and, desc, ilike, or } from "drizzle-orm";
 import Link from "next/link";
-import { Search, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
+import ProcessosBusca from "@/components/ProcessosBusca";
 
-const MOCK_PROCESSOS = [
-  { numero: "2026/0042", objeto: "Aquisicao de notebooks", status: "pesquisando" as const, responsavel: "Ana Costa", atualizado: "06/08/2026" },
-  { numero: "2026/0038", objeto: "Servicos de consultoria em TI", status: "estimado" as const, responsavel: "Bruno Lima", atualizado: "05/08/2026" },
-  { numero: "2026/0035", objeto: "Aquisicao de mobiliario", status: "cancelado" as const, responsavel: "Carla Dias", atualizado: "01/08/2026" },
-];
+const STATUS_COLOR: Record<string, string> = {
+  rascunho: "bg-neutral-100 text-neutral-600",
+  pesquisando: "bg-blue-100 text-blue-700",
+  estimado: "bg-green-100 text-green-700",
+  concluido: "bg-emerald-100 text-emerald-700",
+  cancelado: "bg-red-100 text-red-600",
+};
 
-function sb(s: string) {
-  const map: Record<string, string> = { pesquisando: "bg-blue-50 text-blue-700 border-blue-200", estimado: "bg-green-50 text-green-700 border-green-200", cancelado: "bg-red-50 text-red-700 border-red-200" };
-  return <span className={`text-xs font-medium px-2 py-0.5 rounded border ${map[s]}`}>{s}</span>;
-}
+const STATUS_LABEL: Record<string, string> = {
+  rascunho: "Rascunho",
+  pesquisando: "Pesquisando",
+  estimado: "Estimado",
+  concluido: "Concluído",
+  cancelado: "Cancelado",
+};
 
-export default function ProcessosPage() {
-  const [busca, setBusca] = useState("");
-  const [filtro, setFiltro] = useState("todos");
-  const filtrados = MOCK_PROCESSOS.filter(p => (busca === "" || p.numero.includes(busca) || p.objeto.toLowerCase().includes(busca.toLowerCase())) && (filtro === "todos" || p.status === filtro));
+export default async function ProcessosPage({
+  searchParams,
+}: {
+  searchParams: { busca?: string; status?: string };
+}) {
+  const session = await auth();
+  if (!session) redirect("/login");
+  const orgaoId = (session.user as any).orgaoId;
+
+  const conditions = [eq(processos.orgaoId, orgaoId)];
+  if (searchParams.status && searchParams.status !== "todos") {
+    conditions.push(eq(processos.status, searchParams.status as any));
+  }
+
+  let result = await db
+    .select({
+      id: processos.id,
+      numero: processos.numero,
+      objeto: processos.objeto,
+      unidade: processos.unidade,
+      status: processos.status,
+      updatedAt: processos.updatedAt,
+      usuarioNome: usuarios.nome,
+    })
+    .from(processos)
+    .leftJoin(usuarios, eq(processos.usuarioId, usuarios.id))
+    .where(and(...conditions))
+    .orderBy(desc(processos.updatedAt));
+
+  if (searchParams.busca) {
+    const b = searchParams.busca.toLowerCase();
+    result = result.filter(
+      (p) =>
+        p.numero.toLowerCase().includes(b) ||
+        p.objeto.toLowerCase().includes(b)
+    );
+  }
 
   return (
-    <div>
+    <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-medium">Processos</h1>
-        <span className="text-xs font-medium px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200">DEMONSTRACAO</span>
-      </div>
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row gap-3 mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
-            <input type="text" placeholder="Buscar processo..." className="w-full pl-9 pr-4 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-400" value={busca} onChange={e => setBusca(e.target.value)} />
-          </div>
-          <div className="flex gap-2">
-            <select className="px-3 py-2 rounded-lg border border-neutral-200 text-sm bg-white" value={filtro} onChange={e => setFiltro(e.target.value)}>
-              <option value="todos">Todos</option><option value="pesquisando">Pesquisando</option><option value="estimado">Estimado</option><option value="cancelado">Cancelado</option>
-            </select>
-            <Link href="/pesquisa/nova" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800"><Plus className="w-4 h-4" /> Novo</Link>
-          </div>
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">Processos</h1>
+          <p className="text-sm text-neutral-500 mt-1">{result.length} processo(s) encontrado(s)</p>
         </div>
-        <div className="overflow-x-auto">
+        <Link
+          href="/pesquisa/nova"
+          className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Nova pesquisa
+        </Link>
+      </div>
+
+      <ProcessosBusca initialBusca={searchParams.busca} initialStatus={searchParams.status} />
+
+      <div className="bg-white rounded-xl border border-neutral-200 mt-4">
+        {result.length === 0 ? (
+          <div className="px-6 py-12 text-center text-neutral-400 text-sm">
+            Nenhum processo encontrado.{" "}
+            <Link href="/pesquisa/nova" className="text-neutral-700 underline">
+              Criar novo
+            </Link>
+          </div>
+        ) : (
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-neutral-200">
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Numero</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Objeto</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Status</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Responsavel</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Atualizado</th>
-            </tr></thead>
-            <tbody>
-              {filtrados.map((p, i) => (
-                <tr key={i} className="border-b border-neutral-100 hover:bg-neutral-50 transition-colors">
-                  <td className="py-2.5 px-3 font-mono text-xs">{p.numero}</td>
-                  <td className="py-2.5 px-3">{p.objeto}</td>
-                  <td className="py-2.5 px-3">{sb(p.status)}</td>
-                  <td className="py-2.5 px-3">{p.responsavel}</td>
-                  <td className="py-2.5 px-3 text-neutral-500">{p.atualizado}</td>
+            <thead>
+              <tr className="border-b border-neutral-100 text-left">
+                <th className="px-6 py-3 font-medium text-neutral-500">Número</th>
+                <th className="px-6 py-3 font-medium text-neutral-500">Objeto</th>
+                <th className="px-6 py-3 font-medium text-neutral-500">Status</th>
+                <th className="px-6 py-3 font-medium text-neutral-500">Responsável</th>
+                <th className="px-6 py-3 font-medium text-neutral-500">Atualizado</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-neutral-50">
+              {result.map((p) => (
+                <tr key={p.id} className="hover:bg-neutral-50 transition-colors">
+                  <td className="px-6 py-3 font-mono text-xs text-neutral-600">{p.numero}</td>
+                  <td className="px-6 py-3 text-neutral-800 max-w-xs truncate">{p.objeto}</td>
+                  <td className="px-6 py-3">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLOR[p.status] || "bg-neutral-100"}`}>
+                      {STATUS_LABEL[p.status] || p.status}
+                    </span>
+                  </td>
+                  <td className="px-6 py-3 text-neutral-600">{p.usuarioNome || "—"}</td>
+                  <td className="px-6 py-3 text-neutral-400 text-xs">
+                    {new Date(p.updatedAt).toLocaleDateString("pt-BR")}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        )}
       </div>
     </div>
   );
