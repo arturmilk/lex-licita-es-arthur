@@ -1,20 +1,48 @@
 // ============================================================
-// Estima.IA — Agentes IA via Anthropic Claude API
+// Estima.IA — Agentes IA via DeepSeek API
 // ============================================================
-// Chama os 4 agentes da Estima.IA diretamente via API da Anthropic.
-// Os prompts de sistema vêm dos arquivos SKILL.md/AGENT.md em openclaw-skills/.
+// Chama os 4 agentes da Estima.IA via API DeepSeek (compatível OpenAI).
+// Os prompts de sistema seguem as instruções dos arquivos em openclaw-skills/.
 //
-// Requisitos:
-// - ANTHROPIC_API_KEY no .env.local
-// - npm install @anthropic-ai/sdk
+// Requisito: DEEPSEEK_API_KEY no .env.local
 
-import Anthropic from "@anthropic-ai/sdk";
+const DEEPSEEK_BASE = "https://api.deepseek.com/v1";
+const DEEPSEEK_MODEL = "deepseek-chat"; // use "deepseek-reasoner" para R1 (mais lento)
 
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+async function callDeepSeek(
+  systemPrompt: string,
+  userMessage: string,
+  temperature = 0.1,
+  model = DEEPSEEK_MODEL
+): Promise<string> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey) throw new Error("DEEPSEEK_API_KEY não configurado no ambiente");
 
-const MODEL = "claude-sonnet-4-6";
+  const res = await fetch(`${DEEPSEEK_BASE}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature,
+      max_tokens: 2048,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`DeepSeek API error ${res.status}: ${err}`);
+  }
+
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content ?? "";
+}
 
 function parseJsonResponse(text: string) {
   try {
@@ -54,13 +82,7 @@ Responda APENAS com JSON válido, sem markdown, sem texto extra:
   "categoria": "string",
   "subcategoria": "string",
   "caracteristicas": [
-    {
-      "nome": "string",
-      "valor": "string",
-      "tipo": "obrigatorio|desejavel",
-      "confianca": 0-100,
-      "fonte": "string"
-    }
+    {"nome": "string", "valor": "string", "tipo": "obrigatorio|desejavel", "confianca": 0-100, "fonte": "string"}
   ],
   "resumo": "string com até 200 caracteres",
   "alertas": ["lista de ambiguidades ou omissões"]
@@ -73,15 +95,7 @@ Descrição: ${descricao}
 Especificações informadas:
 ${especificacoes.map((e) => `- ${e.item}: ${e.especificacao} (${e.obrigatorio ? "obrigatório" : "desejável"})`).join("\n")}`;
 
-  const msg = await client.messages.create({
-    model: MODEL,
-    max_tokens: 2048,
-    temperature: 0.1,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userMessage }],
-  });
-
-  const text = msg.content[0].type === "text" ? msg.content[0].text : "";
+  const text = await callDeepSeek(systemPrompt, userMessage, 0.1);
   return parseJsonResponse(text);
 }
 
@@ -96,31 +110,22 @@ export async function calcularSimilaridade(
 ) {
   const systemPrompt = `Você é o Agente de Similaridade da Estima.IA, especialista em comparação técnica de objetos de contratação pública.
 
-Sua função é calcular o índice de similaridade técnica entre um objeto desejado e um resultado encontrado em licitações.
+Calcule o índice de similaridade técnica entre um objeto desejado e um resultado encontrado em licitações.
 
-Critérios de avaliação:
-- Similaridade técnica das especificações (peso 60%)
-- Compatibilidade de uso/função (peso 30%)
-- Correspondência de categoria (peso 10%)
+Critérios: similaridade técnica das especificações (60%), compatibilidade de uso/função (30%), correspondência de categoria (10%).
 
-Escala:
-- 90-100: altamente similar, pode ser usado como referência direta
-- 75-89: similar, com pequenas diferenças
-- 50-74: parcialmente similar, use com cautela
-- 0-49: baixa similaridade, não recomendado como referência
+Escala: 90-100=altamente similar, 75-89=similar, 50-74=parcialmente similar, 0-49=baixa similaridade.
 
 Responda APENAS com JSON válido:
 {
   "similaridade": 0-100,
-  "justificativa": "string explicando o índice",
+  "justificativa": "string",
   "pontos_convergentes": ["lista"],
   "pontos_divergentes": ["lista"],
   "recomendacao": "aceitar|avaliar|rejeitar"
 }`;
 
-  const userMessage = `Compare os objetos abaixo:
-
-OBJETO DESEJADO: ${objeto}
+  const userMessage = `OBJETO DESEJADO: ${objeto}
 Especificações: ${JSON.stringify(especificacoes)}
 
 CANDIDATO ENCONTRADO:
@@ -128,15 +133,7 @@ Descrição: ${candidato.descricao}
 Órgão: ${candidato.orgao}
 Localização: ${candidato.localizacao}`;
 
-  const msg = await client.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    temperature: 0.1,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userMessage }],
-  });
-
-  const text = msg.content[0].type === "text" ? msg.content[0].text : "";
+  const text = await callDeepSeek(systemPrompt, userMessage, 0.1);
   return parseJsonResponse(text);
 }
 
@@ -158,25 +155,17 @@ export async function gerarJustificativa(
   quantidade: number,
   referenciasAceitas: number
 ) {
-  const systemPrompt = `Você é o Agente Justificador da Estima.IA, especialista em redação de justificativas de preços para contratações públicas brasileiras.
+  const systemPrompt = `Você é o Agente Justificador da Estima.IA, especialista em redação de justificativas de preços para contratações públicas brasileiras (Lei 14.133/2021).
 
-Sua função é redigir textos formais de justificativa de preço estimado, em conformidade com a Lei 14.133/2021.
+Redija textos formais de justificativa de preço estimado. Use linguagem técnica e formal, cite as estatísticas com precisão, mencione o método de cálculo, justifique a robustez da amostragem. Escreva em português formal, sem abreviações. O texto deve ser autocontido.`;
 
-Diretrizes:
-- Use linguagem técnica e formal
-- Cite as estatísticas apresentadas com precisão
-- Mencione o método de cálculo utilizado
-- Justifique a robustez da amostragem
-- Redija em português formal, sem abreviações
-- O texto deve ser autocontido e não referenciar arquivos externos`;
+  const userMessage = `Redija uma justificativa formal de preço estimado:
 
-  const userMessage = `Redija uma justificativa formal de preço estimado com base nos dados abaixo:
-
-Método de estimativa: ${metodo}
+Método: ${metodo}
 Quantidade a contratar: ${quantidade} unidades
-Referências de preço aceitas: ${referenciasAceitas}
+Referências aceitas: ${referenciasAceitas}
 
-Estatísticas das referências:
+Estatísticas:
 - N amostral: ${estatisticas.n} referências
 - Média: R$ ${estatisticas.media.toFixed(2)}
 - Mediana: R$ ${estatisticas.mediana.toFixed(2)}
@@ -185,15 +174,7 @@ Estatísticas das referências:
 - Desvio padrão: R$ ${estatisticas.desvioPadrao.toFixed(2)}
 - Coeficiente de variação: ${estatisticas.coeficienteVariacao.toFixed(1)}%`;
 
-  const msg = await client.messages.create({
-    model: "claude-opus-4-6",
-    max_tokens: 2048,
-    temperature: 0.3,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userMessage }],
-  });
-
-  const text = msg.content[0].type === "text" ? msg.content[0].text : "";
+  const text = await callDeepSeek(systemPrompt, userMessage, 0.3);
   return { justificativa: text };
 }
 
@@ -209,14 +190,12 @@ export async function validarPesquisa(dados: {
   similaridade_minima: number;
   menor_similaridade_aceita: number;
 }) {
-  const systemPrompt = `Você é o Agente Validador da Estima.IA, especialista em validação de pesquisas de preços para contratações públicas.
+  const systemPrompt = `Você é o Agente Validador da Estima.IA. Verifique se a pesquisa de preços atende às regras da Lei 14.133/2021.
 
-Sua função é verificar se uma pesquisa de preços atende às regras da Lei 14.133/2021 e das normas do PNCP.
-
-Regras de validação:
-- Mínimo de referências: pelo menos ${dados.min_referencias} preços válidos
-- Coeficiente de variação: deve ser menor que ${dados.cv_limite}% (alta variação indica amostra heterogênea)
-- Similaridade mínima: cada referência deve ter pelo menos ${dados.similaridade_minima}% de similaridade
+Regras:
+- Mínimo de ${dados.min_referencias} referências de preço válidas
+- Coeficiente de variação deve ser menor que ${dados.cv_limite}%
+- Cada referência deve ter pelo menos ${dados.similaridade_minima}% de similaridade
 
 Responda APENAS com JSON válido:
 {
@@ -226,24 +205,15 @@ Responda APENAS com JSON válido:
   "nivel_confiabilidade": "alto|medio|baixo"
 }`;
 
-  const userMessage = `Valide a pesquisa de preços com os seguintes dados:
-
-- Número de referências (n): ${dados.n}
-- Coeficiente de variação (CV): ${dados.cv.toFixed(1)}%
+  const userMessage = `Valide a pesquisa:
+- Referências (n): ${dados.n}
+- Coeficiente de variação: ${dados.cv.toFixed(1)}%
 - Menor similaridade aceita: ${dados.menor_similaridade_aceita}%
-- Limite de CV configurado: ${dados.cv_limite}%
-- Mínimo de referências configurado: ${dados.min_referencias}
-- Similaridade mínima configurada: ${dados.similaridade_minima}%`;
+- Limite CV: ${dados.cv_limite}%
+- Mínimo referências: ${dados.min_referencias}
+- Similaridade mínima: ${dados.similaridade_minima}%`;
 
-  const msg = await client.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    temperature: 0.1,
-    system: systemPrompt,
-    messages: [{ role: "user", content: userMessage }],
-  });
-
-  const text = msg.content[0].type === "text" ? msg.content[0].text : "";
+  const text = await callDeepSeek(systemPrompt, userMessage, 0.1);
   return parseJsonResponse(text);
 }
 
@@ -252,12 +222,8 @@ Responda APENAS com JSON válido:
 // ============================================================
 export async function healthCheck(): Promise<boolean> {
   try {
-    const msg = await client.messages.create({
-      model: MODEL,
-      max_tokens: 10,
-      messages: [{ role: "user", content: "ok" }],
-    });
-    return msg.content.length > 0;
+    const text = await callDeepSeek("Você é um assistente.", "ok", 0.1);
+    return text.length > 0;
   } catch {
     return false;
   }
