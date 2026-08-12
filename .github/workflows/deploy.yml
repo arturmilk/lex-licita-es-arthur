@@ -34,6 +34,6 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             cd /opt/sentia/estima-ia
-            docker compose build app
-            docker compose up -d app
+            docker compose -f docker-compose-estima.yml build app
+            docker compose -f docker-compose-estima.yml up -d app
             echo "✅ Estima-IA deployada — $(date)"
