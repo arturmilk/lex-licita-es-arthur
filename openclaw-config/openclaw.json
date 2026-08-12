@@ -1,0 +1,96 @@
+{
+  "agents": {
+    "defaults": {
+      "model": "anthropic/claude-sonnet-4-6",
+      "workspace": "~/.openclaw/workspace",
+      "skills": [
+        "estima-extrator",
+        "estima-similaridade",
+        "estima-justificador",
+        "estima-validador"
+      ]
+    },
+    "entries": {
+      "estima-main": {
+        "default": true,
+        "name": "Estima.IA Principal",
+        "workspace": "~/.openclaw/workspace-estima",
+        "agentDir": "~/.openclaw/agents/estima-main/agent",
+        "model": "anthropic/claude-sonnet-4-6"
+      },
+      "estima-extrator": {
+        "name": "Estima.IA Extrator",
+        "workspace": "~/.openclaw/workspace-estima-extrator",
+        "agentDir": "~/.openclaw/agents/estima-extrator/agent",
+        "model": "anthropic/claude-sonnet-4-6",
+        "skills": ["estima-extrator"]
+      },
+      "estima-similaridade": {
+        "name": "Estima.IA Similaridade",
+        "workspace": "~/.openclaw/workspace-estima-similaridade",
+        "agentDir": "~/.openclaw/agents/estima-similaridade/agent",
+        "model": "anthropic/claude-sonnet-4-6",
+        "skills": ["estima-similaridade"]
+      },
+      "estima-justificador": {
+        "name": "Estima.IA Justificador",
+        "workspace": "~/.openclaw/workspace-estima-justificador",
+        "agentDir": "~/.openclaw/agents/estima-justificador/agent",
+        "model": "anthropic/claude-opus-4-6",
+        "skills": ["estima-justificador"]
+      },
+      "estima-validador": {
+        "name": "Estima.IA Validador",
+        "workspace": "~/.openclaw/workspace-estima-validador",
+        "agentDir": "~/.openclaw/agents/estima-validador/agent",
+        "model": "anthropic/claude-sonnet-4-6",
+        "skills": ["estima-validador"]
+      }
+    }
+  },
+
+  "bindings": [
+    {
+      "agentId": "estima-main",
+      "match": { "channel": "web", "accountId": "default" }
+    },
+    {
+      "agentId": "estima-extrator",
+      "match": { "channel": "web", "accountId": "extrator" }
+    },
+    {
+      "agentId": "estima-similaridade",
+      "match": { "channel": "web", "accountId": "similaridade" }
+    },
+    {
+      "agentId": "estima-justificador",
+      "match": { "channel": "web", "accountId": "justificador" }
+    },
+    {
+      "agentId": "estima-validador",
+      "match": { "channel": "web", "accountId": "validador" }
+    }
+  ],
+
+  "gateway": {
+    "port": 18789,
+    "host": "0.0.0.0"
+  },
+
+  "hooks": {
+    "enabled": true,
+    "token": "${OPENCLAW_HOOKS_TOKEN}",
+    "path": "/hooks",
+    "defaultSessionKey": "estima-ia",
+    "allowRequestSessionKey": false,
+    "allowedSessionKeyPrefixes": ["estima-"],
+    "allowedAgentIds": ["estima-main", "estima-extrator", "estima-similaridade", "estima-justificador", "estima-validador"]
+  },
+
+  "tools": {
+    "agentToAgent": {
+      "enabled": true,
+      "allow": ["estima-main", "estima-extrator", "estima-similaridade", "estima-justificador", "estima-validador"]
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import type { BuscaParams, ResultadoFonte, ResultadoBruto } from "./types";
 
-const BASE = process.env.PNCP_BASE_URL || "https://pncp.gov.br/api/pncp/v1";
+// API de Consulta Pública do PNCP (diferente da API de Registro)
+const CONSULTA_BASE = "https://pncp.gov.br/api/consulta/v1";
 
 function calcSimilaridade(descricao: string, termos: string[]): number {
   const desc = descricao.toLowerCase();
@@ -8,20 +9,30 @@ function calcSimilaridade(descricao: string, termos: string[]): number {
   return Math.round((matches.length / Math.max(termos.length, 1)) * 100);
 }
 
+// Retorna data no formato YYYYMMDD esperado pelo PNCP
+function dataFormatada(daysAgo: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() - daysAgo);
+  return d.toISOString().slice(0, 10).replace(/-/g, "");
+}
+
 export async function buscarPNCP(params: BuscaParams): Promise<ResultadoFonte> {
   const { termo, pagina = 1, tamanhoPagina = 20 } = params;
-  const termos = termo.toLowerCase().split(/\s+/).filter((t) => t.length > 3);
+  const termos = termo.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
 
   try {
-    const url = new URL(`${BASE}/consulta/arquivos`);
-    url.searchParams.set("q", termo);
+    // Endpoint correto da API de Consulta do PNCP
+    const url = new URL(`${CONSULTA_BASE}/contratacoes/publicacoes`);
+    url.searchParams.set("dataInicial", params.dataInicial || dataFormatada(365));
+    url.searchParams.set("dataFinal", params.dataFinal || dataFormatada(0));
     url.searchParams.set("pagina", String(pagina));
     url.searchParams.set("tamanhoPagina", String(tamanhoPagina));
-    if (params.dataInicial) url.searchParams.set("dataInicial", params.dataInicial);
-    if (params.dataFinal) url.searchParams.set("dataFinal", params.dataFinal);
 
     const res = await fetch(url.toString(), {
-      headers: { Accept: "application/json", "User-Agent": "EstimaIA/2.0" },
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "EstimaIA/2.0",
+      },
       next: { revalidate: 3600 },
     });
 
@@ -30,7 +41,13 @@ export async function buscarPNCP(params: BuscaParams): Promise<ResultadoFonte> {
     const data = await res.json();
     const raw: any[] = Array.isArray(data) ? data : data?.data || data?.items || [];
 
-    const items: ResultadoBruto[] = raw.map((r: any) => ({
+    // Filtra por termo no lado do servidor já que a API não tem busca por palavra
+    const filtrados = raw.filter((r: any) => {
+      const texto = (r?.objetoCompra || r?.descricao || "").toLowerCase();
+      return termos.some((t) => texto.includes(t));
+    });
+
+    const items: ResultadoBruto[] = filtrados.map((r: any) => ({
       fonte: "pncp" as const,
       orgao: r?.unidadeOrgao?.nomeUnidade || r?.orgaoEntidade?.razaoSocial || "Não informado",
       descricao: r?.objetoCompra || r?.descricao || r?.nomeItem || "Sem descrição",
@@ -48,7 +65,7 @@ export async function buscarPNCP(params: BuscaParams): Promise<ResultadoFonte> {
     return {
       fonte: "pncp",
       items: items.sort((a, b) => b.similaridade - a.similaridade),
-      total: data?.totalRegistros || items.length,
+      total: data?.totalRegistros || raw.length,
     };
   } catch (err) {
     return { fonte: "pncp", items: [], total: 0, erro: String(err) };

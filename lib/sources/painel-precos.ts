@@ -1,8 +1,18 @@
 import type { BuscaParams, ResultadoFonte, ResultadoBruto } from "./types";
 
-// Painel de Preços - Ministério do Planejamento
-// https://paineldeprecos.planejamento.gov.br
-const BASE = "https://paineldeprecos.planejamento.gov.br/api";
+// Painel de Preços - API pública do Governo Federal
+// Documentação: https://www.gov.br/compras/pt-br/acesso-a-informacao/apis
+const BASES = [
+  "https://paineldeprecos.planejamento.gov.br/api",
+  "https://compras.dados.gov.br/precos/v1",
+];
+
+const HEADERS = {
+  Accept: "application/json",
+  "User-Agent": "Mozilla/5.0 (compatible; EstimaIA/2.0)",
+  "Accept-Language": "pt-BR,pt;q=0.9",
+  Referer: "https://paineldeprecos.planejamento.gov.br/",
+};
 
 function calcSimilaridade(descricao: string, termos: string[]): number {
   const desc = descricao.toLowerCase();
@@ -10,48 +20,46 @@ function calcSimilaridade(descricao: string, termos: string[]): number {
   return Math.round((matches.length / Math.max(termos.length, 1)) * 100);
 }
 
+async function tentarEndpoint(url: string): Promise<Response | null> {
+  try {
+    const res = await fetch(url, { headers: HEADERS });
+    if (res.ok) return res;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 export async function buscarPainelPrecos(params: BuscaParams): Promise<ResultadoFonte> {
   const { termo, pagina = 1, tamanhoPagina = 20 } = params;
-  const termos = termo.toLowerCase().split(/\s+/).filter((t) => t.length > 3);
+  const termos = termo.toLowerCase().split(/\s+/).filter((t) => t.length > 2);
 
-  try {
-    // Endpoint principal do Painel de Preços para materiais
-    const url = new URL(`${BASE}/material/preco`);
-    url.searchParams.set("descricao", termo);
-    url.searchParams.set("pagina", String(pagina));
-    url.searchParams.set("tamanhoPagina", String(tamanhoPagina));
+  // Tenta múltiplas combinações de endpoint/base
+  const tentativas = [
+    `${BASES[0]}/material/preco?descricao=${encodeURIComponent(termo)}&pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`,
+    `${BASES[0]}/servico/preco?descricao=${encodeURIComponent(termo)}&pagina=${pagina}&tamanhoPagina=${tamanhoPagina}`,
+    `${BASES[1]}/materiais?q=${encodeURIComponent(termo)}&page=${pagina - 1}&size=${tamanhoPagina}`,
+  ];
 
-    const res = await fetch(url.toString(), {
-      headers: {
-        Accept: "application/json",
-        "User-Agent": "EstimaIA/2.0",
-      },
-      next: { revalidate: 3600 },
-    });
-
-    if (!res.ok) {
-      // Tentar endpoint de serviços
-      const urlServico = new URL(`${BASE}/servico/preco`);
-      urlServico.searchParams.set("descricao", termo);
-      urlServico.searchParams.set("pagina", String(pagina));
-      urlServico.searchParams.set("tamanhoPagina", String(tamanhoPagina));
-
-      const res2 = await fetch(urlServico.toString(), {
-        headers: { Accept: "application/json", "User-Agent": "EstimaIA/2.0" },
-        next: { revalidate: 3600 },
-      });
-
-      if (!res2.ok) return { fonte: "painel_precos", items: [], total: 0, erro: `HTTP ${res.status}` };
-
-      const data2 = await res2.json();
-      return processarResposta(data2, termos);
+  for (const tentativa of tentativas) {
+    try {
+      const res = await tentarEndpoint(tentativa);
+      if (res) {
+        const data = await res.json();
+        const result = processarResposta(data, termos);
+        if (result.items.length > 0) return result;
+      }
+    } catch {
+      continue;
     }
-
-    const data = await res.json();
-    return processarResposta(data, termos);
-  } catch (err) {
-    return { fonte: "painel_precos", items: [], total: 0, erro: String(err) };
   }
+
+  return {
+    fonte: "painel_precos",
+    items: [],
+    total: 0,
+    erro: "API do Painel de Preços indisponível ou requer autenticação (HTTP 403)",
+  };
 }
 
 function processarResposta(data: any, termos: string[]): ResultadoFonte {
