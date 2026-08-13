@@ -527,7 +527,7 @@ export default function NovaPesquisaPage() {
                 <h3 className="text-sm font-medium mb-2">Memoria de calculo</h3>
                 <div className="font-mono text-xs text-neutral-600 space-y-1">
                   <p>referencias aceitas: {estatisticas.n}</p>
-                  <p>valores: {resultados.filter(r => r.status_avaliacao === "aceito").map(r => formatarMoeda(r.valor_unitario)).join(" | ")}</p>
+                  <p>valores: {resultados.filter(r => r.status_avaliacao === "aceito").map(r => formatarMoeda(r.valor_unitario ?? 0)).join(" | ")}</p>
                   <p>media = {formatarMoeda(estatisticas.media)}</p>
                   <p>mediana = {formatarMoeda(estatisticas.mediana)}</p>
                   <p>minimo = {formatarMoeda(estatisticas.minimo)} | maximo = {formatarMoeda(estatisticas.maximo)}</p>
