@@ -481,7 +481,7 @@ export default function NovaPesquisaPage() {
                     <td className="px-3 py-2 max-w-[200px] truncate" title={r.descricao}>{r.descricao}</td>
                     <td className="px-3 py-2">{r.quantidade}</td>
                     <td className="px-3 py-2">{r.data}</td>
-                    <td className="px-3 py-2">{formatarMoeda(r.valor_unitario)}</td>
+                    <td className="px-3 py-2">{formatarMoeda(r.valor_unitario ?? 0)}</td>
                     <td className="px-3 py-2 max-w-[180px] truncate" title={r.fornecedor}>{r.fornecedor || "—"}</td>
                     <td className="px-3 py-2">{r.localizacao}</td>
                     <td className="px-3 py-2">{r.similaridade}%</td>
