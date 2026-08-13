@@ -70,12 +70,13 @@ export async function extrairCaracteristicas(
 Sua função é ler descrições de objetos de compra/contratação e extrair características técnicas estruturadas em JSON.
 
 Regras:
-- Categoria: use categorias como informatica, obras, servicos, veiculos, mobiliario, materiais
+- Categoria: use categorias padronizadas (informatica, obras, servicos, veiculos, mobiliario, materiais) com subcategoria específica (ex.: computadores-portateis)
 - Nome das características em snake_case (ex: processador, memoria_ram, tamanho_tela)
 - Tipo "obrigatorio": mencionado com "deverá", "deve", "mínimo", "obrigatório" ou essencial para funcionamento
-- Tipo "desejavel": mencionado com "desejável", "preferencialmente" ou é um diferencial
-- Confiança 90-100: informação explícita; 70-89: implícita mas clara; 50-69: ambígua; 0-49: incerta
-- Sempre inclua "fonte" com o trecho do texto original
+- Tipo "desejavel": mencionado com "desejável", "preferencialmente", "se possível" ou é um diferencial
+- Confiança: 90-100 explícita e inequívoca; 70-89 implícita mas clara; 50-69 provável mas ambígua; 0-49 incerta (incluir só se relevante)
+- Fonte: sempre cite o trecho original do texto que originou a característica
+- Alertas: sinalize omissões importantes (ex.: marca/fabricante não especificado, geração não informada)
 
 Responda APENAS com JSON válido, sem markdown, sem texto extra:
 {
@@ -95,7 +96,7 @@ Descrição: ${descricao}
 Especificações informadas:
 ${especificacoes.map((e) => `- ${e.item}: ${e.especificacao} (${e.obrigatorio ? "obrigatório" : "desejável"})`).join("\n")}`;
 
-  const text = await callDeepSeek(systemPrompt, userMessage, 0.1);
+  const text = await callDeepSeek(systemPrompt, userMessage, 0.15);
   return parseJsonResponse(text);
 }
 
@@ -108,21 +109,34 @@ export async function calcularSimilaridade(
   especificacoes: any[],
   candidato: { descricao: string; orgao: string; localizacao: string }
 ) {
-  const systemPrompt = `Você é o Agente de Similaridade da Estima.IA, especialista em comparação técnica de objetos de contratação pública.
+  const systemPrompt = `Você é o Agente Similaridade da Estima.IA, especialista em comparação semântica e técnica de objetos de contratação pública brasileira.
 
-Calcule o índice de similaridade técnica entre um objeto desejado e um resultado encontrado em licitações.
+Compare o objeto desejado (com especificações técnicas) com um resultado obtido do Portal Nacional de Contratações Públicas (PNCP) e calcule um índice de similaridade de 0 a 100.
 
-Critérios: similaridade técnica das especificações (60%), compatibilidade de uso/função (30%), correspondência de categoria (10%).
+Regras de comparação:
+1. Categoria: se as categorias forem diferentes, similaridade máxima é 30.
+2. Subcategoria: se as subcategorias forem diferentes, similaridade máxima é 50.
+3. Especificações obrigatórias: cada spec obrigatória do objeto que o candidato não atende reduz a similaridade em 10-20 pontos.
+4. Especificações desejáveis: cada spec desejável ausente reduz em 3-5 pontos.
+5. Quantidade: diferença de escala muito grande (>10x) pode reduzir em até 10 pontos.
+6. Localização: diferença de região pode reduzir em até 5 pontos (menos relevante para bens, mais para serviços).
+7. Semântica: termos equivalentes ("notebook" vs "computador portátil") não devem penalizar.
 
-Escala: 90-100=altamente similar, 75-89=similar, 50-74=parcialmente similar, 0-49=baixa similaridade.
+Escala: 95-100 quase idêntico; 85-94 muito similar; 75-84 similar; 60-74 pouco similar (análise manual); 0-59 não similar.
+Recomendação: aceitar (>=75), analisar (60-74), rejeitar (<60).
 
-Responda APENAS com JSON válido:
+Responda APENAS com JSON válido, sem markdown, sem texto extra:
 {
   "similaridade": 0-100,
-  "justificativa": "string",
-  "pontos_convergentes": ["lista"],
-  "pontos_divergentes": ["lista"],
-  "recomendacao": "aceitar|avaliar|rejeitar"
+  "motivo": "string explicando o raciocínio da pontuação",
+  "recomendacao": "aceitar|rejeitar|analisar",
+  "detalhes": {
+    "categoria_match": true|false,
+    "specs_compativeis": ["lista de specs que batem"],
+    "specs_divergentes": ["lista de specs que divergem"],
+    "specs_faltantes": ["lista de specs do objeto não encontradas no candidato"],
+    "alertas": ["lista de alertas"]
+  }
 }`;
 
   const userMessage = `OBJETO DESEJADO: ${objeto}
@@ -139,7 +153,7 @@ Localização: ${candidato.localizacao}`;
 
 // ============================================================
 // AGENTE JUSTIFICADOR
-// Redige texto formal de justificativa de preço estimado
+// Redige texto formal de justificativa de preço estimado (máx. 3 parágrafos)
 // ============================================================
 export async function gerarJustificativa(
   estatisticas: {
@@ -155,11 +169,27 @@ export async function gerarJustificativa(
   quantidade: number,
   referenciasAceitas: number
 ) {
-  const systemPrompt = `Você é o Agente Justificador da Estima.IA, especialista em redação de justificativas de preços para contratações públicas brasileiras (Lei 14.133/2021).
+  const systemPrompt = `Você é o Agente Justificador da Estima.IA, redator técnico-jurídico especializado em contratações públicas brasileiras (Lei 14.133/2021, Decreto 10.024/2019).
 
-Redija textos formais de justificativa de preço estimado. Use linguagem técnica e formal, cite as estatísticas com precisão, mencione o método de cálculo, justifique a robustez da amostragem. Escreva em português formal, sem abreviações. O texto deve ser autocontido.`;
+Sua função é transformar números — estatísticas, médias, medianas, desvios — em um texto justificativo formal (memória de cálculo narrativa) que fundamente o preço estimado perante órgãos de controle.
 
-  const userMessage = `Redija uma justificativa formal de preço estimado:
+Formato: texto corrido, em português formal e institucional, com NO MÁXIMO 3 parágrafos. Não use JSON. Não use markdown. Retorne apenas texto puro.
+
+Estrutura obrigatória:
+- Parágrafo 1 (Metodologia): método de cálculo utilizado, quantidade de referências aceitas, fonte (Portal Nacional de Contratações Públicas — PNCP), período e abrangência geográfica da pesquisa.
+- Parágrafo 2 (Análise dos dados): média, mediana, mínimo, máximo, desvio padrão e coeficiente de variação (CV); interprete o CV (abaixo de 15% = alta homogeneidade; 15-25% = homogeneidade aceitável; acima de 25% = dispersão significativa); mencione outliers e como foram tratados.
+- Parágrafo 3 (Conclusão): preço unitário estimado e valor total; reafirme que o preço está dentro dos parâmetros de mercado; mencione que a metodologia é transparente e auditável.
+
+Regras de redação:
+1. Nunca invente dados — use APENAS os números fornecidos.
+2. Nunca omita o CV, mesmo que alto.
+3. Use termos da Lei 14.133/2021: "pesquisa de preços", "estimativa de custo", "referências de mercado".
+4. Evite superlativos: "adequado", não "excelente". "Coerente", não "perfeito".
+5. Se poucas referências (<5), mencione a limitação com cautela ("com base nas X referências disponíveis").
+6. Se CV alto (>25%), justifique a dispersão ("dispersão observada justifica-se pela variabilidade do mercado").
+7. Não cite marcas. Não use siglas sem explicar (PNCP por extenso na primeira menção).`;
+
+  const userMessage = `Redija a justificativa formal do preço estimado:
 
 Método: ${metodo}
 Quantidade a contratar: ${quantidade} unidades
@@ -174,13 +204,14 @@ Estatísticas:
 - Desvio padrão: R$ ${estatisticas.desvioPadrao.toFixed(2)}
 - Coeficiente de variação: ${estatisticas.coeficienteVariacao.toFixed(1)}%`;
 
-  const text = await callDeepSeek(systemPrompt, userMessage, 0.3);
+  const text = await callDeepSeek(systemPrompt, userMessage, 0.25);
   return { justificativa: text };
 }
 
 // ============================================================
 // AGENTE VALIDADOR
-// Verifica regras de negócio e emite alertas
+// Verifica regras de negócio — 100% determinístico, sem LLM
+// (conforme spec: "Minhas decisões são 100% determinísticas e reproduzíveis")
 // ============================================================
 export async function validarPesquisa(dados: {
   n: number;
@@ -190,31 +221,46 @@ export async function validarPesquisa(dados: {
   similaridade_minima: number;
   menor_similaridade_aceita: number;
 }) {
-  const systemPrompt = `Você é o Agente Validador da Estima.IA. Verifique se a pesquisa de preços atende às regras da Lei 14.133/2021.
+  const { n, cv, min_referencias, cv_limite, similaridade_minima, menor_similaridade_aceita } = dados;
 
-Regras:
-- Mínimo de ${dados.min_referencias} referências de preço válidas
-- Coeficiente de variação deve ser menor que ${dados.cv_limite}%
-- Cada referência deve ter pelo menos ${dados.similaridade_minima}% de similaridade
+  const regras = {
+    min_referencias: { atende: n >= min_referencias, valor: n, minimo: min_referencias },
+    cv_limite: { atende: cv <= cv_limite, valor: cv, limite: cv_limite },
+    similaridade_minima: { atende: menor_similaridade_aceita >= similaridade_minima, valor: menor_similaridade_aceita, minimo: similaridade_minima },
+  };
 
-Responda APENAS com JSON válido:
-{
-  "valido": true|false,
-  "alertas": ["lista de problemas encontrados"],
-  "recomendacoes": ["lista de ações sugeridas"],
-  "nivel_confiabilidade": "alto|medio|baixo"
-}`;
+  const alertas: { tipo: "erro" | "aviso" | "info"; campo: string; mensagem: string; sugestao: string }[] = [];
 
-  const userMessage = `Valide a pesquisa:
-- Referências (n): ${dados.n}
-- Coeficiente de variação: ${dados.cv.toFixed(1)}%
-- Menor similaridade aceita: ${dados.menor_similaridade_aceita}%
-- Limite CV: ${dados.cv_limite}%
-- Mínimo referências: ${dados.min_referencias}
-- Similaridade mínima: ${dados.similaridade_minima}%`;
+  if (!regras.min_referencias.atende) {
+    alertas.push({
+      tipo: "erro", campo: "min_referencias",
+      mensagem: `Quantidade insuficiente de referências aceitas para cálculo estatístico robusto (${n} de ${min_referencias}).`,
+      sugestao: "Amplie o período de pesquisa ou relaxe filtros de região para obter mais referências.",
+    });
+  }
+  if (!regras.cv_limite.atende) {
+    alertas.push({
+      tipo: "erro", campo: "cv_limite",
+      mensagem: `Coeficiente de variação acima do limite aceitável, indicando alta dispersão nos preços (${cv.toFixed(1)}% > ${cv_limite}%).`,
+      sugestao: "Considere usar a mediana em vez da média aritmética, ou revise referências com maior dispersão.",
+    });
+  }
+  if (!regras.similaridade_minima.atende) {
+    alertas.push({
+      tipo: "aviso", campo: "similaridade_minima",
+      mensagem: `Uma ou mais referências aceitas apresentam similaridade abaixo do mínimo recomendado (${menor_similaridade_aceita}% < ${similaridade_minima}%).`,
+      sugestao: "Revise as referências com similaridade baixa e considere rejeitá-las.",
+    });
+  }
 
-  const text = await callDeepSeek(systemPrompt, userMessage, 0.1);
-  return parseJsonResponse(text);
+  const atendidas = [regras.min_referencias.atende, regras.cv_limite.atende, regras.similaridade_minima.atende].filter(Boolean).length;
+
+  return {
+    valido: atendidas === 3,
+    score_confianca: Math.round((atendidas / 3) * 100),
+    alertas,
+    regras,
+  };
 }
 
 // ============================================================

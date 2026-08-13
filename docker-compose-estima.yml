@@ -44,10 +44,7 @@ services:
       retries: 3
 
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: estima-ia-app
+    image: estima-ia-app:local
     container_name: estimaia-app
     restart: unless-stopped
     depends_on:

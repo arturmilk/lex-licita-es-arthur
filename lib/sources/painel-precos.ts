@@ -9,7 +9,7 @@ const BASES = [
 
 const HEADERS = {
   Accept: "application/json",
-  "User-Agent": "Mozilla/5.0 (compatible; EstimaIA/2.0)",
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
   "Accept-Language": "pt-BR,pt;q=0.9",
   Referer: "https://paineldeprecos.planejamento.gov.br/",
 };
