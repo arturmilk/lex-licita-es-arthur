@@ -14,20 +14,14 @@ type StatusAvaliacao = "pendente" | "aceito" | "rejeitado";
 type FormaParcelamento = "item" | "lote" | "global";
 
 interface ResultadoPNCP {
-  id: string; orgao: string; descricao: string; quantidade: number; data: string;
-  valor_unitario: number; valor_total: number; localizacao: string; similaridade: number;
-  documento_origem: string; link_origem: string; status_avaliacao: StatusAvaliacao; justificativa_rejeicao?: string;
-}
-
-interface EditalProximo {
-  id: string; empresa: string; objeto: string; local: string; distancia: string; data: string; link: string;
-}
-
-interface ResultadoPNCP {
   id: string; orgao: string; descricao: string; quantidade: number | null; data: string;
   valor_unitario: number | null; valor_total: number | null; localizacao: string | null;
   similaridade: number; documento_origem: string; link_origem: string;
   fornecedor?: string; status_avaliacao: StatusAvaliacao; justificativa_rejeicao?: string;
+}
+
+interface EditalProximo {
+  id: string; empresa: string; objeto: string; local: string; distancia: string; data: string; link: string;
 }
 
 const MOCK_RESULTADOS: ResultadoPNCP[] = [
