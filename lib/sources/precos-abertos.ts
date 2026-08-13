@@ -45,7 +45,6 @@ async function getJson(url: string): Promise<any | null> {
       const res = await fetch(url, {
         headers: { Accept: "application/json", "User-Agent": UA },
         signal: AbortSignal.timeout(30_000),
-        next: { revalidate: 3600 },
       });
       if (res.status === 429 || res.status === 400 || res.status === 500) {
         await sleep(1200);
@@ -62,7 +61,12 @@ async function getJson(url: string): Promise<any | null> {
 
 // ---- cache da lista de PDMs (pesquisa local) ----
 const g = globalThis as any;
-function cachePdms(): { pdms: Pdm[]; ts: number } | undefined {
+interface CachePdms {
+  pdms: Pdm[];
+  ts: number;
+  promise?: Promise<Pdm[]>;
+}
+function cachePdms(): CachePdms | undefined {
   return g.__precosAbertosPdms;
 }
 
@@ -100,29 +104,69 @@ async function carregarPdms(): Promise<Pdm[]> {
   }
 }
 
+const STOPWORDS = new Set([
+  "para", "com", "uso", "pro", "sem", "sobre", "sob", "ate", "mais", "menos",
+  "bem", "tipo", "item", "unidade", "valor", "prazo", "cada", "entre", "apos",
+  "antes", "durante", "conforme", "todos", "todo", "toda", "todas", "qualquer",
+  "ser", "nas", "nos", "na", "no", "da", "do", "de", "dos", "das", "em", "por",
+  "uma", "um", "ou", "e", "o", "os", "as", "a", "ao", "aos", "que", "com",
+  "por", "via", "sendo", "seja", "serao", "esta", "este", "esses", "essas",
+  "aquisicao", "fornecimento", "contratacao", "compra", "compras", "prestacao",
+  "servico", "servicos", "objeto", "eventual", "eventuais", "diversos", "diversas",
+  "cinco", "cinquenta", "cem", "mil", "dez", "vinte", "trinta", "quarenta",
+  "sessenta", "setenta", "oitenta", "noventa", "duzentos", "trezentos",
+  "quantidade", "quantidades", "minimo", "minima", "maximo", "maxima",
+]);
+
 function tokens(termo: string): string[] {
   return termo
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .split(/[^a-z0-9]+/)
-    .filter((t) => t.length > 2);
+    .filter((t) => t.length > 2 && !STOPWORDS.has(t) && !/^\d+$/.test(t));
+}
+
+// variantes: "notebooks" -> ["notebooks", "notebook"]; "cadeiras" -> ["cadeiras", "cadeira"]
+function variantes(t: string): string[] {
+  const v = [t];
+  if (t.length > 4) {
+    if (t.endsWith("es")) v.push(t.slice(0, -2));
+    if (t.endsWith("s")) v.push(t.slice(0, -1));
+  }
+  return v;
 }
 
 function pontuarPdm(p: Pdm, termos: string[]): number {
-  const pdm = p.nomePdm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const classe = p.nomeClasse.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const grupo = p.nomeGrupo.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const pdm = norm(p.nomePdm || "");
+  const classe = norm(p.nomeClasse || "");
+  const grupo = norm(p.nomeGrupo || "");
+  const palavrasPdm = pdm.split(/[^a-z0-9]+/).filter(Boolean);
   let score = 0;
-  for (const t of termos) {
-    if (pdm.includes(t)) score += 4;
-    else if (classe.includes(t)) score += 2;
-    else if (grupo.includes(t)) score += 1;
+  let maiorToken = 0;
+  for (let idx = 0; idx < termos.length; idx++) {
+    const t = termos[idx];
+    const vars = variantes(t);
+    const hitPdm = vars.some((v) => v.length > 2 && palavrasPdm.includes(v));
+    const hitClasse = vars.some((v) => v.length > 2 && classe.includes(v));
+    const hitGrupo = vars.some((v) => v.length > 2 && grupo.includes(v));
+    if (hitPdm) {
+      score += 4;
+      // o item principal costuma aparecer cedo na frase -> pondera por posicao
+      score += Math.max(0, 6 - idx) * 0.5;
+      const len = Math.max(...vars.filter((v) => v.length > 2 && palavrasPdm.includes(v)).map((v) => v.length));
+      if (len > maiorToken) maiorToken = len;
+    } else if (hitClasse) score += 2;
+    else if (hitGrupo) score += 1;
   }
-  // todos os termos presentes no PDM = bónus forte
-  if (termos.every((t) => pdm.includes(t))) score += 6;
   if (termos.length && !score) return 0;
-  return score;
+  // bónus: nome do PDM é exatamente um token (ou começa com ele) — para QUALQUER token
+  const varsTodas = termos.flatMap((t) => variantes(t)).filter((v) => v.length > 2);
+  if (varsTodas.some((v) => pdm === v)) score += 12;
+  else if (varsTodas.some((v) => palavrasPdm[0] === v)) score += 7;
+  if (p.statusPdm) score += 1;
+  return score + maiorToken / 100;
 }
 
 export async function buscarPrecosAbertos(params: BuscaParams): Promise<ResultadoFonte> {
@@ -147,8 +191,8 @@ export async function buscarPrecosAbertos(params: BuscaParams): Promise<Resultad
       const pontuados = lista
         .map((p) => ({ p, score: pontuarPdm(p, termos) }))
         .filter((x) => x.score > 0)
-        .sort((a, b) => b.score - a.score);
-      pdms = pontuados.slice(0, 4).map((x) => x.p.codigoPdm);
+        .sort((a, b) => b.score - a.score || (a.p.nomePdm || "").length - (b.p.nomePdm || "").length);
+      pdms = pontuados.slice(0, 6).map((x) => x.p.codigoPdm);
       if (!pdms.length) return { fonte: "precos_abertos", items: [], total: 0 };
     }
 
