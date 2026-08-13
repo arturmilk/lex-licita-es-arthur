@@ -83,6 +83,7 @@ export default function NovaPesquisaPage() {
   const [caracteristicasIA, setCaracteristicasIA] = useState<{ caracteristica: string; valor: string; confianca: number }[]>([]);
   const [config, setConfig] = useState({ periodo: "12_meses" as PeriodoPesquisa, regiao: "brasil" as RegiaoPesquisa, qtdMin: 5, metodo: "media_aritmetica" as MetodoCalculo });
   const [pesquisando, setPesquisando] = useState(false);
+  const [erroPesquisa, setErroPesquisa] = useState<string | null>(null);
   const [resultados, setResultados] = useState<ResultadoPNCP[]>([]);
   const [estatisticas, setEstatisticas] = useState<ReturnType<typeof calcularEstatisticas> | null>(null);
   const [precoEstimado, setPrecoEstimado] = useState<{ unitario: number; total: number } | null>(null);
@@ -133,10 +134,41 @@ export default function NovaPesquisaPage() {
 
   const pesquisarPNCP = async () => {
     setPesquisando(true); setResultados([]);
-    await new Promise(r => setTimeout(r, 2000));
-    setResultados(MOCK_RESULTADOS);
+    try {
+      const termo = objetoDesc || (especificacao[0]?.item || "");
+      const res = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fonte=precos_abertos&tamanhoPagina=20`, {
+        signal: AbortSignal.timeout(120_000),
+      });
+      const data = await res.json();
+      if (data?.items?.length > 0) {
+        const novos = data.items.map((it: any, idx: number) => ({
+          id: String(idx + 1),
+          orgao: it.orgao || "Órgão público",
+          descricao: it.descricao || "",
+          quantidade: it.quantidade,
+          data: it.dataContrato || "",
+          valor_unitario: it.valorUnitario,
+          valor_total: it.valorTotal,
+          localizacao: it.localizacao || "",
+          similaridade: it.similaridade ?? 0,
+          documento_origem: it.documentoOrigem || "",
+          link_origem: it.linkEdital || "",
+          status_avaliacao: "pendente" as const,
+        }));
+        setResultados(novos);
+        setErroPesquisa(null);
+        setPesquisando(false);
+        nextStep();
+        return;
+      } else {
+        setErroPesquisa(`Nenhuma referência encontrada para "${termo}". ${data?.erro || ""}`.trim());
+        setResultados([]);
+      }
+    } catch (err: any) {
+      console.error("Erro na pesquisa:", err);
+      setErroPesquisa("Erro ao consultar as fontes de preços: " + (err?.message || "falha na rede"));
+    }
     setPesquisando(false);
-    nextStep();
   };
 
   const avaliarResultado = (id: string, status: StatusAvaliacao, justificativa?: string) => {
@@ -380,12 +412,24 @@ export default function NovaPesquisaPage() {
         </Card>
       );
       case 9: return (
-        <Card title="Pesquisando precos no PNCP">
-          <div className="flex flex-col items-center justify-center py-16 gap-4">
-            <Loader2 className="w-10 h-10 animate-spin text-neutral-500" />
-            <p className="text-sm text-neutral-500">Consultando o Portal Nacional de Contratacoes Publicas...</p>
-            <p className="text-xs text-neutral-400 font-mono">Filtros: {config.regiao} | {config.periodo} | min. {config.qtdMin} refs</p>
-          </div>
+        <Card title="Pesquisando precos nas fontes oficiais">
+          {pesquisando ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <Loader2 className="w-10 h-10 animate-spin text-neutral-500" />
+              <p className="text-sm text-neutral-500">Consultando as fontes de preços públicas (Compras.gov.br)...</p>
+              <p className="text-xs text-neutral-400 font-mono">Filtros: {config.regiao} | {config.periodo} | min. {config.qtdMin} refs</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <AlertCircle className="w-10 h-10 text-amber-500" />
+              <p className="text-sm text-neutral-600">A pesquisa não está em execução ou não retornou referências.</p>
+              {erroPesquisa && <p className="text-xs text-neutral-500 max-w-md text-center">{erroPesquisa}</p>}
+              <div className="flex gap-3 mt-2">
+                <Button onClick={() => goToStep(10)} secondary>Ver últimos resultados</Button>
+                <Button onClick={pesquisarPNCP} primary>Refazer pesquisa</Button>
+              </div>
+            </div>
+          )}
         </Card>
       );
       case 10: return (
