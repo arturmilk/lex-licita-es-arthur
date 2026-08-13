@@ -23,6 +23,13 @@ interface EditalProximo {
   id: string; empresa: string; objeto: string; local: string; distancia: string; data: string; link: string;
 }
 
+interface ResultadoPNCP {
+  id: string; orgao: string; descricao: string; quantidade: number | null; data: string;
+  valor_unitario: number | null; valor_total: number | null; localizacao: string | null;
+  similaridade: number; documento_origem: string; link_origem: string;
+  fornecedor?: string; status_avaliacao: StatusAvaliacao; justificativa_rejeicao?: string;
+}
+
 const MOCK_RESULTADOS: ResultadoPNCP[] = [
   { id: "1", orgao: "Min. da Educacao", descricao: "Notebook 14 Core i5 16GB/256GB Win11", quantidade: 30, data: "2026-03-15", valor_unitario: 4850.0, valor_total: 145500.0, localizacao: "Brasilia/DF", similaridade: 96, documento_origem: "PNCP-982341", link_origem: "https://pncp.gov.br/compra/982341", status_avaliacao: "pendente" },
   { id: "2", orgao: "IBAMA", descricao: "Notebook empresarial 14 16GB SSD 256GB", quantidade: 20, data: "2026-04-22", valor_unitario: 5100.0, valor_total: 102000.0, localizacao: "Brasilia/DF", similaridade: 92, documento_origem: "PNCP-982512", link_origem: "https://pncp.gov.br/compra/982512", status_avaliacao: "pendente" },
@@ -44,11 +51,6 @@ const MOCK_CARACTERISTICAS = [
 ];
 
 
-const MOCK_EDITAIS: EditalProximo[] = [
-  { id: "E1", empresa: "TechSolucoes Informatica Ltda", objeto: "Fornecimento de equipamentos de TI", local: "Brasilia/DF", distancia: "12 km", data: "10/07/2026", link: "https://pncp.gov.br/edital/techsolucoes-2026" },
-  { id: "E2", empresa: "Brasil Notebooks Comercio", objeto: "Aquisicao de notebooks e desktops", local: "Taguatinga/DF", distancia: "18 km", data: "22/06/2026", link: "https://pncp.gov.br/edital/brasilnotebooks-2026" },
-  { id: "E3", empresa: "DF Tecnologia e Servicos", objeto: "Contrato de fornecimento de hardware", local: "Brasilia/DF", distancia: "8 km", data: "05/08/2026", link: "https://pncp.gov.br/edital/dftec-2026" },
-];
 
 const UNIDADES_MEDIDA = [
   "unidade", "kit", "lote", "servico",
@@ -104,8 +106,35 @@ export default function NovaPesquisaPage() {
 
   const buscarEditais = async () => {
     setBuscandoEditais(true);
-    await new Promise(r => setTimeout(r, 1200));
-    setEditaisProximos(MOCK_EDITAIS);
+    try {
+      const uf = (localEntrega.split("/").pop() || "").trim().toUpperCase().slice(0, 2);
+      const termo = objetoDesc || (especificacao[0]?.item || "");
+      const res = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fonte=precos_abertos&tamanhoPagina=10&uf=${encodeURIComponent(uf)}`, {
+        signal: AbortSignal.timeout(120_000),
+      });
+      const data = await res.json();
+      const vistos = new Set<string>();
+      const empresas: EditalProximo[] = [];
+      for (const it of data?.items || []) {
+        const forn = it?.dadosBrutos?.nomeFornecedor || it?.dadosBrutos?.fornecedor;
+        if (!forn || vistos.has(forn)) continue;
+        vistos.add(forn);
+        const idCompra = it?.documentoOrigem || "";
+        empresas.push({
+          id: idCompra || String(empresas.length + 1),
+          empresa: forn,
+          objeto: (it?.descricao || "").slice(0, 90),
+          local: it?.localizacao || "",
+          distancia: uf ? `UF: ${uf}` : "",
+          data: it?.dataContrato || "",
+          link: idCompra ? `https://pncp.gov.br/app/compra/${idCompra}` : "",
+        });
+      }
+      setEditaisProximos(empresas);
+    } catch (err) {
+      console.error("Erro ao buscar fornecedores:", err);
+      setEditaisProximos([]);
+    }
     setBuscandoEditais(false);
   };
 
@@ -153,7 +182,8 @@ export default function NovaPesquisaPage() {
           localizacao: it.localizacao || "",
           similaridade: it.similaridade ?? 0,
           documento_origem: it.documentoOrigem || "",
-          link_origem: it.linkEdital || "",
+          link_origem: it.documentoOrigem ? `https://pncp.gov.br/app/compra/${it.documentoOrigem}` : "",
+          fornecedor: it.dadosBrutos?.nomeFornecedor || "",
           status_avaliacao: "pendente" as const,
         }));
         setResultados(novos);
@@ -443,6 +473,7 @@ export default function NovaPesquisaPage() {
                   <th className="text-left px-3 py-2 font-medium text-neutral-600">Qtd</th>
                   <th className="text-left px-3 py-2 font-medium text-neutral-600">Data</th>
                   <th className="text-left px-3 py-2 font-medium text-neutral-600">Valor unit.</th>
+                  <th className="text-left px-3 py-2 font-medium text-neutral-600">Fornecedor</th>
                   <th className="text-left px-3 py-2 font-medium text-neutral-600">Local</th>
                   <th className="text-left px-3 py-2 font-medium text-neutral-600">Sim.</th>
                   <th className="text-left px-3 py-2 font-medium text-neutral-600">Origem / Link</th>
@@ -457,6 +488,7 @@ export default function NovaPesquisaPage() {
                     <td className="px-3 py-2">{r.quantidade}</td>
                     <td className="px-3 py-2">{r.data}</td>
                     <td className="px-3 py-2">{formatarMoeda(r.valor_unitario)}</td>
+                    <td className="px-3 py-2 max-w-[180px] truncate" title={r.fornecedor}>{r.fornecedor || "—"}</td>
                     <td className="px-3 py-2">{r.localizacao}</td>
                     <td className="px-3 py-2">{r.similaridade}%</td>
                     <td className="px-3 py-2">
