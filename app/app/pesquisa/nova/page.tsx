@@ -133,7 +133,8 @@ export default function NovaPesquisaPage() {
   };
 
   const pesquisarPNCP = async () => {
-    setPesquisando(true); setResultados([]);
+    setPesquisando(true); setResultados([]); setErroPesquisa(null);
+    goToStep(9); // mostra o spinner de consulta
     try {
       const termo = objetoDesc || (especificacao[0]?.item || "");
       const res = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fonte=precos_abertos&tamanhoPagina=20`, {
@@ -156,9 +157,8 @@ export default function NovaPesquisaPage() {
           status_avaliacao: "pendente" as const,
         }));
         setResultados(novos);
-        setErroPesquisa(null);
         setPesquisando(false);
-        nextStep();
+        goToStep(10); // vai direto para a tabela de resultados
         return;
       } else {
         setErroPesquisa(`Nenhuma referência encontrada para "${termo}". ${data?.erro || ""}`.trim());
