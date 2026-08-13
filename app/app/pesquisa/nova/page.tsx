@@ -229,7 +229,7 @@ export default function NovaPesquisaPage() {
   };
 
   const calcular = () => {
-    const aceitos = resultados.filter(r => r.status_avaliacao === "aceito").map(r => r.valor_unitario);
+    const aceitos = resultados.filter(r => r.status_avaliacao === "aceito").map(r => r.valor_unitario).filter((v): v is number => v != null);
     if (aceitos.length === 0) { setEstatisticas(null); return; }
     const stats = calcularEstatisticas(aceitos);
     setEstatisticas(stats);
