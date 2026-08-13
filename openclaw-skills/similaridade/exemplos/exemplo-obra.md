@@ -1,4 +1,4 @@
-# Exemplo: Obra — Similaridade Alta (91%)
+# Exemplo: Obra — Similaridade Média (70%)
 
 ## Entrada
 
@@ -21,10 +21,10 @@
 **Resultado PNCP:**
 ```json
 {
-  "orgao": "Tribunal Regional Federal",
-  "descricao": "Reforma e modernizacao da sede do TRF-3a Regiao, area 2.400 m2, substituicao de pisos ceramicos, adequacao do sistema eletrico a NBR 5410/2023, execucao em 210 dias, empreitada por preco global",
+  "orgao": "Tribunal de Justica de SP",
+  "descricao": "Reforma e modernizacao de forum, area 2.200 m2, substituicao de piso em porcelanato, adequacao do sistema eletrico a NBR 5410, execucao em 240 dias, empreitada por preco unitario",
   "localizacao": "Sao Paulo/SP",
-  "esfera": "federal"
+  "esfera": "estadual"
 }
 ```
 
@@ -32,19 +32,15 @@
 
 ```json
 {
-  "similaridade": 91,
-  "motivo": "Mesmo tipo de obra (reforma), area muito proxima (2.400 vs 2.500 m2), mesmo escopo de piso ceramico e adequacao eletrica a NBR 5410, mesmo regime de execucao. Prazo 210 dias e 16% maior que 180 dias, mas ainda dentro de margem razoavel para obras do mesmo porte.",
-  "compatibilidade_tecnica": "alta",
-  "criterios": {
-    "compatibilidade_tecnica": 95,
-    "mesma_categoria": 100,
-    "contexto_compativel": 80
-  },
-  "alertas": [
-    "Area 2.400 m2 e 4% menor que 2.500 m2 solicitados — diferenca aceitavel",
-    "Prazo 210 dias e 16% superior aos 180 dias — pode indicar obra mais complexa ou condicoes diferentes",
-    "NBR 5410/2023 e versao atualizada da NBR 5410 — tecnicamente superior"
-  ],
-  "recomendacao": "aceitar"
+  "similaridade": 70,
+  "motivo": "Categoria e subcategoria iguais. Tipo de obra, piso (porcelanato e superior a ceramica, sem penalidade) e instalacao eletrica (NBR 5410) compativeis. Deduzido: area 2.200 vs 2.500 m2 (-10), prazo 240 vs 180 dias (-10), regime preco unitario vs preco global (-10).",
+  "recomendacao": "analisar",
+  "detalhes": {
+    "categoria_match": true,
+    "specs_compativeis": ["tipo_de_obra (reforma = reforma)", "piso (porcelanato superior a ceramica)", "instalacao_eletrica (adequacao a NBR 5410)"],
+    "specs_divergentes": ["area_construida (2.200 m2 vs 2.500 m2)", "prazo_execucao (240 vs 180 dias)", "regime_de_execucao (preco unitario vs preco global)"],
+    "specs_faltantes": [],
+    "alertas": ["Regime de execucao diferente — impacto relevante na formacao do preco", "Prazo 33% superior ao solicitado", "Area 12% menor que a solicitada"]
+  }
 }
 ```
