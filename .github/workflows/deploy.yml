@@ -1,39 +1,52 @@
 name: Deploy → VPS (estima-ia)
 
 on:
-  push:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["build-estima-ia"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
-    name: Build & Deploy Estima-IA
+    name: Pull imagem GHCR + restart
     runs-on: ubuntu-latest
-
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
+      - name: Login GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Enviar arquivos para o VPS
+      - name: Pull imagem (para passar ao VPS)
+        run: |
+          docker pull ghcr.io/jacquesbelmont/estima-ia-app:latest
+          docker save ghcr.io/jacquesbelmont/estima-ia-app:latest | gzip > /tmp/estimaia.img.gz
+          ls -lh /tmp/estimaia.img.gz
+
+      - name: Enviar imagem ao VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: ".,!node_modules,!.next,!.env,!data,!postgres-data,!minio-data"
-          target: "/opt/sentia/estima-ia"
-          rm: false
+          source: "/tmp/estimaia.img.gz"
+          target: "/tmp"
           overwrite: true
-          strip_components: 0
 
-      - name: Rebuild e restart no VPS
+      - name: Load + restart no VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            gunzip -f /tmp/estimaia.img.gz
+            docker load -i /tmp/estimaia.img
+            docker tag ghcr.io/jacquesbelmont/estima-ia-app:latest estima-ia-app:local
             cd /opt/sentia/estima-ia
-            docker compose -f docker-compose-estima.yml build app
             docker compose -f docker-compose-estima.yml up -d app
-            echo "✅ Estima-IA deployada — $(date)"
+            rm -f /tmp/estimaia.img
+            echo "✅ Estima-IA atualizada (imagem GHCR) — $(date)"
