@@ -564,6 +564,31 @@ export default function NovaPesquisaPage() {
           <div className="flex justify-between mt-6"><Button onClick={() => goToStep(8)} secondary>Voltar</Button><Button onClick={() => { calcular(); nextStep(); }} primary>Ir para calculos</Button></div>
         </Card>
       );
+      case 11: return (
+        <Card title="Analise da pesquisa (IA)">
+          {justificativaIA ? (
+            <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-4 text-sm text-neutral-700 whitespace-pre-wrap">
+              <strong className="block mb-2 text-neutral-800">Justificativa gerada pelo agente IA:</strong>
+              {justificativaIA}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-neutral-500 py-6">
+              <Loader2 className="w-4 h-4 animate-spin" /> Gerando justificativa e validacao...
+            </div>
+          )}
+          {validacaoIA && (
+            <div className={`mt-3 rounded-lg border p-3 ${validacaoIA.valido ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+              <p className="text-sm font-medium text-neutral-800">
+                {validacaoIA.valido ? "Validacao aprovada" : "Validacao reprovada"} (score {validacaoIA.score_confianca})
+              </p>
+              {(validacaoIA.alertas || []).map((a: any, i: number) => (
+                <p key={i} className="mt-1 text-xs text-neutral-600">[{a.tipo}] {a.campo}: {a.mensagem} — {a.sugestao}</p>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={nextStep} primary>Proximo</Button></div>
+        </Card>
+      );
       case 12: return (
         <Card title="Analise estatistica">
           {estatisticas ? (
@@ -611,7 +636,7 @@ export default function NovaPesquisaPage() {
               {validacaoIA && !validacaoIA.valido && (
                 <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
                   <p className="text-sm font-medium text-red-700">Validacao do agente validador: pesquisa reprovada (score {validacaoIA.score_confianca})</p>
-                  {validacaoIA.alertas.map((a: any, i: number) => (
+                  {(validacaoIA.alertas || []).map((a: any, i: number) => (
                     <p key={i} className="mt-1 text-xs text-red-600">[{a.tipo}] {a.campo}: {a.mensagem} — {a.sugestao}</p>
                   ))}
                 </div>
