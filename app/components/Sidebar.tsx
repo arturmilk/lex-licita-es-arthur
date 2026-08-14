@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Layers, LayoutDashboard, Plus, FileText, Search, BarChart3, Paperclip, Settings, LogOut, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { sair } from "@/lib/auth-actions";
 
 const navItems = [
   { href: "/pesquisa/nova", icon: Plus, label: "Nova pesquisa" },
@@ -60,13 +61,7 @@ export default function Sidebar({ user }: { user: any }) {
             {user.perfil}
           </span>
         </div>
-        <form
-          action={async () => {
-            "use server";
-            const { signOut } = await import("@/auth");
-            await signOut({ redirectTo: "/login" });
-          }}
-        >
+        <form action={sair}>
           <button
             type="submit"
             className="flex items-center gap-2 w-full px-3 py-2 text-neutral-400 hover:text-white hover:bg-neutral-800 rounded-lg text-sm transition-colors"
