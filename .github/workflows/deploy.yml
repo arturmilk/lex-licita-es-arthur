@@ -23,8 +23,8 @@ jobs:
       - name: Pull imagem (para passar ao VPS)
         run: |
           docker pull ghcr.io/jacquesbelmont/estima-ia-app:latest
-          docker save ghcr.io/jacquesbelmont/estima-ia-app:latest | gzip > /tmp/estimaia.img.gz
-          ls -lh /tmp/estimaia.img.gz
+          docker save ghcr.io/jacquesbelmont/estima-ia-app:latest | gzip > ${GITHUB_WORKSPACE}/estimaia.img.gz
+          ls -lh ${GITHUB_WORKSPACE}/estimaia.img.gz
 
       - name: Enviar imagem ao VPS
         uses: appleboy/scp-action@v0.1.7
@@ -32,7 +32,7 @@ jobs:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          source: "/tmp/estimaia.img.gz"
+          source: "estimaia.img.gz"
           target: "/tmp"
           overwrite: true
 
