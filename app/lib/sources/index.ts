@@ -2,6 +2,7 @@ import { buscarPNCP } from "./pncp";
 import { buscarPainelPrecos } from "./painel-precos";
 import { buscarComprasGov } from "./compras-gov";
 import { buscarPrecosAbertos } from "./precos-abertos";
+import { buscarPNCPBigQuery } from "./pncp-bd";
 import { buscarBPS, ehItemSaude } from "./bps";
 import { buscarSINAPI, ehItemObras } from "./sinapi";
 import type { BuscaParams, ResultadoFonte, FonteConfig, FonteId } from "./types";
@@ -38,6 +39,13 @@ export const FONTES_CONFIG: FonteConfig[] = [
     categorias: ["geral", "bens", "servicos"],
   },
   {
+    id: "pncp_bd",
+    nome: "PNCP (Base dos Dados/BigQuery)",
+    descricao: "Espelho completo do PNCP via Base dos Dados (BigQuery)",
+    disponivel: true,
+    categorias: ["geral", "bens", "servicos", "obras"],
+  },
+  {
     id: "bps",
     nome: "BPS - Saúde",
     descricao: "Banco de Preços em Saúde do Ministério da Saúde",
@@ -66,6 +74,8 @@ export async function buscarFonte(
       return buscarComprasGov(params);
     case "precos_abertos":
       return buscarPrecosAbertos(params);
+    case "pncp_bd":
+      return buscarPNCPBigQuery(params);
     case "bps":
       return buscarBPS(params);
     case "sinapi":
@@ -76,7 +86,7 @@ export async function buscarFonte(
 }
 
 export function sugerirFontes(termo: string): FonteId[] {
-  const fontes: FonteId[] = ["pncp", "painel_precos", "precos_abertos", "compras_gov"];
+  const fontes: FonteId[] = ["pncp", "pncp_bd", "painel_precos", "precos_abertos", "compras_gov"];
   if (ehItemSaude(termo)) fontes.push("bps");
   if (ehItemObras(termo)) fontes.push("sinapi");
   return fontes;

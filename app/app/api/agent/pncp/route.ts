@@ -6,7 +6,7 @@ import { z } from "zod";
 
 const schema = z.object({
   termo: z.string().min(3),
-  fontes: z.array(z.enum(["pncp", "painel_precos", "compras_gov", "precos_abertos", "bps", "sinapi", "sicro", "manual"])).optional(),
+  fontes: z.array(z.enum(["pncp", "pncp_bd", "painel_precos", "compras_gov", "precos_abertos", "bps", "sinapi", "sicro", "manual"])).optional(),
   pagina: z.number().default(1),
   tamanhoPagina: z.number().default(20),
   dataInicial: z.string().optional(),
