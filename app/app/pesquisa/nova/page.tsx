@@ -76,6 +76,8 @@ export default function NovaPesquisaPage() {
   const [editaisProximos, setEditaisProximos] = useState<EditalProximo[]>([]);
   const [buscandoEditais, setBuscandoEditais] = useState(false);
   const [iaLoading, setIaLoading] = useState(false);
+  const [pesquisaSalvaId, setPesquisaSalvaId] = useState<string | null>(null);
+  const [salvandoPesquisa, setSalvandoPesquisa] = useState(false);
   const [caracteristicasIA, setCaracteristicasIA] = useState<{ caracteristica: string; valor: string; confianca: number }[]>([]);
   const [config, setConfig] = useState({ periodo: "12_meses" as PeriodoPesquisa, regiao: "brasil" as RegiaoPesquisa, qtdMin: 5, metodo: "media_aritmetica" as MetodoCalculo });
   const [pesquisando, setPesquisando] = useState(false);
@@ -239,6 +241,58 @@ export default function NovaPesquisaPage() {
   };
 
   const linksAceitos = resultados.filter(r => r.status_avaliacao === "aceito").map(r => ({ nome: r.documento_origem, url: r.link_origem, tipo: "link" as const }));
+
+  const salvarPesquisa = async () => {
+    if (pesquisaSalvaId) return pesquisaSalvaId;
+    setSalvandoPesquisa(true);
+    try {
+      const { criarProcesso, criarPesquisa, salvarResultadosPesquisa, atualizarPesquisa } = await import("@/lib/actions");
+      const processoSalvo = await criarProcesso({ numero: processo.numero, objeto: objetoDesc, unidade: processo.unidade });
+      const nova = await criarPesquisa({
+        processoId: processoSalvo.id,
+        objeto: objetoDesc,
+        quantidade,
+        unidadeMedida,
+        localEntrega,
+        especificacoes: especificacao,
+        caracteristicasIA: caracteristicasIA.length ? caracteristicasIA : null,
+        periodoPesquisa: config.periodo,
+        regiaoPesquisa: config.regiao,
+        metodoCalculo: config.metodo,
+        fontesAtivas: ["precos_abertos"],
+      });
+      if (resultados.length > 0) {
+        await salvarResultadosPesquisa(nova.id, resultados.map((r) => ({
+          fonte: "precos_abertos",
+          orgao: r.orgao,
+          descricao: r.descricao,
+          quantidade: r.quantidade,
+          dataContrato: r.data,
+          valorUnitario: r.valor_unitario,
+          valorTotal: r.valor_total,
+          localizacao: r.localizacao,
+          similaridade: r.similaridade,
+          documentoOrigem: r.documento_origem,
+          linkEdital: r.link_origem || null,
+          dadosBrutos: { fornecedor: r.fornecedor || null },
+        })));
+      }
+      await atualizarPesquisa(nova.id, {
+        precoUnitarioEstimado: precoEstimado?.unitario != null ? String(precoEstimado.unitario) : null,
+        precoTotalEstimado: precoEstimado?.total != null ? String(precoEstimado.total) : null,
+        estatisticas: estatisticas || null,
+        justificativa: justificativaIA || null,
+        status: "concluida",
+      });
+      setPesquisaSalvaId(nova.id);
+      return nova.id;
+    } catch (err) {
+      console.error("Erro ao salvar pesquisa:", err);
+      return null;
+    } finally {
+      setSalvandoPesquisa(false);
+    }
+  };
 
   const relatorioData = {
     processo, objeto: objetoDesc, quantidade, metodo: config.metodo,
@@ -571,11 +625,16 @@ export default function NovaPesquisaPage() {
           ) : (
             <p className="text-sm text-neutral-500 py-8 text-center">Aceite pelo menos um resultado para gerar o preco estimado.</p>
           )}
-          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={nextStep} primary>Salvar evidencias</Button></div>
+          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={async () => { await salvarPesquisa(); nextStep(); }} primary>{salvandoPesquisa ? <>Salvando...</> : <>Salvar evidencias</>}</Button></div>
         </Card>
       );
       case 14: return (
         <Card title="Documentos, links e evidencias">
+          {pesquisaSalvaId && (
+            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+              ✓ Pesquisa salva com sucesso (id: <span className="font-mono">{pesquisaSalvaId.slice(0, 8)}</span>).
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             <Field label="Responsavel pela pesquisa"><input className="input bg-neutral-50" value={processo.responsavel} readOnly /></Field>
             <Field label="E-mail"><input className="input bg-neutral-50" value={processo.email} readOnly /></Field>
