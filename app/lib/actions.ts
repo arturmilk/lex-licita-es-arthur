@@ -9,7 +9,7 @@ import {
   evidencias,
   configuracoes,
 } from "@/lib/db/schema";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function listarProcessos() {
