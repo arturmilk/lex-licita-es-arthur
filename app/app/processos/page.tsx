@@ -28,7 +28,6 @@ export default function ProcessosPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-medium">Processos</h1>
-        <span className="text-xs font-medium px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200">DEMONSTRACAO</span>
       </div>
       <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
         {erro && <p className="text-sm text-red-600 mb-3">Erro ao carregar: {erro}</p>}

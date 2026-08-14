@@ -18,6 +18,9 @@ export async function GET(req: NextRequest) {
 
   if (!termo) return NextResponse.json({ error: "Parâmetro 'termo' obrigatório" }, { status: 400 });
 
+  const inicio = Date.now();
   const result = await buscarFonte(fonte, { termo, pagina, tamanhoPagina, uf, dataInicial, dataFinal });
+  const { logEvento } = await import("@/lib/logger");
+  logEvento("consulta_fonte", { fonte, termo: termo.slice(0, 120), uf, total: result?.total ?? 0, items: result?.items?.length ?? 0, erro: result?.erro ?? null, ms: Date.now() - inicio });
   return NextResponse.json(result);
 }

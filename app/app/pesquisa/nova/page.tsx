@@ -25,25 +25,6 @@ interface EditalProximo {
   id: string; empresa: string; objeto: string; local: string; distancia: string; data: string; link: string;
 }
 
-const MOCK_RESULTADOS: ResultadoPNCP[] = [
-  { id: "1", orgao: "Min. da Educacao", descricao: "Notebook 14 Core i5 16GB/256GB Win11", quantidade: 30, data: "2026-03-15", valor_unitario: 4850.0, valor_total: 145500.0, localizacao: "Brasilia/DF", similaridade: 96, documento_origem: "PNCP-982341", link_origem: "https://pncp.gov.br/compra/982341", status_avaliacao: "pendente" },
-  { id: "2", orgao: "IBAMA", descricao: "Notebook empresarial 14 16GB SSD 256GB", quantidade: 20, data: "2026-04-22", valor_unitario: 5100.0, valor_total: 102000.0, localizacao: "Brasilia/DF", similaridade: 92, documento_origem: "PNCP-982512", link_origem: "https://pncp.gov.br/compra/982512", status_avaliacao: "pendente" },
-  { id: "3", orgao: "Receita Federal", descricao: "Computador portatil i5 16GB 256GB 14", quantidade: 100, data: "2026-05-10", valor_unitario: 4700.0, valor_total: 470000.0, localizacao: "Sao Paulo/SP", similaridade: 94, documento_origem: "PNCP-983001", link_origem: "https://pncp.gov.br/compra/983001", status_avaliacao: "pendente" },
-  { id: "4", orgao: "INCRA", descricao: "Notebook 14 16GB RAM 256GB SSD", quantidade: 15, data: "2026-06-18", valor_unitario: 4950.0, valor_total: 74250.0, localizacao: "Brasilia/DF", similaridade: 95, documento_origem: "PNCP-983445", link_origem: "https://pncp.gov.br/compra/983445", status_avaliacao: "pendente" },
-  { id: "5", orgao: "ANAC", descricao: "Equipamento de informatica notebook 14", quantidade: 10, data: "2026-07-02", valor_unitario: 5200.0, valor_total: 52000.0, localizacao: "Rio de Janeiro/RJ", similaridade: 88, documento_origem: "PNCP-983678", link_origem: "https://pncp.gov.br/compra/983678", status_avaliacao: "pendente" },
-  { id: "6", orgao: "ICMBio", descricao: "Notebook Core i5 16GB 256GB 14 Win11", quantidade: 25, data: "2026-07-20", valor_unitario: 4750.0, valor_total: 118750.0, localizacao: "Curitiba/PR", similaridade: 97, documento_origem: "PNCP-983890", link_origem: "https://pncp.gov.br/compra/983890", status_avaliacao: "pendente" },
-  { id: "7", orgao: "Min. da Saude", descricao: "Notebook 14 16GB 256GB SSD", quantidade: 40, data: "2026-08-01", valor_unitario: 4600.0, valor_total: 184000.0, localizacao: "Brasilia/DF", similaridade: 93, documento_origem: "PNCP-984102", link_origem: "https://pncp.gov.br/compra/984102", status_avaliacao: "pendente" },
-];
-
-const MOCK_CARACTERISTICAS = [
-  { caracteristica: "categoria", valor: "informatica / notebooks", confianca: 98 },
-  { caracteristica: "processador", valor: "Intel Core i5 ou superior", confianca: 95 },
-  { caracteristica: "memoria ram", valor: "16 GB", confianca: 97 },
-  { caracteristica: "armazenamento", valor: "256 GB SSD", confianca: 96 },
-  { caracteristica: "tela", valor: "14 polegadas", confianca: 94 },
-  { caracteristica: "sistema operacional", valor: "Windows 11 Pro ou equivalente", confianca: 92 },
-  { caracteristica: "garantia", valor: "minimo 3 anos", confianca: 93 },
-];
 
 
 
@@ -60,20 +41,31 @@ const UNIDADES_MEDIDA = [
 export default function NovaPesquisaPage() {
   const [step, setStep] = useState(1);
   const totalSteps = 15;
-  const [processo, setProcesso] = useState({ numero: "2026/0042", orgao: "Ministerio do Planejamento", unidade: "SEGEP/DTI", responsavel: "Ana Costa", email: "ana.costa@planejamento.gov.br" });
-  const [objetoDesc, setObjetoDesc] = useState("Aquisicao de 50 (cinquenta) notebooks para uso administrativo, com processador Intel Core i5 ou superior, 16 GB de memoria RAM, 256 GB SSD, tela 14 polegadas, sistema operacional Windows 11 Pro ou equivalente, garantia minima de 3 anos.");
-  const [especificacao, setEspecificacao] = useState([
-    { item: "Processador", especificacao: "Intel Core i5 ou superior", obrigatorio: true },
-    { item: "Memoria RAM", especificacao: "16 GB DDR4", obrigatorio: true },
-    { item: "Armazenamento", especificacao: "256 GB SSD", obrigatorio: true },
-    { item: "Tela", especificacao: "14 polegadas Full HD", obrigatorio: true },
-    { item: "Sistema Operacional", especificacao: "Windows 11 Pro ou equivalente", obrigatorio: true },
-    { item: "Garantia", especificacao: "Minimo 3 anos", obrigatorio: true },
-  ]);
-  const [quantidade, setQuantidade] = useState(50);
-  const [unidadeMedida, setUnidadeMedida] = useState("unidade");
-  const [formaParcelamento, setFormaParcelamento] = useState<FormaParcelamento>("item");
-  const [localEntrega, setLocalEntrega] = useState("Brasilia/DF");
+  const [processo, setProcesso] = useState({ numero: "", orgao: "", unidade: "", responsavel: "", email: "" });
+  const [objetoDesc, setObjetoDesc] = useState("");
+  const [especificacao, setEspecificacao] = useState<{ item: string; especificacao: string; obrigatorio: boolean }[]>([]);
+  const [quantidade, setQuantidade] = useState(0);
+  const [unidadeMedida, setUnidadeMedida] = useState("");
+  const [formaParcelamento, setFormaParcelamento] = useState<FormaParcelamento | "">("");
+  const [localEntrega, setLocalEntrega] = useState("");
+  const [erroExtracao, setErroExtracao] = useState<string | null>(null);
+
+  // Preenche nome/email/orgao a partir da conta do utilizador (sessao)
+  React.useEffect(() => {
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((s) => {
+        if (s?.user) {
+          setProcesso((p) => ({
+            ...p,
+            orgao: s.user.orgaoNome || "",
+            responsavel: s.user.name || "",
+            email: s.user.email || "",
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [editaisProximos, setEditaisProximos] = useState<EditalProximo[]>([]);
   const [buscandoEditais, setBuscandoEditais] = useState(false);
   const [iaLoading, setIaLoading] = useState(false);
@@ -145,14 +137,16 @@ export default function NovaPesquisaPage() {
       });
       const data = await res.json();
       if (data.caracteristicas && data.caracteristicas.length > 0) {
+        setErroExtracao(null);
         setCaracteristicasIA(data.caracteristicas.map((c: any) => ({ caracteristica: c.nome, valor: c.valor, confianca: c.confianca })));
       } else {
-        console.warn("Extrator sem caracteristicas, usando fallback:", data);
-        setCaracteristicasIA(MOCK_CARACTERISTICAS);
+        setErroExtracao("O agente extrator não retornou características para este objeto. Verifique a descrição e tente novamente.");
+        setCaracteristicasIA([]);
       }
     } catch (err) {
       console.error("Erro no agente extrator:", err);
-      setCaracteristicasIA(MOCK_CARACTERISTICAS);
+      setErroExtracao("Erro ao contactar o agente extrator. Tente novamente em instantes.");
+      setCaracteristicasIA([]);
     }
     setIaLoading(false);
     nextStep();
@@ -314,11 +308,11 @@ export default function NovaPesquisaPage() {
       case 1: return (
         <Card title="Informacoes do processo">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Numero do processo"><input className="input" value={processo.numero} onChange={e => setProcesso({ ...processo, numero: e.target.value })} /></Field>
-            <Field label="Orgao"><input className="input" value={processo.orgao} onChange={e => setProcesso({ ...processo, orgao: e.target.value })} /></Field>
-            <Field label="Unidade"><input className="input" value={processo.unidade} onChange={e => setProcesso({ ...processo, unidade: e.target.value })} /></Field>
-            <Field label="Responsavel"><input className="input" value={processo.responsavel} onChange={e => setProcesso({ ...processo, responsavel: e.target.value })} /></Field>
-            <Field label="E-mail do responsavel"><input type="email" className="input" value={processo.email} onChange={e => setProcesso({ ...processo, email: e.target.value })} /></Field>
+            <Field label="Numero do processo"><input className="input" placeholder="Ex: 2026/00123 (novo numero a cada pesquisa)" value={processo.numero} onChange={e => setProcesso({ ...processo, numero: e.target.value })} /></Field>
+            <Field label="Orgao"><input className="input bg-neutral-50" value={processo.orgao} readOnly /></Field>
+            <Field label="Unidade"><input className="input" placeholder="Ex: SUPLAN/DILIC" value={processo.unidade} onChange={e => setProcesso({ ...processo, unidade: e.target.value })} /></Field>
+            <Field label="Responsavel"><input className="input bg-neutral-50" value={processo.responsavel} readOnly /></Field>
+            <Field label="E-mail do responsavel"><input type="email" className="input bg-neutral-50" value={processo.email} readOnly /></Field>
           </div>
           <div className="flex justify-end mt-6"><Button onClick={nextStep} primary>Proximo</Button></div>
         </Card>
@@ -354,20 +348,22 @@ export default function NovaPesquisaPage() {
       case 4: return (
         <Card title="Quantidade, parcelamento e unidade">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Field label="Quantidade"><input type="number" className="input" value={quantidade} onChange={e => setQuantidade(Number(e.target.value))} /></Field>
+            <Field label="Quantidade"><input type="number" className="input" placeholder="Ex: 50" value={quantidade === 0 ? "" : quantidade} onChange={e => setQuantidade(e.target.value === "" ? 0 : Number(e.target.value))} /></Field>
             <Field label="Unidade de medida">
               <select className="input" value={unidadeMedida} onChange={e => setUnidadeMedida(e.target.value)}>
+                <option value="">Selecione...</option>
                 {UNIDADES_MEDIDA.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </Field>
             <Field label="Forma de parcelamento">
-              <select className="input" value={formaParcelamento} onChange={e => setFormaParcelamento(e.target.value as FormaParcelamento)}>
+              <select className="input" value={formaParcelamento} onChange={e => setFormaParcelamento(e.target.value as FormaParcelamento | "")}>
+                <option value="">Selecione...</option>
                 <option value="item">Por item</option>
                 <option value="lote">Por lote</option>
                 <option value="global">Preco global</option>
               </select>
             </Field>
-            <Field label="Local de entrega"><input className="input" value={localEntrega} onChange={e => setLocalEntrega(e.target.value)} /></Field>
+            <Field label="Local de entrega"><input className="input" placeholder="Ex: Porto Velho/RO" value={localEntrega} onChange={e => setLocalEntrega(e.target.value)} /></Field>
           </div>
           {formaParcelamento === "global" && (
             <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
@@ -427,6 +423,9 @@ export default function NovaPesquisaPage() {
             <div className="flex flex-col items-center justify-center py-12 gap-4">
               <AlertCircle className="w-8 h-8 text-neutral-400" />
               <p className="text-sm text-neutral-500">Clique em "Extrair com IA" para analisar o objeto.</p>
+              {erroExtracao && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 max-w-md">{erroExtracao}</p>
+              )}
               <Button onClick={extrairIA} primary>Extrair com IA</Button>
             </div>
           ) : (
@@ -738,7 +737,6 @@ export default function NovaPesquisaPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-medium">Nova pesquisa</h1>
-        <span className="text-xs font-medium px-2 py-1 rounded bg-amber-50 text-amber-700 border border-amber-200">DEMONSTRACAO</span>
       </div>
       <div className="flex gap-1 overflow-x-auto pb-2 mb-6">
         {Array.from({ length: totalSteps }, (_, i) => i + 1).map(s => (
