@@ -75,7 +75,7 @@ export async function buscarPNCPBigQuery(params: BuscaParams): Promise<Resultado
         quantidade: Number.isFinite(quantidade) ? quantidade : null,
         dataContrato: r.data_contrato || null,
         valorUnitario: Number.isFinite(valorUnitario) ? valorUnitario : null,
-        valorTotal: Number.isFinite(valorUnitario) && Number.isFinite(quantidade) ? valorUnitario * quantidade : null,
+        valorTotal: Number.isFinite(valorUnitario) && Number.isFinite(quantidade) && valorUnitario != null && quantidade != null ? valorUnitario * quantidade : null,
         localizacao: r.municipio ? `${r.municipio}/${r.uf || ""}`.replace(/\/$/, "") : r.uf || null,
         similaridade: calcSimilaridade(r.descricao, termos),
         documentoOrigem: r.id_contrato || r.numero_contrato || null,

@@ -1,5 +1,5 @@
 CREATE TYPE "public"."esfera" AS ENUM('federal', 'estadual', 'municipal', 'distrital');--> statement-breakpoint
-CREATE TYPE "public"."fonte" AS ENUM('pncp', 'painel_precos', 'compras_gov', 'bps', 'sinapi', 'sicro', 'manual');--> statement-breakpoint
+CREATE TYPE "public"."fonte" AS ENUM('pncp', 'pncp_bd', 'painel_precos', 'compras_gov', 'precos_abertos', 'bps', 'sinapi', 'sicro', 'manual');--> statement-breakpoint
 CREATE TYPE "public"."metodo_calculo" AS ENUM('media_aritmetica', 'mediana', 'media_ponderada', 'menor_preco');--> statement-breakpoint
 CREATE TYPE "public"."perfil" AS ENUM('pesquisador', 'administrador', 'gestor');--> statement-breakpoint
 CREATE TYPE "public"."status_agente" AS ENUM('aguardando', 'executando', 'concluido', 'erro', 'cancelado');--> statement-breakpoint

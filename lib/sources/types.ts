@@ -37,4 +37,5 @@ export interface BuscaParams {
   dataInicial?: string;
   dataFinal?: string;
   uf?: string;
+  modalidade?: number;
 }
