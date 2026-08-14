@@ -8,7 +8,7 @@ import { Layers, Eye, EyeOff } from "lucide-react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const callbackUrl = searchParams.get("callbackUrl") || "/pesquisa/nova";
 
   const [form, setForm] = useState({ email: "", senha: "" });
   const [showSenha, setShowSenha] = useState(false);

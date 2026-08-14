@@ -1,120 +1,80 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
-import { pesquisas, processos, resultadosPesquisa } from "@/lib/db/schema";
-import { eq, and, desc, count } from "drizzle-orm";
-import Link from "next/link";
-import { Eye } from "lucide-react";
+"use client";
+import React, { useEffect, useState } from "react";
+import { Eye, Loader2 } from "lucide-react";
+import { listarPesquisas } from "@/lib/actions";
 
-function formatMoeda(v: string | number | null) {
-  if (!v) return "—";
-  return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(Number(v));
+interface PesquisaRow {
+  id: string;
+  objeto: string;
+  quantidade: number;
+  status: string;
+  precoUnitarioEstimado: string | null;
+  precoTotalEstimado: string | null;
+  createdAt: Date | string;
+  processoNumero: string | null;
+  referenciasAceitas: number;
 }
 
-export default async function PesquisasPage() {
-  const session = await auth();
-  if (!session) redirect("/login");
-  const orgaoId = (session.user as any).orgaoId;
+export default function PesquisasPage() {
+  const [rows, setRows] = useState<PesquisaRow[] | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
 
-  const result = await db
-    .select({
-      id: pesquisas.id,
-      objeto: pesquisas.objeto,
-      quantidade: pesquisas.quantidade,
-      unidadeMedida: pesquisas.unidadeMedida,
-      status: pesquisas.status,
-      precoUnitarioEstimado: pesquisas.precoUnitarioEstimado,
-      precoTotalEstimado: pesquisas.precoTotalEstimado,
-      metodoCalculo: pesquisas.metodoCalculo,
-      createdAt: pesquisas.createdAt,
-      processoNumero: processos.numero,
-      processoId: pesquisas.processoId,
-    })
-    .from(pesquisas)
-    .leftJoin(processos, eq(pesquisas.processoId, processos.id))
-    .where(eq(processos.orgaoId, orgaoId))
-    .orderBy(desc(pesquisas.createdAt));
+  useEffect(() => {
+    listarPesquisas()
+      .then((r) => setRows(r as unknown as PesquisaRow[]))
+      .catch((e) => setErro(String(e?.message || e)));
+  }, []);
 
-  const referencias = await Promise.all(
-    result.map((p) =>
-      db
-        .select({ c: count() })
-        .from(resultadosPesquisa)
-        .where(and(eq(resultadosPesquisa.pesquisaId, p.id), eq(resultadosPesquisa.avaliacao, "aceito")))
-        .then((r) => ({ pesquisaId: p.id, total: Number(r[0]?.c ?? 0) }))
-    )
-  );
-  const refMap = Object.fromEntries(referencias.map((r) => [r.pesquisaId, r.total]));
-
-  const STATUS_COLOR: Record<string, string> = {
-    em_andamento: "bg-blue-100 text-blue-700",
-    concluida: "bg-green-100 text-green-700",
-    cancelada: "bg-red-100 text-red-600",
-  };
-  const STATUS_LABEL: Record<string, string> = {
-    em_andamento: "Em andamento",
-    concluida: "Concluída",
-    cancelada: "Cancelada",
-  };
+  const fmt = (v: string | null) => (v == null ? "—" : `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  const fmtData = (d: Date | string) => new Date(d).toLocaleDateString("pt-BR");
+  const statusLabel = (s: string) => ({ em_andamento: "em andamento", concluida: "concluida", cancelada: "cancelada" }[s] || s);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Pesquisas de Preço</h1>
-          <p className="text-sm text-neutral-500 mt-1">{result.length} pesquisa(s)</p>
-        </div>
-        <Link
-          href="/pesquisa/nova"
-          className="px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition-colors"
-        >
-          Nova pesquisa
-        </Link>
+        <h1 className="text-xl font-medium">Pesquisas realizadas</h1>
       </div>
-
-      <div className="bg-white rounded-xl border border-neutral-200">
-        {result.length === 0 ? (
-          <div className="px-6 py-12 text-center text-neutral-400 text-sm">
-            Nenhuma pesquisa realizada ainda.{" "}
-            <Link href="/pesquisa/nova" className="text-neutral-700 underline">Iniciar pesquisa</Link>
+      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        {erro && <p className="text-sm text-red-600 mb-3">Erro ao carregar: {erro}</p>}
+        {rows === null ? (
+          <div className="flex items-center justify-center py-16 gap-2 text-neutral-400">
+            <Loader2 className="w-5 h-5 animate-spin" /> Carregando pesquisas...
           </div>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-neutral-500 py-10 text-center">Nenhuma pesquisa salva ainda. Inicie uma nova pesquisa no wizard.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-100 text-left">
-                <th className="px-6 py-3 font-medium text-neutral-500">Processo</th>
-                <th className="px-6 py-3 font-medium text-neutral-500">Objeto</th>
-                <th className="px-6 py-3 font-medium text-neutral-500">Refs aceitas</th>
-                <th className="px-6 py-3 font-medium text-neutral-500">Preço unit.</th>
-                <th className="px-6 py-3 font-medium text-neutral-500">Status</th>
-                <th className="px-6 py-3 font-medium text-neutral-500">Data</th>
-                <th className="px-6 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-50">
-              {result.map((p) => (
-                <tr key={p.id} className="hover:bg-neutral-50 transition-colors">
-                  <td className="px-6 py-3 font-mono text-xs text-neutral-500">{p.processoNumero || "—"}</td>
-                  <td className="px-6 py-3 text-neutral-800 max-w-xs truncate">{p.objeto}</td>
-                  <td className="px-6 py-3 text-neutral-600 text-center">{refMap[p.id] ?? 0}</td>
-                  <td className="px-6 py-3 font-medium text-neutral-800">{formatMoeda(p.precoUnitarioEstimado)}</td>
-                  <td className="px-6 py-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLOR[p.status] || "bg-neutral-100"}`}>
-                      {STATUS_LABEL[p.status] || p.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-3 text-neutral-400 text-xs">
-                    {new Date(p.createdAt).toLocaleDateString("pt-BR")}
-                  </td>
-                  <td className="px-6 py-3">
-                    <Link href={`/pesquisas/${p.id}`} className="p-1.5 hover:bg-neutral-100 rounded-lg inline-flex text-neutral-500 hover:text-neutral-800 transition-colors">
-                      <Eye className="w-4 h-4" />
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-neutral-200">
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">ID</th>
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Processo</th>
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Objeto</th>
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Ref. aceitas</th>
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Preco estimado</th>
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Status</th>
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Data</th>
+                <th></th>
+              </tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-b border-neutral-100 hover:bg-neutral-50">
+                    <td className="py-2 px-3 font-mono text-xs">{r.id.slice(0, 8)}</td>
+                    <td className="py-2 px-3 font-medium">{r.processoNumero || "—"}</td>
+                    <td className="py-2 px-3 max-w-[260px] truncate" title={r.objeto}>{r.objeto}</td>
+                    <td className="py-2 px-3">{r.referenciasAceitas}</td>
+                    <td className="py-2 px-3">{fmt(r.precoTotalEstimado)}</td>
+                    <td className="py-2 px-3"><span className="text-xs px-2 py-0.5 rounded bg-neutral-100 text-neutral-600">{statusLabel(r.status)}</span></td>
+                    <td className="py-2 px-3">{fmtData(r.createdAt)}</td>
+                    <td className="py-2 px-3 text-right">
+                      <button className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium" onClick={() => window.open(`/pesquisas/${r.id}`, "_blank")}>
+                        <Eye className="w-3.5 h-3.5" /> Ver
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

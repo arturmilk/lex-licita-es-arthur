@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2, AlertCircle, Check, X, ExternalLink, MapPin, FileSearch, ChevronRight } from "lucide-react";
+import React, { useState, useCallback } from "react";
+import { Loader2, AlertCircle, Check, X, ExternalLink, MapPin, FileSearch } from "lucide-react";
 import { calcularEstatisticas, calcularPrecoEstimado, formatarMoeda } from "@/lib/math";
 import { gerarXLSX, downloadXLSX } from "@/lib/xlsx-generator";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { RelatorioPDFDocument } from "@/lib/pdf-generator";
-import AgentStatusPanel from "@/components/AgentStatusPanel";
+import { criarProcesso, criarPesquisa, salvarResultadosPesquisa, atualizarPesquisa } from "@/lib/actions";
 
 type MetodoCalculo = "media_aritmetica" | "mediana" | "media_ponderada" | "menor_preco";
 type PeriodoPesquisa = "6_meses" | "12_meses" | "24_meses";
@@ -15,22 +14,19 @@ type RegiaoPesquisa = "brasil" | "centro_oeste" | "sudeste" | "sul" | "nordeste"
 type StatusAvaliacao = "pendente" | "aceito" | "rejeitado";
 type FormaParcelamento = "item" | "lote" | "global";
 
-interface ResultadoDB {
-  id: string;
-  orgao: string;
-  descricao: string;
-  quantidade: number | null;
-  dataContrato: string | null;
-  valorUnitario: number | null;
-  valorTotal: number | null;
-  localizacao: string | null;
-  similaridade: number;
-  documentoOrigem: string | null;
-  linkEdital: string | null;
-  avaliacao: StatusAvaliacao;
-  justificativaRejeicao: string | null;
-  fonte: string;
+interface ResultadoPNCP {
+  id: string; orgao: string; descricao: string; quantidade: number | null; data: string;
+  valor_unitario: number | null; valor_total: number | null; localizacao: string | null;
+  similaridade: number; documento_origem: string; link_origem: string;
+  fornecedor?: string; status_avaliacao: StatusAvaliacao; justificativa_rejeicao?: string;
 }
+
+interface EditalProximo {
+  id: string; empresa: string; objeto: string; local: string; distancia: string; data: string; link: string;
+}
+
+
+
 
 const UNIDADES_MEDIDA = [
   "unidade", "kit", "lote", "servico",
@@ -43,47 +39,47 @@ const UNIDADES_MEDIDA = [
 ];
 
 export default function NovaPesquisaPage() {
-  const router = useRouter();
   const [step, setStep] = useState(1);
-  const totalSteps = 14;
-
-  // Dados do processo e pesquisa
+  const totalSteps = 15;
   const [processo, setProcesso] = useState({ numero: "", orgao: "", unidade: "", responsavel: "", email: "" });
   const [objetoDesc, setObjetoDesc] = useState("");
-  const [especificacao, setEspecificacao] = useState<{ item: string; especificacao: string; obrigatorio: boolean }[]>([
-    { item: "", especificacao: "", obrigatorio: true },
-  ]);
-  const [quantidade, setQuantidade] = useState(1);
-  const [unidadeMedida, setUnidadeMedida] = useState("unidade");
-  const [formaParcelamento, setFormaParcelamento] = useState<FormaParcelamento>("item");
+  const [especificacao, setEspecificacao] = useState<{ item: string; especificacao: string; obrigatorio: boolean }[]>([]);
+  const [quantidade, setQuantidade] = useState(0);
+  const [unidadeMedida, setUnidadeMedida] = useState("");
+  const [formaParcelamento, setFormaParcelamento] = useState<FormaParcelamento | "">("");
   const [localEntrega, setLocalEntrega] = useState("");
+  const [erroExtracao, setErroExtracao] = useState<string | null>(null);
 
-  // IDs no banco
-  const [processoId, setProcessoId] = useState<string | null>(null);
-  const [pesquisaId, setPesquisaId] = useState<string | null>(null);
-
-  // Config de busca
-  const [config, setConfig] = useState({
-    periodo: "12_meses" as PeriodoPesquisa,
-    regiao: "brasil" as RegiaoPesquisa,
-    qtdMin: 3,
-    metodo: "media_aritmetica" as MetodoCalculo,
-  });
-
-  // Resultados
-  const [resultados, setResultados] = useState<ResultadoDB[]>([]);
-  const [carregandoResultados, setCarregandoResultados] = useState(false);
-  const [avaliandoId, setAvaliandoId] = useState<string | null>(null);
-  const [totalResultadosBusca, setTotalResultadosBusca] = useState(0);
-
-  // Cálculos
+  // Preenche nome/email/orgao a partir da conta do utilizador (sessao)
+  React.useEffect(() => {
+    fetch("/api/auth/session")
+      .then((r) => r.json())
+      .then((s) => {
+        if (s?.user) {
+          setProcesso((p) => ({
+            ...p,
+            orgao: s.user.orgaoNome || "",
+            responsavel: s.user.name || "",
+            email: s.user.email || "",
+          }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+  const [editaisProximos, setEditaisProximos] = useState<EditalProximo[]>([]);
+  const [buscandoEditais, setBuscandoEditais] = useState(false);
+  const [iaLoading, setIaLoading] = useState(false);
+  const [pesquisaSalvaId, setPesquisaSalvaId] = useState<string | null>(null);
+  const [salvandoPesquisa, setSalvandoPesquisa] = useState(false);
+  const [caracteristicasIA, setCaracteristicasIA] = useState<{ caracteristica: string; valor: string; confianca: number }[]>([]);
+  const [config, setConfig] = useState({ periodo: "12_meses" as PeriodoPesquisa, regiao: "brasil" as RegiaoPesquisa, qtdMin: 5, metodo: "media_aritmetica" as MetodoCalculo });
+  const [pesquisando, setPesquisando] = useState(false);
+  const [erroPesquisa, setErroPesquisa] = useState<string | null>(null);
+  const [resultados, setResultados] = useState<ResultadoPNCP[]>([]);
   const [estatisticas, setEstatisticas] = useState<ReturnType<typeof calcularEstatisticas> | null>(null);
   const [precoEstimado, setPrecoEstimado] = useState<{ unitario: number; total: number } | null>(null);
-
-  // Estados de loading e erro
-  const [loading, setLoading] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
-  const [buscaIniciada, setBuscaIniciada] = useState(false);
+  const [justificativaIA, setJustificativaIA] = useState<string | null>(null);
+  const [validacaoIA, setValidacaoIA] = useState<any | null>(null);
 
   const nextStep = useCallback(() => setStep(s => Math.min(s + 1, totalSteps)), []);
   const prevStep = useCallback(() => setStep(s => Math.max(s - 1, 1)), []);
@@ -97,713 +93,631 @@ export default function NovaPesquisaPage() {
   };
   const removeEspec = (idx: number) => setEspecificacao(especificacao.filter((_, i) => i !== idx));
 
-  // Confirmar e criar no banco (step 7 → 8)
-  const confirmarECriar = async () => {
-    setLoading(true);
-    setErro(null);
+  const buscarEditais = async () => {
+    setBuscandoEditais(true);
     try {
-      // Criar processo
-      const resProcesso = await fetch("/api/processos", {
+      const uf = (localEntrega.split("/").pop() || "").trim().toUpperCase().slice(0, 2);
+      const termo = objetoDesc || (especificacao[0]?.item || "");
+      const res = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fonte=precos_abertos&tamanhoPagina=10&uf=${encodeURIComponent(uf)}`, {
+        signal: AbortSignal.timeout(120_000),
+      });
+      const data = await res.json();
+      const vistos = new Set<string>();
+      const empresas: EditalProximo[] = [];
+      for (const it of data?.items || []) {
+        const forn = it?.dadosBrutos?.nomeFornecedor || it?.dadosBrutos?.fornecedor;
+        if (!forn || vistos.has(forn)) continue;
+        vistos.add(forn);
+        const idCompra = it?.documentoOrigem || "";
+        empresas.push({
+          id: idCompra || String(empresas.length + 1),
+          empresa: forn,
+          objeto: (it?.descricao || "").slice(0, 90),
+          local: it?.localizacao || "",
+          distancia: uf ? `UF: ${uf}` : "",
+          data: it?.dataContrato || "",
+          link: idCompra ? `https://pncp.gov.br/app/compra/${idCompra}` : "",
+        });
+      }
+      setEditaisProximos(empresas);
+    } catch (err) {
+      console.error("Erro ao buscar fornecedores:", err);
+      setEditaisProximos([]);
+    }
+    setBuscandoEditais(false);
+  };
+
+  const extrairIA = async () => {
+    setIaLoading(true);
+    try {
+      const res = await fetch("/api/ia/extracao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ descricao: objetoDesc, especificacoes: especificacao }),
+      });
+      const data = await res.json();
+      if (data.caracteristicas && data.caracteristicas.length > 0) {
+        setErroExtracao(null);
+        setCaracteristicasIA(data.caracteristicas.map((c: any) => ({ caracteristica: c.nome, valor: c.valor, confianca: c.confianca })));
+      } else {
+        setErroExtracao("O agente extrator não retornou características para este objeto. Verifique a descrição e tente novamente.");
+        setCaracteristicasIA([]);
+      }
+    } catch (err) {
+      console.error("Erro no agente extrator:", err);
+      setErroExtracao("Erro ao contactar o agente extrator. Tente novamente em instantes.");
+      setCaracteristicasIA([]);
+    }
+    setIaLoading(false);
+    nextStep();
+  };
+
+  const pesquisarPNCP = async () => {
+    setPesquisando(true); setResultados([]); setErroPesquisa(null);
+    goToStep(9); // mostra o spinner de consulta
+    try {
+      const termo = objetoDesc || (especificacao[0]?.item || "");
+      const res = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fonte=precos_abertos&tamanhoPagina=20`, {
+        signal: AbortSignal.timeout(120_000),
+      });
+      const data = await res.json();
+      if (data?.items?.length > 0) {
+        const novos = data.items.map((it: any, idx: number) => ({
+          id: String(idx + 1),
+          orgao: it.orgao || "Órgão público",
+          descricao: it.descricao || "",
+          quantidade: it.quantidade,
+          data: it.dataContrato || "",
+          valor_unitario: it.valorUnitario,
+          valor_total: it.valorTotal,
+          localizacao: it.localizacao || "",
+          similaridade: it.similaridade ?? 0,
+          documento_origem: it.documentoOrigem || "",
+          link_origem: it.documentoOrigem ? `https://pncp.gov.br/app/compra/${it.documentoOrigem}` : "",
+          fornecedor: it.dadosBrutos?.nomeFornecedor || "",
+          status_avaliacao: "pendente" as const,
+        }));
+        setResultados(novos);
+        setPesquisando(false);
+        goToStep(10); // vai direto para a tabela de resultados
+        return;
+      } else {
+        setErroPesquisa(`Nenhuma referência encontrada para "${termo}". ${data?.erro || ""}`.trim());
+        setResultados([]);
+      }
+    } catch (err: any) {
+      console.error("Erro na pesquisa:", err);
+      setErroPesquisa("Erro ao consultar as fontes de preços: " + (err?.message || "falha na rede"));
+    }
+    setPesquisando(false);
+  };
+
+  const avaliarResultado = (id: string, status: StatusAvaliacao, justificativa?: string) => {
+    setResultados(prev => prev.map(r => r.id === id ? { ...r, status_avaliacao: status, justificativa_rejeicao: justificativa } : r));
+  };
+
+  const gerarConteudoIA = async (stats: any, nAceitas: number) => {
+    try {
+      const res = await fetch("/api/ia/justificativa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estatisticas: stats, metodo: config.metodo, quantidade, referenciasAceitas: nAceitas }),
+      });
+      const data = await res.json();
+      if (data.justificativa) setJustificativaIA(data.justificativa);
+    } catch (err) { console.error("Erro no agente justificador:", err); }
+    try {
+      const aceitos = resultados.filter(r => r.status_avaliacao === "aceito");
+      const menores = aceitos.map(r => r.similaridade);
+      const res2 = await fetch("/api/ia/validacao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          numero: processo.numero,
-          objeto: objetoDesc,
-          unidade: processo.unidade,
+          n: nAceitas,
+          cv: stats.coeficienteVariacao,
+          min_referencias: config.qtdMin,
+          cv_limite: 25,
+          similaridade_minima: 75,
+          menor_similaridade_aceita: menores.length ? Math.min(...menores) : 100,
         }),
       });
-      if (!resProcesso.ok) {
-        const err = await resProcesso.json();
-        throw new Error(err.error || "Erro ao criar processo");
-      }
-      const processoData = await resProcesso.json();
-      setProcessoId(processoData.id);
-
-      // Criar pesquisa
-      const resPesquisa = await fetch("/api/pesquisas", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          processoId: processoData.id,
-          objeto: objetoDesc,
-          especificacoes: especificacao,
-          quantidade,
-          unidadeMedida,
-          localEntrega,
-          formaParcelamento,
-          periodoPesquisa: config.periodo,
-          regiaoPesquisa: config.regiao,
-          metodoCalculo: config.metodo,
-          qtdMinReferencias: config.qtdMin,
-        }),
-      });
-      if (!resPesquisa.ok) {
-        const err = await resPesquisa.json();
-        throw new Error(err.error || "Erro ao criar pesquisa");
-      }
-      const pesquisaData = await resPesquisa.json();
-      setPesquisaId(pesquisaData.id);
-
-      nextStep();
-    } catch (e: any) {
-      setErro(e.message || "Erro inesperado");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Iniciar busca multi-agente (step 8 → 9)
-  const iniciarBusca = async () => {
-    if (!pesquisaId) return;
-    setLoading(true);
-    setErro(null);
-    try {
-      const res = await fetch(`/api/pesquisas/${pesquisaId}/iniciar-busca`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ termoBusca: objetoDesc }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Erro ao iniciar busca");
-      }
-      setBuscaIniciada(true);
-      nextStep(); // vai para step 9 (agentes em tempo real)
-    } catch (e: any) {
-      setErro(e.message || "Erro inesperado");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Chamado pelo AgentStatusPanel quando todos os agentes concluem
-  const onBuscaConcluida = useCallback(async (total: number) => {
-    setTotalResultadosBusca(total);
-    // Carregar resultados do banco
-    if (!pesquisaId) return;
-    setCarregandoResultados(true);
-    try {
-      const res = await fetch(`/api/pesquisas/${pesquisaId}/resultados`);
-      if (res.ok) {
-        const data = await res.json();
-        setResultados(data);
-      }
-    } finally {
-      setCarregandoResultados(false);
-      nextStep(); // avança para step 10 (resultados)
-    }
-  }, [pesquisaId]);
-
-  // Avaliar resultado no banco
-  const avaliarResultado = async (id: string, avaliacao: StatusAvaliacao, justificativa?: string) => {
-    if (!pesquisaId) return;
-    setAvaliandoId(id);
-    // Otimista
-    setResultados(prev => prev.map(r => r.id === id ? { ...r, avaliacao, justificativaRejeicao: justificativa || null } : r));
-    try {
-      await fetch(`/api/pesquisas/${pesquisaId}/resultados/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ avaliacao, justificativaRejeicao: justificativa }),
-      });
-    } catch {
-      // se falhar, reverte UI
-      setResultados(prev => prev.map(r => r.id === id ? { ...r, avaliacao: "pendente", justificativaRejeicao: null } : r));
-    } finally {
-      setAvaliandoId(null);
-    }
+      setValidacaoIA(await res2.json());
+    } catch (err) { console.error("Erro no agente validador:", err); }
   };
 
   const calcular = () => {
-    const aceitos = resultados
-      .filter(r => r.avaliacao === "aceito" && r.valorUnitario != null)
-      .map(r => r.valorUnitario as number);
+    const aceitos = resultados.filter(r => r.status_avaliacao === "aceito").map(r => r.valor_unitario).filter((v): v is number => v != null);
     if (aceitos.length === 0) { setEstatisticas(null); return; }
     const stats = calcularEstatisticas(aceitos);
     setEstatisticas(stats);
     const preco = calcularPrecoEstimado(aceitos, config.metodo, quantidade);
     setPrecoEstimado(preco);
+    gerarConteudoIA(stats, aceitos.length);
   };
 
-  // Salvar evidências dos links aceitos no banco antes de gerar relatório
-  const salvarEvidencias = async () => {
-    if (!pesquisaId) return;
-    const linksAceitos = resultados.filter(r => r.avaliacao === "aceito" && r.linkEdital);
-    for (const r of linksAceitos) {
-      try {
-        await fetch("/api/evidencias", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            pesquisaId,
-            nome: r.documentoOrigem || r.descricao,
-            tipo: "link",
-            url: r.linkEdital,
-            origem: r.fonte,
-          }),
-        });
-      } catch { /* ignora erros individuais */ }
+  const linksAceitos = resultados.filter(r => r.status_avaliacao === "aceito").map(r => ({ nome: r.documento_origem, url: r.link_origem, tipo: "link" as const }));
+
+  const salvarPesquisa = async () => {
+    if (pesquisaSalvaId) return pesquisaSalvaId;
+    setSalvandoPesquisa(true);
+    try {
+      const processoSalvo = await criarProcesso({ numero: processo.numero, objeto: objetoDesc, unidade: processo.unidade });
+      const nova = await criarPesquisa({
+        processoId: processoSalvo.id,
+        objeto: objetoDesc,
+        quantidade,
+        unidadeMedida,
+        localEntrega,
+        especificacoes: especificacao,
+        caracteristicasIA: caracteristicasIA.length ? caracteristicasIA : null,
+        periodoPesquisa: config.periodo,
+        regiaoPesquisa: config.regiao,
+        metodoCalculo: config.metodo,
+        fontesAtivas: ["precos_abertos"],
+      });
+      if (resultados.length > 0) {
+        await salvarResultadosPesquisa(nova.id, resultados.map((r) => ({
+          fonte: "precos_abertos",
+          orgao: r.orgao,
+          descricao: r.descricao,
+          quantidade: r.quantidade,
+          dataContrato: r.data,
+          valorUnitario: r.valor_unitario,
+          valorTotal: r.valor_total,
+          localizacao: r.localizacao,
+          similaridade: r.similaridade,
+          documentoOrigem: r.documento_origem,
+          linkEdital: r.link_origem || null,
+          avaliacao: r.status_avaliacao,
+          justificativaRejeicao: r.justificativa_rejeicao || null,
+          dadosBrutos: { fornecedor: r.fornecedor || null },
+        })));
+      }
+      await atualizarPesquisa(nova.id, {
+        precoUnitarioEstimado: precoEstimado?.unitario != null ? String(precoEstimado.unitario) : null,
+        precoTotalEstimado: precoEstimado?.total != null ? String(precoEstimado.total) : null,
+        estatisticas: estatisticas || null,
+        justificativa: justificativaIA || null,
+        status: "concluida",
+      });
+      setPesquisaSalvaId(nova.id);
+      return nova.id;
+    } catch (err) {
+      console.error("Erro ao salvar pesquisa:", err);
+      return null;
+    } finally {
+      setSalvandoPesquisa(false);
     }
   };
 
-  // Atualizar status da pesquisa para concluida
-  const concluirPesquisa = async () => {
-    if (!pesquisaId || !precoEstimado) return;
-    try {
-      await fetch(`/api/pesquisas/${pesquisaId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: "concluida",
-          precoUnitarioEstimado: precoEstimado.unitario,
-          precoTotalEstimado: precoEstimado.total,
-          metodoCalculo: config.metodo,
-        }),
-      });
-    } catch { /* ignora */ }
-  };
-
-  const linksAceitos = resultados
-    .filter(r => r.avaliacao === "aceito" && r.linkEdital)
-    .map(r => ({ nome: r.documentoOrigem || r.descricao, url: r.linkEdital!, tipo: "link" as const }));
-
   const relatorioData = {
-    processo,
-    objeto: objetoDesc,
-    quantidade,
-    metodo: config.metodo,
+    processo, objeto: objetoDesc, quantidade, metodo: config.metodo,
     estatisticas: estatisticas || { n: 0, media: 0, mediana: 0, minimo: 0, maximo: 0, desvioPadrao: 0, coeficienteVariacao: 0 },
-    precoUnitario: precoEstimado?.unitario || 0,
-    precoTotal: precoEstimado?.total || 0,
-    justificativa: precoEstimado
-      ? `O preço foi formado com base em ${estatisticas?.n} registros, utilizando o método da ${config.metodo.replace(/_/g, " ")}.`
-      : "",
-    referencias: resultados
-      .filter(r => r.avaliacao === "aceito")
-      .map(r => ({
-        id: r.id, orgao: r.orgao, descricao: r.descricao,
-        quantidade: r.quantidade || 0, data: r.dataContrato || "",
-        valor_unitario: r.valorUnitario || 0, valor_total: r.valorTotal || 0,
-        localizacao: r.localizacao || "", similaridade: r.similaridade,
-        documento_origem: r.documentoOrigem || "", link_origem: r.linkEdital || "",
-        status_avaliacao: "aceito" as const,
-      })),
+    precoUnitario: precoEstimado?.unitario || 0, precoTotal: precoEstimado?.total || 0,
+    justificativa: justificativaIA || (precoEstimado ? `O preco foi formado com base em ${estatisticas?.n} registros do PNCP, utilizando o metodo da ${config.metodo}.` : ""),
+    referencias: resultados.filter(r => r.status_avaliacao === "aceito"),
     responsavel: processo.responsavel,
     email: processo.email,
     linksEvidencias: linksAceitos,
   };
 
-  const stepLabels = [
-    "processo", "objeto", "especificacao", "quantidade",
-    "local", "revisar", "configurar", "busca",
-    "resultados", "calculos", "preco", "evidencias", "relatorio"
-  ];
-  // step 1-13 → stepLabels[step-1]
+  const stepLabels = ["processo","objeto","especificacao","quantidade","local-editais","ia","revisar","config","pncp","resultados","analise","calculos","preco","evidencias","relatorio"];
 
   const renderStep = () => {
     switch (step) {
-      // ─── Step 1: Processo ────────────────────────────────────────────
       case 1: return (
-        <Card title="Informações do processo">
+        <Card title="Informacoes do processo">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Número do processo *">
-              <input className="input" placeholder="Ex: 2026/0042" value={processo.numero} onChange={e => setProcesso({ ...processo, numero: e.target.value })} />
-            </Field>
-            <Field label="Órgão *">
-              <input className="input" placeholder="Ex: Secretaria de Saúde de RO" value={processo.orgao} onChange={e => setProcesso({ ...processo, orgao: e.target.value })} />
-            </Field>
-            <Field label="Unidade solicitante">
-              <input className="input" placeholder="Ex: DTEC/SEGEP" value={processo.unidade} onChange={e => setProcesso({ ...processo, unidade: e.target.value })} />
-            </Field>
-            <Field label="Responsável *">
-              <input className="input" placeholder="Nome completo" value={processo.responsavel} onChange={e => setProcesso({ ...processo, responsavel: e.target.value })} />
-            </Field>
-            <Field label="E-mail do responsável *">
-              <input type="email" className="input" placeholder="servidor@orgao.gov.br" value={processo.email} onChange={e => setProcesso({ ...processo, email: e.target.value })} />
-            </Field>
+            <Field label="Numero do processo"><input className="input" placeholder="Ex: 2026/00123 (novo numero a cada pesquisa)" value={processo.numero} onChange={e => setProcesso({ ...processo, numero: e.target.value })} /></Field>
+            <Field label="Orgao"><input className="input bg-neutral-50" value={processo.orgao} readOnly /></Field>
+            <Field label="Unidade"><input className="input" placeholder="Ex: SUPLAN/DILIC" value={processo.unidade} onChange={e => setProcesso({ ...processo, unidade: e.target.value })} /></Field>
+            <Field label="Responsavel"><input className="input bg-neutral-50" value={processo.responsavel} readOnly /></Field>
+            <Field label="E-mail do responsavel"><input type="email" className="input bg-neutral-50" value={processo.email} readOnly /></Field>
           </div>
-          <div className="flex justify-end mt-6">
-            <Button onClick={nextStep} primary disabled={!processo.numero || !processo.orgao || !processo.responsavel || !processo.email}>
-              Próximo <ChevronRight className="w-4 h-4" />
-            </Button>
-          </div>
+          <div className="flex justify-end mt-6"><Button onClick={nextStep} primary>Proximo</Button></div>
         </Card>
       );
-
-      // ─── Step 2: Objeto ──────────────────────────────────────────────
       case 2: return (
-        <Card title="Descrição do objeto">
-          <Field label="Descreva o objeto da contratação">
-            <textarea
-              className="input min-h-[120px]"
-              placeholder="Ex: Aquisição de notebooks para uso administrativo com processador Intel Core i5 ou superior, 16 GB RAM, 256 GB SSD..."
-              value={objetoDesc}
-              onChange={e => setObjetoDesc(e.target.value)}
-            />
-          </Field>
-          <p className="text-xs text-neutral-500 mt-2">Seja específico: inclua características principais, finalidade e exigências técnicas essenciais.</p>
-          <div className="flex justify-between mt-6">
-            <Button onClick={prevStep} secondary>Voltar</Button>
-            <Button onClick={nextStep} primary disabled={objetoDesc.length < 10}>Próximo <ChevronRight className="w-4 h-4" /></Button>
-          </div>
+        <Card title="Descricao do objeto">
+          <Field label="Descreva o objeto da contratacao (visao geral)"><textarea className="input min-h-[100px]" value={objetoDesc} onChange={e => setObjetoDesc(e.target.value)} /></Field>
+          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={nextStep} primary>Proximo</Button></div>
         </Card>
       );
-
-      // ─── Step 3: Especificações ──────────────────────────────────────
       case 3: return (
-        <Card title="Especificação técnica">
-          <p className="text-sm text-neutral-500 mb-4">Detalhe as características técnicas exigidas. Serão usadas para calcular a similaridade nos resultados.</p>
+        <Card title="Especificacao tecnica do objeto">
+          <p className="text-sm text-neutral-500 mb-4">Detalhe as caracteristicas tecnicas que serao exigidas na contratacao. A IA tambem usara estas informacoes para comparar similaridade.</p>
           <div className="space-y-3">
             {especificacao.map((esp, idx) => (
               <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-start p-3 rounded-lg border border-neutral-100 bg-neutral-50/50">
-                <div className="md:col-span-3">
-                  <input className="input text-sm" placeholder="Item (ex: Processador)" value={esp.item} onChange={e => updateEspec(idx, "item", e.target.value)} />
-                </div>
-                <div className="md:col-span-6">
-                  <input className="input text-sm" placeholder="Especificação (ex: Intel Core i5 ou superior)" value={esp.especificacao} onChange={e => updateEspec(idx, "especificacao", e.target.value)} />
-                </div>
-                <div className="md:col-span-2 flex items-center gap-2 pt-2">
+                <div className="md:col-span-3"><input className="input text-sm" placeholder="Item (ex: Processador)" value={esp.item} onChange={e => updateEspec(idx, "item", e.target.value)} /></div>
+                <div className="md:col-span-6"><input className="input text-sm" placeholder="Especificacao (ex: Intel Core i5 ou superior)" value={esp.especificacao} onChange={e => updateEspec(idx, "especificacao", e.target.value)} /></div>
+                <div className="md:col-span-2 flex items-center gap-2">
                   <input type="checkbox" id={`obr-${idx}`} checked={esp.obrigatorio} onChange={e => updateEspec(idx, "obrigatorio", e.target.checked)} />
-                  <label htmlFor={`obr-${idx}`} className="text-xs text-neutral-500">Obrigatório</label>
+                  <label htmlFor={`obr-${idx}`} className="text-xs text-neutral-500">Obrigatorio</label>
                 </div>
                 <div className="md:col-span-1 flex justify-end">
-                  <button onClick={() => removeEspec(idx)} className="p-1.5 rounded hover:bg-red-100 text-neutral-400 hover:text-red-600">
-                    <X size={14} />
-                  </button>
+                  <button onClick={() => removeEspec(idx)} className="p-1.5 rounded hover:bg-red-100 text-neutral-400 hover:text-red-600"><X size={14} /></button>
                 </div>
               </div>
             ))}
           </div>
-          <button onClick={addEspecificacao} className="mt-3 inline-flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900 font-medium">
-            <PlusIcon /> Adicionar item
-          </button>
-          <div className="flex justify-between mt-6">
-            <Button onClick={prevStep} secondary>Voltar</Button>
-            <Button onClick={nextStep} primary>Próximo <ChevronRight className="w-4 h-4" /></Button>
-          </div>
+          <button onClick={addEspecificacao} className="mt-3 inline-flex items-center gap-1.5 text-sm text-neutral-600 hover:text-neutral-900 font-medium"><PlusIcon /> Adicionar item</button>
+          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={nextStep} primary>Proximo</Button></div>
         </Card>
       );
-
-      // ─── Step 4: Quantidade ──────────────────────────────────────────
       case 4: return (
-        <Card title="Quantidade e parcelamento">
+        <Card title="Quantidade, parcelamento e unidade">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Field label="Quantidade *">
-              <input type="number" className="input" min={1} value={quantidade} onChange={e => setQuantidade(Number(e.target.value))} />
-            </Field>
+            <Field label="Quantidade"><input type="number" className="input" placeholder="Ex: 50" value={quantidade === 0 ? "" : quantidade} onChange={e => setQuantidade(e.target.value === "" ? 0 : Number(e.target.value))} /></Field>
             <Field label="Unidade de medida">
               <select className="input" value={unidadeMedida} onChange={e => setUnidadeMedida(e.target.value)}>
+                <option value="">Selecione...</option>
                 {UNIDADES_MEDIDA.map(u => <option key={u} value={u}>{u}</option>)}
               </select>
             </Field>
             <Field label="Forma de parcelamento">
-              <select className="input" value={formaParcelamento} onChange={e => setFormaParcelamento(e.target.value as FormaParcelamento)}>
+              <select className="input" value={formaParcelamento} onChange={e => setFormaParcelamento(e.target.value as FormaParcelamento | "")}>
+                <option value="">Selecione...</option>
                 <option value="item">Por item</option>
                 <option value="lote">Por lote</option>
-                <option value="global">Preço global</option>
+                <option value="global">Preco global</option>
               </select>
             </Field>
-            <Field label="Local de entrega">
-              <input className="input" placeholder="Ex: Porto Velho/RO" value={localEntrega} onChange={e => setLocalEntrega(e.target.value)} />
-            </Field>
+            <Field label="Local de entrega"><input className="input" placeholder="Ex: Porto Velho/RO" value={localEntrega} onChange={e => setLocalEntrega(e.target.value)} /></Field>
           </div>
           {formaParcelamento === "global" && (
             <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
-              <strong>Atenção:</strong> No preço global, o valor total é calculado diretamente. A quantidade serve apenas como referência de escopo.
+              <strong>Atencao:</strong> No preco global, o valor total sera calculado diretamente sem divisao por unidade. A quantidade servira apenas como referencia de escopo.
             </div>
           )}
-          <div className="flex justify-between mt-6">
-            <Button onClick={prevStep} secondary>Voltar</Button>
-            <Button onClick={nextStep} primary disabled={quantidade < 1}>Próximo <ChevronRight className="w-4 h-4" /></Button>
-          </div>
+          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={nextStep} primary>Proximo</Button></div>
         </Card>
       );
-
-      // ─── Step 5: Local/Editais (simplificado, sem mock) ─────────────
       case 5: return (
-        <Card title="Local de entrega e abrangência">
-          <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-4 mb-4">
-            <p className="text-sm font-medium text-neutral-700 mb-2">Resumo até aqui</p>
-            <ul className="text-sm text-neutral-600 space-y-1">
-              <li><span className="font-medium">Processo:</span> {processo.numero} — {processo.orgao}</li>
-              <li><span className="font-medium">Objeto:</span> {objetoDesc.substring(0, 100)}{objetoDesc.length > 100 ? "..." : ""}</li>
-              <li><span className="font-medium">Quantidade:</span> {quantidade} {unidadeMedida}(s)</li>
-              <li><span className="font-medium">Local de entrega:</span> {localEntrega || "Não informado"}</li>
-            </ul>
+        <Card title="Editais de empresas proximas">
+          <p className="text-sm text-neutral-500 mb-4">Pesquise editais de empresas que podem executar o servico/fornecimento proximo ao local de entrega: <strong>{localEntrega}</strong></p>
+          <div className="flex gap-3 mb-4">
+            <Button onClick={buscarEditais} primary>{buscandoEditais ? <><Loader2 className="w-4 h-4 animate-spin" /> Buscando...</> : <><FileSearch className="w-4 h-4" /> Buscar editais proximos</>}</Button>
           </div>
-          <div className="rounded-lg bg-blue-50 border border-blue-100 p-4 text-sm text-blue-800">
-            <strong>Próxima etapa:</strong> Configurar a pesquisa e buscar preços de referência em múltiplas fontes: PNCP, Painel de Preços, Compras.gov, BPS Saúde e SINAPI.
-          </div>
-          <div className="flex justify-between mt-6">
-            <Button onClick={prevStep} secondary>Voltar</Button>
-            <Button onClick={nextStep} primary>Revisar e confirmar <ChevronRight className="w-4 h-4" /></Button>
-          </div>
+          {editaisProximos.length > 0 && (
+            <div className="rounded-lg border border-neutral-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-neutral-50"><tr>
+                  <th className="text-left px-4 py-2 font-medium text-neutral-600">Empresa</th>
+                  <th className="text-left px-4 py-2 font-medium text-neutral-600">Objeto</th>
+                  <th className="text-left px-4 py-2 font-medium text-neutral-600">Local</th>
+                  <th className="text-left px-4 py-2 font-medium text-neutral-600">Distancia</th>
+                  <th className="text-left px-4 py-2 font-medium text-neutral-600">Data</th>
+                  <th className="text-left px-4 py-2 font-medium text-neutral-600">Link</th>
+                </tr></thead>
+                <tbody>
+                  {editaisProximos.map(e => (
+                    <tr key={e.id} className="border-t border-neutral-100">
+                      <td className="px-4 py-2 font-medium">{e.empresa}</td>
+                      <td className="px-4 py-2">{e.objeto}</td>
+                      <td className="px-4 py-2"><span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3 text-neutral-400" />{e.local}</span></td>
+                      <td className="px-4 py-2">{e.distancia}</td>
+                      <td className="px-4 py-2">{e.data}</td>
+                      <td className="px-4 py-2">
+                        <a href={e.link} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium">
+                          <ExternalLink className="w-3 h-3" /> Abrir edital
+                        </a>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={nextStep} primary>Proximo</Button></div>
         </Card>
       );
-
-      // ─── Step 6: Revisar ────────────────────────────────────────────
       case 6: return (
-        <Card title="Revisar e confirmar informações">
-          {erro && (
-            <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              {erro}
+        <Card title="Extracao de caracteristicas (IA)">
+          {iaLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <Loader2 className="w-8 h-8 animate-spin text-neutral-500" />
+              <p className="text-sm text-neutral-500">A IA esta analisando a descricao e as especificacoes tecnicas...</p>
             </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Field label="Processo"><input className="input bg-neutral-50" value={processo.numero} readOnly /></Field>
-            <Field label="Órgão"><input className="input bg-neutral-50" value={processo.orgao} readOnly /></Field>
-            <Field label="Unidade"><input className="input bg-neutral-50" value={processo.unidade || "—"} readOnly /></Field>
-            <Field label="Responsável"><input className="input bg-neutral-50" value={processo.responsavel} readOnly /></Field>
-            <Field label="E-mail"><input className="input bg-neutral-50" value={processo.email} readOnly /></Field>
-            <Field label="Objeto resumido"><input className="input bg-neutral-50" value={`${quantidade} ${unidadeMedida}(s) — ${formaParcelamento}`} readOnly /></Field>
-          </div>
-          <div className="mt-4 p-3 rounded-lg bg-neutral-50 border border-neutral-200 text-sm">
-            <strong>Especificações técnicas ({especificacao.filter(e => e.item).length} itens):</strong>
-            <ul className="list-disc list-inside mt-1 text-neutral-600">
-              {especificacao.filter(e => e.item).map((e, i) => (
-                <li key={i}>{e.item}: {e.especificacao} {e.obrigatorio ? "(obrigatório)" : "(desejável)"}</li>
-              ))}
-            </ul>
-          </div>
-          <p className="text-xs text-neutral-500 mt-4">
-            Ao confirmar, o processo e a pesquisa serão registrados no sistema e a busca poderá ser iniciada.
-          </p>
-          <div className="flex justify-between mt-6">
-            <Button onClick={prevStep} secondary>Voltar</Button>
-            <Button onClick={confirmarECriar} primary disabled={loading}>
-              {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Salvando...</> : "Confirmar e prosseguir"}
-            </Button>
-          </div>
-        </Card>
-      );
-
-      // ─── Step 7: Configurações de pesquisa ──────────────────────────
-      case 7: return (
-        <Card title="Configurações da pesquisa">
-          {erro && (
-            <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-              {erro}
-            </div>
-          )}
-          <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-700 mb-4">
-            <Check className="w-4 h-4 inline mr-1" />
-            Processo e pesquisa registrados com sucesso.
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Field label="Período de referência">
-              <select className="input" value={config.periodo} onChange={e => setConfig({ ...config, periodo: e.target.value as PeriodoPesquisa })}>
-                <option value="12_meses">Últimos 12 meses</option>
-                <option value="6_meses">Últimos 6 meses</option>
-                <option value="24_meses">Últimos 24 meses</option>
-              </select>
-            </Field>
-            <Field label="Região">
-              <select className="input" value={config.regiao} onChange={e => setConfig({ ...config, regiao: e.target.value as RegiaoPesquisa })}>
-                <option value="brasil">Todo o Brasil</option>
-                <option value="norte">Norte</option>
-                <option value="nordeste">Nordeste</option>
-                <option value="centro_oeste">Centro-Oeste</option>
-                <option value="sudeste">Sudeste</option>
-                <option value="sul">Sul</option>
-              </select>
-            </Field>
-            <Field label="Mínimo de referências">
-              <input type="number" className="input" min={1} max={20} value={config.qtdMin} onChange={e => setConfig({ ...config, qtdMin: Number(e.target.value) })} />
-            </Field>
-            <Field label="Método de cálculo">
-              <select className="input" value={config.metodo} onChange={e => setConfig({ ...config, metodo: e.target.value as MetodoCalculo })}>
-                <option value="media_aritmetica">Média aritmética</option>
-                <option value="mediana">Mediana</option>
-                <option value="media_ponderada">Média ponderada</option>
-                <option value="menor_preco">Menor preço</option>
-              </select>
-            </Field>
-          </div>
-          <div className="mt-4 p-3 rounded-lg bg-neutral-50 border border-neutral-100 text-sm text-neutral-600">
-            Fontes que serão consultadas: <strong>PNCP, Painel de Preços, Compras.gov.br, BPS Saúde, SINAPI</strong>
-          </div>
-          <div className="flex justify-between mt-6">
-            <Button onClick={prevStep} secondary>Voltar</Button>
-            <Button onClick={iniciarBusca} primary disabled={loading || !pesquisaId}>
-              {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Iniciando...</> : "Iniciar busca de preços"}
-            </Button>
-          </div>
-        </Card>
-      );
-
-      // ─── Step 8: Agentes em tempo real ──────────────────────────────
-      case 8: return (
-        <Card title="Consultando fontes de preços">
-          <p className="text-sm text-neutral-500 mb-6">
-            Os agentes estão consultando múltiplas bases de dados simultaneamente. Aguarde a conclusão.
-          </p>
-          {pesquisaId && (
-            <AgentStatusPanel
-              pesquisaId={pesquisaId}
-              onConcluido={onBuscaConcluida}
-            />
-          )}
-          {carregandoResultados && (
-            <div className="mt-4 flex items-center gap-2 text-sm text-neutral-500">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Carregando resultados...
-            </div>
-          )}
-        </Card>
-      );
-
-      // ─── Step 9: Resultados ─────────────────────────────────────────
-      case 9: return (
-        <Card title={`Resultados da pesquisa (${resultados.length} encontrados)`}>
-          {resultados.length === 0 ? (
-            <div className="py-12 text-center">
-              <AlertCircle className="w-8 h-8 text-neutral-400 mx-auto mb-3" />
-              <p className="text-sm text-neutral-500">Nenhum resultado encontrado. Tente ampliar o período ou a região de busca.</p>
-              <Button onClick={() => goToStep(7)} secondary className="mt-4">Ajustar configurações</Button>
+          ) : caracteristicasIA.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <AlertCircle className="w-8 h-8 text-neutral-400" />
+              <p className="text-sm text-neutral-500">Clique em "Extrair com IA" para analisar o objeto.</p>
+              {erroExtracao && (
+                <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 max-w-md">{erroExtracao}</p>
+              )}
+              <Button onClick={extrairIA} primary>Extrair com IA</Button>
             </div>
           ) : (
             <>
-              <div className="mb-3 text-xs text-neutral-500">
-                Aceite os preços compatíveis com seu objeto e rejeite os que não se aplicam. Use a justificativa quando rejeitar.
-              </div>
-              <div className="overflow-x-auto">
+              <div className="rounded-lg border border-neutral-200 overflow-hidden">
                 <table className="w-full text-sm">
-                  <thead className="bg-neutral-50">
-                    <tr>
-                      <th className="text-left px-3 py-2 font-medium text-neutral-600">Órgão</th>
-                      <th className="text-left px-3 py-2 font-medium text-neutral-600">Descrição</th>
-                      <th className="text-left px-3 py-2 font-medium text-neutral-600">Qtd</th>
-                      <th className="text-left px-3 py-2 font-medium text-neutral-600">Data</th>
-                      <th className="text-left px-3 py-2 font-medium text-neutral-600">Valor unit.</th>
-                      <th className="text-left px-3 py-2 font-medium text-neutral-600">Local</th>
-                      <th className="text-left px-3 py-2 font-medium text-neutral-600">Sim.</th>
-                      <th className="text-left px-3 py-2 font-medium text-neutral-600">Fonte / Link</th>
-                      <th className="text-left px-3 py-2 font-medium text-neutral-600">Ação</th>
-                    </tr>
-                  </thead>
+                  <thead className="bg-neutral-50"><tr><th className="text-left px-4 py-2 font-medium text-neutral-600">Caracteristica</th><th className="text-left px-4 py-2 font-medium text-neutral-600">Valor extraido</th><th className="text-left px-4 py-2 font-medium text-neutral-600">Confianca</th></tr></thead>
                   <tbody>
-                    {resultados.map(r => (
-                      <tr key={r.id} className={`border-t border-neutral-100 ${r.avaliacao === "rejeitado" ? "opacity-50 bg-red-50/30" : r.avaliacao === "aceito" ? "bg-green-50/30" : ""}`}>
-                        <td className="px-3 py-2 text-xs">{r.orgao}</td>
-                        <td className="px-3 py-2 max-w-[200px] truncate text-xs" title={r.descricao}>{r.descricao}</td>
-                        <td className="px-3 py-2 text-xs">{r.quantidade ?? "—"}</td>
-                        <td className="px-3 py-2 text-xs">{r.dataContrato ?? "—"}</td>
-                        <td className="px-3 py-2 text-xs font-medium">{r.valorUnitario != null ? formatarMoeda(r.valorUnitario) : "—"}</td>
-                        <td className="px-3 py-2 text-xs">{r.localizacao ?? "—"}</td>
-                        <td className="px-3 py-2 text-xs">{r.similaridade}%</td>
-                        <td className="px-3 py-2">
-                          <div className="flex flex-col gap-1">
-                            <span className="font-mono text-xs text-neutral-500">{r.fonte?.toUpperCase()}</span>
-                            {r.linkEdital && (
-                              <a href={r.linkEdital} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs">
-                                <ExternalLink className="w-3 h-3" /> Ver edital
-                              </a>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-3 py-2">
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => avaliarResultado(r.id, "aceito")}
-                              disabled={avaliandoId === r.id}
-                              className="p-1 rounded hover:bg-green-100 text-green-600"
-                              title="Aceitar"
-                            >
-                              {avaliandoId === r.id ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-                            </button>
-                            <button
-                              onClick={() => avaliarResultado(r.id, "rejeitado")}
-                              disabled={avaliandoId === r.id}
-                              className="p-1 rounded hover:bg-red-100 text-red-600"
-                              title="Rejeitar"
-                            >
-                              <X size={14} />
-                            </button>
-                          </div>
-                          {r.avaliacao === "rejeitado" && (
-                            <input
-                              className="mt-1 w-full text-xs px-2 py-1 rounded border border-neutral-200"
-                              placeholder="Justificativa..."
-                              value={r.justificativaRejeicao || ""}
-                              onBlur={e => avaliarResultado(r.id, "rejeitado", e.target.value)}
-                              onChange={e => setResultados(prev => prev.map(x => x.id === r.id ? { ...x, justificativaRejeicao: e.target.value } : x))}
-                            />
-                          )}
-                        </td>
-                      </tr>
+                    {caracteristicasIA.map((c, i) => (
+                      <tr key={i} className="border-t border-neutral-100"><td className="px-4 py-2 capitalize">{c.caracteristica}</td><td className="px-4 py-2">{c.valor}</td><td className="px-4 py-2">{c.confianca}%</td></tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              <div className="mt-3 flex gap-4 text-xs text-neutral-500">
-                <span className="text-green-600 font-medium">{resultados.filter(r => r.avaliacao === "aceito").length} aceitos</span>
-                <span className="text-red-500">{resultados.filter(r => r.avaliacao === "rejeitado").length} rejeitados</span>
-                <span>{resultados.filter(r => r.avaliacao === "pendente").length} pendentes</span>
-              </div>
+              <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={nextStep} primary>Proximo</Button></div>
             </>
           )}
-          <div className="flex justify-between mt-6">
-            <Button onClick={() => goToStep(7)} secondary>Ajustar configurações</Button>
-            <Button
-              onClick={() => { calcular(); nextStep(); }}
-              primary
-              disabled={resultados.filter(r => r.avaliacao === "aceito").length === 0}
-            >
-              Calcular estimativa
-            </Button>
-          </div>
         </Card>
       );
-
-      // ─── Step 10: Análise estatística ────────────────────────────────
+      case 7: return (
+        <Card title="Revisar e confirmar informacoes">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Processo"><input className="input bg-neutral-50" value={processo.numero} readOnly /></Field>
+            <Field label="Orgao"><input className="input bg-neutral-50" value={processo.orgao} readOnly /></Field>
+            <Field label="Responsavel"><input className="input bg-neutral-50" value={processo.responsavel} readOnly /></Field>
+            <Field label="E-mail"><input className="input bg-neutral-50" value={processo.email} readOnly /></Field>
+            <Field label="Objeto resumido"><input className="input bg-neutral-50" value={`Aquisicao de ${quantidade} ${unidadeMedida}(s)`} readOnly /></Field>
+            <Field label="Parcelamento"><input className="input bg-neutral-50" value={formaParcelamento} readOnly /></Field>
+          </div>
+          <div className="mt-4 p-3 rounded-lg bg-blue-50 border border-blue-100 text-sm text-blue-800">
+            <strong>Caracteristicas confirmadas:</strong> {caracteristicasIA.map(c => c.valor).join(", ")}.
+          </div>
+          <div className="mt-4 p-3 rounded-lg bg-neutral-50 border border-neutral-200 text-sm">
+            <strong>Especificacoes tecnicas ({especificacao.length} itens):</strong>
+            <ul className="list-disc list-inside mt-1 text-neutral-600">
+              {especificacao.map((e, i) => (<li key={i}>{e.item}: {e.especificacao} {e.obrigatorio ? "(obrigatorio)" : "(desejavel)"}</li>))}
+            </ul>
+          </div>
+          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={nextStep} primary>Confirmar e prosseguir</Button></div>
+        </Card>
+      );
+      case 8: return (
+        <Card title="Configuracoes da pesquisa">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Field label="Periodo">
+              <select className="input" value={config.periodo} onChange={e => setConfig({ ...config, periodo: e.target.value as PeriodoPesquisa })}>
+                <option value="12_meses">ultimos 12 meses</option><option value="6_meses">ultimos 6 meses</option><option value="24_meses">ultimos 24 meses</option>
+              </select>
+            </Field>
+            <Field label="Regiao">
+              <select className="input" value={config.regiao} onChange={e => setConfig({ ...config, regiao: e.target.value as RegiaoPesquisa })}>
+                <option value="brasil">todo o Brasil</option><option value="centro_oeste">Centro-Oeste</option><option value="sudeste">Sudeste</option><option value="sul">Sul</option><option value="nordeste">Nordeste</option><option value="norte">Norte</option>
+              </select>
+            </Field>
+            <Field label="Qtd. minima"><input type="number" className="input" value={config.qtdMin} onChange={e => setConfig({ ...config, qtdMin: Number(e.target.value) })} /></Field>
+            <Field label="Metodo">
+              <select className="input" value={config.metodo} onChange={e => setConfig({ ...config, metodo: e.target.value as MetodoCalculo })}>
+                <option value="media_aritmetica">media aritmetica</option><option value="mediana">mediana</option><option value="media_ponderada">media ponderada</option><option value="menor_preco">menor preco</option>
+              </select>
+            </Field>
+          </div>
+          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={pesquisarPNCP} primary>Pesquisar no PNCP</Button></div>
+        </Card>
+      );
+      case 9: return (
+        <Card title="Pesquisando precos nas fontes oficiais">
+          {pesquisando ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <Loader2 className="w-10 h-10 animate-spin text-neutral-500" />
+              <p className="text-sm text-neutral-500">Consultando as fontes de preços públicas (Compras.gov.br)...</p>
+              <p className="text-xs text-neutral-400 font-mono">Filtros: {config.regiao} | {config.periodo} | min. {config.qtdMin} refs</p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <AlertCircle className="w-10 h-10 text-amber-500" />
+              <p className="text-sm text-neutral-600">A pesquisa não está em execução ou não retornou referências.</p>
+              {erroPesquisa && <p className="text-xs text-neutral-500 max-w-md text-center">{erroPesquisa}</p>}
+              <div className="flex gap-3 mt-2">
+                <Button onClick={() => goToStep(10)} secondary>Ver últimos resultados</Button>
+                <Button onClick={pesquisarPNCP} primary>Refazer pesquisa</Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      );
       case 10: return (
-        <Card title="Análise estatística">
+        <Card title="Resultados da pesquisa (PNCP)">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-neutral-50">
+                <tr>
+                  <th className="text-left px-3 py-2 font-medium text-neutral-600">Orgao</th>
+                  <th className="text-left px-3 py-2 font-medium text-neutral-600">Descricao</th>
+                  <th className="text-left px-3 py-2 font-medium text-neutral-600">Qtd</th>
+                  <th className="text-left px-3 py-2 font-medium text-neutral-600">Data</th>
+                  <th className="text-left px-3 py-2 font-medium text-neutral-600">Valor unit.</th>
+                  <th className="text-left px-3 py-2 font-medium text-neutral-600">Fornecedor</th>
+                  <th className="text-left px-3 py-2 font-medium text-neutral-600">Local</th>
+                  <th className="text-left px-3 py-2 font-medium text-neutral-600">Sim.</th>
+                  <th className="text-left px-3 py-2 font-medium text-neutral-600">Origem / Link</th>
+                  <th className="text-left px-3 py-2 font-medium text-neutral-600">Acao</th>
+                </tr>
+              </thead>
+              <tbody>
+                {resultados.map(r => (
+                  <tr key={r.id} className={`border-t border-neutral-100 ${r.status_avaliacao === "rejeitado" ? "opacity-50 bg-red-50/30" : r.status_avaliacao === "aceito" ? "bg-green-50/30" : ""}`}>
+                    <td className="px-3 py-2">{r.orgao}</td>
+                    <td className="px-3 py-2 max-w-[200px] truncate" title={r.descricao}>{r.descricao}</td>
+                    <td className="px-3 py-2">{r.quantidade}</td>
+                    <td className="px-3 py-2">{r.data}</td>
+                    <td className="px-3 py-2">{formatarMoeda(r.valor_unitario ?? 0)}</td>
+                    <td className="px-3 py-2 max-w-[180px] truncate" title={r.fornecedor}>{r.fornecedor || "—"}</td>
+                    <td className="px-3 py-2">{r.localizacao}</td>
+                    <td className="px-3 py-2">{r.similaridade}%</td>
+                    <td className="px-3 py-2">
+                      <div className="flex flex-col gap-1">
+                        <span className="font-mono text-xs">{r.documento_origem}</span>
+                        <a href={r.link_origem} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium">
+                          <ExternalLink className="w-3 h-3" /> Ver edital
+                        </a>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1">
+                        <button onClick={() => avaliarResultado(r.id, "aceito")} className="p-1 rounded hover:bg-green-100 text-green-600" title="Aceitar"><Check size={14} /></button>
+                        <button onClick={() => avaliarResultado(r.id, "rejeitado")} className="p-1 rounded hover:bg-red-100 text-red-600" title="Rejeitar"><X size={14} /></button>
+                      </div>
+                      {r.status_avaliacao === "rejeitado" && (
+                        <input className="mt-1 w-full text-xs px-2 py-1 rounded border border-neutral-200" placeholder="Justificativa..." value={r.justificativa_rejeicao || ""} onChange={e => avaliarResultado(r.id, "rejeitado", e.target.value)} />
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="flex justify-between mt-6"><Button onClick={() => goToStep(8)} secondary>Voltar</Button><Button onClick={() => { calcular(); nextStep(); }} primary>Ir para calculos</Button></div>
+        </Card>
+      );
+      case 11: return (
+        <Card title="Analise da pesquisa (IA)">
+          {justificativaIA ? (
+            <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-4 text-sm text-neutral-700 whitespace-pre-wrap">
+              <strong className="block mb-2 text-neutral-800">Justificativa gerada pelo agente IA:</strong>
+              {justificativaIA}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-neutral-500 py-6">
+              <Loader2 className="w-4 h-4 animate-spin" /> Gerando justificativa e validacao...
+            </div>
+          )}
+          {validacaoIA && (
+            <div className={`mt-3 rounded-lg border p-3 ${validacaoIA.valido ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
+              <p className="text-sm font-medium text-neutral-800">
+                {validacaoIA.valido ? "Validacao aprovada" : "Validacao reprovada"} (score {validacaoIA.score_confianca})
+              </p>
+              {(validacaoIA.alertas || []).map((a: any, i: number) => (
+                <p key={i} className="mt-1 text-xs text-neutral-600">[{a.tipo}] {a.campo}: {a.mensagem} — {a.sugestao}</p>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={nextStep} primary>Proximo</Button></div>
+        </Card>
+      );
+      case 12: return (
+        <Card title="Analise estatistica">
           {estatisticas ? (
             <>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
-                <StatBox label="referências" value={estatisticas.n.toString()} />
-                <StatBox label="média" value={formatarMoeda(estatisticas.media)} />
+                <StatBox label="referencias" value={estatisticas.n.toString()} />
+                <StatBox label="media" value={formatarMoeda(estatisticas.media)} />
                 <StatBox label="mediana" value={formatarMoeda(estatisticas.mediana)} />
-                <StatBox label="mínimo" value={formatarMoeda(estatisticas.minimo)} />
-                <StatBox label="máximo" value={formatarMoeda(estatisticas.maximo)} />
-                <StatBox label="desvio padrão" value={estatisticas.desvioPadrao.toFixed(2)} />
-                <StatBox label="coef. variação" value={`${estatisticas.coeficienteVariacao.toFixed(1)}%`} />
+                <StatBox label="minimo" value={formatarMoeda(estatisticas.minimo)} />
+                <StatBox label="maximo" value={formatarMoeda(estatisticas.maximo)} />
+                <StatBox label="desvio padrao" value={estatisticas.desvioPadrao.toFixed(2).replace(".", ",")} />
+                <StatBox label="coef. variacao" value={`${estatisticas.coeficienteVariacao.toFixed(1).replace(".", ",")}%`} />
               </div>
               <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
-                <h3 className="text-sm font-medium mb-2">Memória de cálculo</h3>
+                <h3 className="text-sm font-medium mb-2">Memoria de calculo</h3>
                 <div className="font-mono text-xs text-neutral-600 space-y-1">
-                  <p>referências aceitas: {estatisticas.n}</p>
-                  <p>valores: {resultados.filter(r => r.avaliacao === "aceito" && r.valorUnitario != null).map(r => formatarMoeda(r.valorUnitario!)).join(" | ")}</p>
-                  <p>média = {formatarMoeda(estatisticas.media)}</p>
+                  <p>referencias aceitas: {estatisticas.n}</p>
+                  <p>valores: {resultados.filter(r => r.status_avaliacao === "aceito").map(r => formatarMoeda(r.valor_unitario ?? 0)).join(" | ")}</p>
+                  <p>media = {formatarMoeda(estatisticas.media)}</p>
                   <p>mediana = {formatarMoeda(estatisticas.mediana)}</p>
-                  <p>mínimo = {formatarMoeda(estatisticas.minimo)} | máximo = {formatarMoeda(estatisticas.maximo)}</p>
-                  <p>desvio padrão = {estatisticas.desvioPadrao.toFixed(2)}</p>
-                  <p>coeficiente de variação = {estatisticas.coeficienteVariacao.toFixed(1)}%</p>
+                  <p>minimo = {formatarMoeda(estatisticas.minimo)} | maximo = {formatarMoeda(estatisticas.maximo)}</p>
+                  <p>desvio padrao = {estatisticas.desvioPadrao.toFixed(2).replace(".", ",")}</p>
+                  <p>coeficiente de variacao = {estatisticas.coeficienteVariacao.toFixed(1).replace(".", ",")}%</p>
                 </div>
               </div>
-              {estatisticas.coeficienteVariacao > 25 && (
-                <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
-                  <strong>Atenção:</strong> O coeficiente de variação ({estatisticas.coeficienteVariacao.toFixed(1)}%) está acima de 25%, indicando alta dispersão dos preços. Considere revisar os resultados aceitos.
+            </>
+          ) : (
+            <p className="text-sm text-neutral-500 py-8 text-center">Nenhum resultado aceito. Volte e aceite pelo menos um registro.</p>
+          )}
+          <div className="flex justify-between mt-6"><Button onClick={() => goToStep(10)} secondary>Voltar</Button><Button onClick={nextStep} primary>Gerar preco estimado</Button></div>
+        </Card>
+      );
+      case 13: return (
+        <Card title="Preco estimado">
+          {precoEstimado ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <StatBox label="valor unitario estimado" value={formatarMoeda(precoEstimado.unitario)} />
+                <StatBox label={`valor total estimado (${quantidade} ${unidadeMedida})`} value={formatarMoeda(precoEstimado.total)} />
+                <StatBox label="metodo aplicado" value={config.metodo.replace("_", " ")} />
+              </div>
+              <div className="rounded-lg bg-blue-50 border border-blue-100 p-4 text-sm text-blue-800">
+                <strong>Justificativa automatica:</strong> {justificativaIA || `O preco foi formado com base em ${estatisticas?.n} registros do PNCP, utilizando o metodo da ${config.metodo.replace("_", " ")}. O coeficiente de variacao esta dentro dos limites aceitaveis para a categoria de informatica.`}
+              </div>
+              {validacaoIA && !validacaoIA.valido && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3">
+                  <p className="text-sm font-medium text-red-700">Validacao do agente validador: pesquisa reprovada (score {validacaoIA.score_confianca})</p>
+                  {(validacaoIA.alertas || []).map((a: any, i: number) => (
+                    <p key={i} className="mt-1 text-xs text-red-600">[{a.tipo}] {a.campo}: {a.mensagem} — {a.sugestao}</p>
+                  ))}
+                </div>
+              )}
+              {validacaoIA && validacaoIA.valido && (
+                <div className="mt-3 rounded-lg border border-green-200 bg-green-50 p-3">
+                  <p className="text-sm font-medium text-green-700">Validacao do agente validador: pesquisa aprovada (score {validacaoIA.score_confianca})</p>
                 </div>
               )}
             </>
           ) : (
-            <p className="text-sm text-neutral-500 py-8 text-center">Nenhum resultado aceito com valor unitário. Volte e aceite pelo menos um registro.</p>
+            <p className="text-sm text-neutral-500 py-8 text-center">Aceite pelo menos um resultado para gerar o preco estimado.</p>
           )}
-          <div className="flex justify-between mt-6">
-            <Button onClick={() => goToStep(9)} secondary>Voltar</Button>
-            <Button onClick={nextStep} primary disabled={!estatisticas}>Gerar preço estimado</Button>
-          </div>
+          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={async () => { await salvarPesquisa(); nextStep(); }} primary>{salvandoPesquisa ? <>Salvando...</> : <>Salvar evidencias</>}</Button></div>
         </Card>
       );
-
-      // ─── Step 11: Preço estimado ─────────────────────────────────────
-      case 11: return (
-        <Card title="Preço estimado">
-          {precoEstimado ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <StatBox label="valor unitário estimado" value={formatarMoeda(precoEstimado.unitario)} />
-                <StatBox label={`valor total (${quantidade} ${unidadeMedida})`} value={formatarMoeda(precoEstimado.total)} />
-                <StatBox label="método aplicado" value={config.metodo.replace(/_/g, " ")} />
-              </div>
-              <div className="rounded-lg bg-blue-50 border border-blue-100 p-4 text-sm text-blue-800">
-                <strong>Justificativa:</strong> O preço foi formado com base em {estatisticas?.n} referências de preços públicos, utilizando o método da {config.metodo.replace(/_/g, " ")}. Coeficiente de variação: {estatisticas?.coeficienteVariacao.toFixed(1)}%.
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-neutral-500 py-8 text-center">Aceite pelo menos um resultado com valor unitário para gerar o preço estimado.</p>
+      case 14: return (
+        <Card title="Documentos, links e evidencias">
+          {pesquisaSalvaId && (
+            <div className="mb-4 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+              ✓ Pesquisa salva com sucesso (id: <span className="font-mono">{pesquisaSalvaId.slice(0, 8)}</span>).
+            </div>
           )}
-          <div className="flex justify-between mt-6">
-            <Button onClick={prevStep} secondary>Voltar</Button>
-            <Button onClick={nextStep} primary disabled={!precoEstimado}>Salvar evidências</Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <Field label="Responsavel pela pesquisa"><input className="input bg-neutral-50" value={processo.responsavel} readOnly /></Field>
+            <Field label="E-mail"><input className="input bg-neutral-50" value={processo.email} readOnly /></Field>
           </div>
-        </Card>
-      );
-
-      // ─── Step 12: Evidências ─────────────────────────────────────────
-      case 12: return (
-        <Card title="Documentos e evidências">
           <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 mb-4">
-            <h4 className="text-sm font-medium mb-2">Links das referências aceitas</h4>
+            <h4 className="text-sm font-medium mb-2">Links das referencias aceitas (evidencias)</h4>
             {linksAceitos.length > 0 ? (
               <ul className="space-y-2">
                 {linksAceitos.map((link, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
-                    <ExternalLink className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
-                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">{link.nome}</a>
+                    <ExternalLink className="w-3.5 h-3.5 text-blue-500" />
+                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 font-medium">{link.nome}</a>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-neutral-500">Nenhuma referência com link aceita.</p>
+              <p className="text-sm text-neutral-500">Nenhuma referencia aceita ainda.</p>
             )}
           </div>
           <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-4">
-            <h4 className="text-sm font-medium mb-2">Evidências que serão registradas automaticamente</h4>
+            <h4 className="text-sm font-medium mb-2">Evidencias vinculadas automaticamente</h4>
             <ul className="list-disc list-inside text-sm text-neutral-600 space-y-1">
-              <li>Registros consultados nas fontes públicas em {new Date().toLocaleDateString("pt-BR")}</li>
-              <li>Termo de referência do processo {processo.numero}</li>
-              <li>Planilha de cálculo intermediária (XLSX)</li>
-              <li>Links dos editais aceitos como referência</li>
+              <li>Registros PNCP consultados em {new Date().toLocaleDateString("pt-BR")}</li>
+              <li>Termo de referencia do processo {processo.numero}</li>
+              <li>Prints das telas de pesquisa</li>
+              <li>Planilha de calculo intermediaria</li>
+              <li>Editais de empresas proximas consultados</li>
+            </ul>
+          </div>
+          <div className="flex justify-between mt-6"><Button onClick={prevStep} secondary>Voltar</Button><Button onClick={nextStep} primary>Gerar relatorio</Button></div>
+        </Card>
+      );
+      case 15: return (
+        <Card title="Relatorio final">
+          <div className="rounded-lg bg-blue-50 border border-blue-100 p-4 text-sm text-blue-800 mb-6">
+            <strong>Relatorio pronto para exportacao.</strong> O documento contem memoria de calculo, fontes utilizadas, links das referencias, estatisticas, dados do responsavel e justificativa do preco estimado.
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <Field label="Nome do arquivo PDF"><input className="input" defaultValue={`estimativa_${processo.numero.replace("/", "_")}.pdf`} /></Field>
+            <Field label="Nome do arquivo XLSX"><input className="input" defaultValue={`estimativa_${processo.numero.replace("/", "_")}.xlsx`} /></Field>
+          </div>
+          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 mb-4 text-sm">
+            <p className="font-medium text-neutral-700 mb-1">Metadados incluidos no documento:</p>
+            <ul className="list-disc list-inside text-neutral-600 space-y-1">
+              <li>Responsavel: {processo.responsavel} ({processo.email})</li>
+              <li>Processo: {processo.numero} | Orgao: {processo.orgao}</li>
+              <li>Links das referencias aceitas no PNCP</li>
+              <li>Memoria de calculo completa</li>
             </ul>
           </div>
           <div className="flex justify-between mt-6">
             <Button onClick={prevStep} secondary>Voltar</Button>
-            <Button
-              onClick={async () => {
-                await salvarEvidencias();
-                await concluirPesquisa();
-                nextStep();
-              }}
-              primary
-            >
-              Gerar relatório
-            </Button>
-          </div>
-        </Card>
-      );
-
-      // ─── Step 13: Relatório final ────────────────────────────────────
-      case 13: return (
-        <Card title="Relatório final">
-          <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm text-green-800 mb-6">
-            <Check className="w-4 h-4 inline mr-1" />
-            <strong>Pesquisa concluída e registrada.</strong> O relatório está pronto para exportação.
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <Field label="Nome do arquivo PDF">
-              <input className="input" defaultValue={`estimativa_${processo.numero.replace("/", "_")}.pdf`} readOnly />
-            </Field>
-            <Field label="Nome do arquivo XLSX">
-              <input className="input" defaultValue={`estimativa_${processo.numero.replace("/", "_")}.xlsx`} readOnly />
-            </Field>
-          </div>
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4 mb-4 text-sm">
-            <p className="font-medium text-neutral-700 mb-1">Metadados incluídos:</p>
-            <ul className="list-disc list-inside text-neutral-600 space-y-1">
-              <li>Responsável: {processo.responsavel} ({processo.email})</li>
-              <li>Processo: {processo.numero} | Órgão: {processo.orgao}</li>
-              <li>Referências aceitas ({resultados.filter(r => r.avaliacao === "aceito").length})</li>
-              <li>Memória de cálculo completa — método: {config.metodo.replace(/_/g, " ")}</li>
-            </ul>
-          </div>
-          <div className="flex justify-between mt-6">
             <div className="flex gap-2">
-              <Button onClick={() => router.push("/pesquisas")} secondary>Ver minhas pesquisas</Button>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => {
-                  const bytes = gerarXLSX(relatorioData);
-                  downloadXLSX(bytes, `estimativa_${processo.numero.replace("/", "_")}.xlsx`);
-                }}
-                secondary
-              >
-                Baixar XLSX
-              </Button>
+              <Button onClick={() => {
+                const bytes = gerarXLSX(relatorioData);
+                downloadXLSX(bytes, `estimativa_${processo.numero.replace("/", "_")}.xlsx`);
+              }} secondary>Baixar XLSX</Button>
               <PDFDownloadLink
                 document={<RelatorioPDFDocument {...relatorioData} />}
                 fileName={`estimativa_${processo.numero.replace("/", "_")}.pdf`}
@@ -815,108 +729,43 @@ export default function NovaPesquisaPage() {
           </div>
         </Card>
       );
-
       default: return null;
     }
   };
 
-  const stepInfo = [
-    "processo", "objeto", "especificação", "quantidade",
-    "local", "revisar", "configurar", "busca",
-    "resultados", "calculos", "preço", "evidências", "relatório"
-  ];
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-medium">Nova pesquisa de preços</h1>
-        {pesquisaId && (
-          <span className="text-xs font-mono text-neutral-400 bg-neutral-100 px-2 py-1 rounded">
-            ID: {pesquisaId.slice(0, 8)}...
-          </span>
-        )}
+        <h1 className="text-xl font-medium">Nova pesquisa</h1>
       </div>
-
-      {/* Step navigator */}
       <div className="flex gap-1 overflow-x-auto pb-2 mb-6">
         {Array.from({ length: totalSteps }, (_, i) => i + 1).map(s => (
-          <button
-            key={s}
-            onClick={() => goToStep(s)}
-            className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
-              s === step
-                ? "bg-neutral-900 text-white border-neutral-900"
-                : s < step
-                ? "bg-neutral-100 text-neutral-700 border-neutral-200 hover:bg-neutral-200"
-                : "bg-white text-neutral-400 border-neutral-200 cursor-not-allowed"
-            }`}
-            disabled={s > step}
-          >
-            {s}. {stepInfo[s - 1]}
+          <button key={s} onClick={() => goToStep(s)} className={`shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+            s === step ? "bg-neutral-900 text-white border-neutral-900" : s < step ? "bg-neutral-100 text-neutral-700 border-neutral-200" : "bg-white text-neutral-400 border-neutral-200"
+          }`}>
+            {s}. {stepLabels[s-1]}
           </button>
         ))}
       </div>
-
       {renderStep()}
     </div>
   );
 }
 
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-      <h2 className="text-base font-medium mb-4">{title}</h2>
-      {children}
-    </div>
-  );
+  return <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm"><h2 className="text-base font-medium mb-4">{title}</h2>{children}</div>;
 }
-
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-medium text-neutral-500">{label}</label>
-      {children}
-    </div>
-  );
+  return <div className="flex flex-col gap-1.5"><label className="text-xs font-medium text-neutral-500">{label}</label>{children}</div>;
 }
-
-function Button({
-  children, onClick, primary, secondary, disabled, className,
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  primary?: boolean;
-  secondary?: boolean;
-  disabled?: boolean;
-  className?: string;
-}) {
-  const base = "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border";
-  const styles = primary
-    ? "bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed"
-    : "bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed";
-  return (
-    <button onClick={onClick} disabled={disabled} className={`${base} ${styles} ${className || ""}`}>
-      {children}
-    </button>
-  );
+function Button({ children, onClick, primary, secondary }: { children: React.ReactNode; onClick?: () => void; primary?: boolean; secondary?: boolean }) {
+  const base = "px-4 py-2 rounded-lg text-sm font-medium transition-colors border";
+  const styles = primary ? "bg-neutral-900 text-white border-neutral-900 hover:bg-neutral-800" : "bg-white text-neutral-700 border-neutral-200 hover:bg-neutral-50";
+  return <button onClick={onClick} className={`${base} ${styles}`}>{children}</button>;
 }
-
 function StatBox({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-center">
-      <span className="block text-lg font-medium tabular-nums">{value}</span>
-      <span className="text-xs text-neutral-500">{label}</span>
-    </div>
-  );
+  return <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3 text-center"><span className="block text-lg font-medium tabular-nums">{value}</span><span className="text-xs text-neutral-500">{label}</span></div>;
 }
-
 function PlusIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  );
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>;
 }

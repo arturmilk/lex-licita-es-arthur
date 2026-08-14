@@ -1,121 +1,65 @@
-import { auth } from "@/auth";
-import { redirect } from "next/navigation";
-import { db } from "@/lib/db";
-import { processos, usuarios } from "@/lib/db/schema";
-import { eq, and, desc, ilike, or } from "drizzle-orm";
-import Link from "next/link";
-import { Plus } from "lucide-react";
-import ProcessosBusca from "@/components/ProcessosBusca";
+"use client";
+import React, { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
+import { listarProcessos } from "@/lib/actions";
 
-const STATUS_COLOR: Record<string, string> = {
-  rascunho: "bg-neutral-100 text-neutral-600",
-  pesquisando: "bg-blue-100 text-blue-700",
-  estimado: "bg-green-100 text-green-700",
-  concluido: "bg-emerald-100 text-emerald-700",
-  cancelado: "bg-red-100 text-red-600",
-};
+interface ProcessoRow {
+  id: string;
+  numero: string;
+  objeto: string;
+  unidade: string | null;
+  status: string;
+  updatedAt: Date | string;
+}
 
-const STATUS_LABEL: Record<string, string> = {
-  rascunho: "Rascunho",
-  pesquisando: "Pesquisando",
-  estimado: "Estimado",
-  concluido: "Concluído",
-  cancelado: "Cancelado",
-};
+export default function ProcessosPage() {
+  const [rows, setRows] = useState<ProcessoRow[] | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
 
-export default async function ProcessosPage({
-  searchParams,
-}: {
-  searchParams: { busca?: string; status?: string };
-}) {
-  const session = await auth();
-  if (!session) redirect("/login");
-  const orgaoId = (session.user as any).orgaoId;
+  useEffect(() => {
+    listarProcessos()
+      .then((r) => setRows(r as unknown as ProcessoRow[]))
+      .catch((e) => setErro(String(e?.message || e)));
+  }, []);
 
-  const conditions = [eq(processos.orgaoId, orgaoId)];
-  if (searchParams.status && searchParams.status !== "todos") {
-    conditions.push(eq(processos.status, searchParams.status as any));
-  }
-
-  let result = await db
-    .select({
-      id: processos.id,
-      numero: processos.numero,
-      objeto: processos.objeto,
-      unidade: processos.unidade,
-      status: processos.status,
-      updatedAt: processos.updatedAt,
-      usuarioNome: usuarios.nome,
-    })
-    .from(processos)
-    .leftJoin(usuarios, eq(processos.usuarioId, usuarios.id))
-    .where(and(...conditions))
-    .orderBy(desc(processos.updatedAt));
-
-  if (searchParams.busca) {
-    const b = searchParams.busca.toLowerCase();
-    result = result.filter(
-      (p) =>
-        p.numero.toLowerCase().includes(b) ||
-        p.objeto.toLowerCase().includes(b)
-    );
-  }
+  const statusLabel = (s: string) => ({ rascunho: "rascunho", pesquisando: "pesquisando", estimado: "estimado", concluido: "concluido", cancelado: "cancelado" }[s] || s);
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Processos</h1>
-          <p className="text-sm text-neutral-500 mt-1">{result.length} processo(s) encontrado(s)</p>
-        </div>
-        <Link
-          href="/pesquisa/nova"
-          className="flex items-center gap-2 px-4 py-2 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Nova pesquisa
-        </Link>
+        <h1 className="text-xl font-medium">Processos</h1>
       </div>
-
-      <ProcessosBusca initialBusca={searchParams.busca} initialStatus={searchParams.status} />
-
-      <div className="bg-white rounded-xl border border-neutral-200 mt-4">
-        {result.length === 0 ? (
-          <div className="px-6 py-12 text-center text-neutral-400 text-sm">
-            Nenhum processo encontrado.{" "}
-            <Link href="/pesquisa/nova" className="text-neutral-700 underline">
-              Criar novo
-            </Link>
+      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+        {erro && <p className="text-sm text-red-600 mb-3">Erro ao carregar: {erro}</p>}
+        {rows === null ? (
+          <div className="flex items-center justify-center py-16 gap-2 text-neutral-400">
+            <Loader2 className="w-5 h-5 animate-spin" /> Carregando processos...
           </div>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-neutral-500 py-10 text-center">Nenhum processo salvo ainda.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-100 text-left">
-                <th className="px-6 py-3 font-medium text-neutral-500">Número</th>
-                <th className="px-6 py-3 font-medium text-neutral-500">Objeto</th>
-                <th className="px-6 py-3 font-medium text-neutral-500">Status</th>
-                <th className="px-6 py-3 font-medium text-neutral-500">Responsável</th>
-                <th className="px-6 py-3 font-medium text-neutral-500">Atualizado</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-50">
-              {result.map((p) => (
-                <tr key={p.id} className="hover:bg-neutral-50 transition-colors">
-                  <td className="px-6 py-3 font-mono text-xs text-neutral-600">{p.numero}</td>
-                  <td className="px-6 py-3 text-neutral-800 max-w-xs truncate">{p.objeto}</td>
-                  <td className="px-6 py-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLOR[p.status] || "bg-neutral-100"}`}>
-                      {STATUS_LABEL[p.status] || p.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-3 text-neutral-600">{p.usuarioNome || "—"}</td>
-                  <td className="px-6 py-3 text-neutral-400 text-xs">
-                    {new Date(p.updatedAt).toLocaleDateString("pt-BR")}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="border-b border-neutral-200">
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Numero</th>
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Objeto</th>
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Unidade</th>
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Status</th>
+                <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Atualizado</th>
+              </tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-b border-neutral-100 hover:bg-neutral-50">
+                    <td className="py-2 px-3 font-mono text-xs">{r.numero}</td>
+                    <td className="py-2 px-3 max-w-[320px] truncate" title={r.objeto}>{r.objeto}</td>
+                    <td className="py-2 px-3">{r.unidade || "—"}</td>
+                    <td className="py-2 px-3"><span className="text-xs px-2 py-0.5 rounded bg-neutral-100 text-neutral-600">{statusLabel(r.status)}</span></td>
+                    <td className="py-2 px-3">{new Date(r.updatedAt).toLocaleDateString("pt-BR")}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
     </div>

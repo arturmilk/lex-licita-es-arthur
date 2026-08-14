@@ -12,9 +12,15 @@ export async function GET(req: NextRequest) {
   const fonte = (searchParams.get("fonte") || "pncp") as FonteId;
   const pagina = Number(searchParams.get("pagina") || "1");
   const tamanhoPagina = Number(searchParams.get("tamanhoPagina") || "20");
+  const uf = searchParams.get("uf") || undefined;
+  const dataInicial = searchParams.get("dataInicial") || undefined;
+  const dataFinal = searchParams.get("dataFinal") || undefined;
 
   if (!termo) return NextResponse.json({ error: "Parâmetro 'termo' obrigatório" }, { status: 400 });
 
-  const result = await buscarFonte(fonte, { termo, pagina, tamanhoPagina });
+  const inicio = Date.now();
+  const result = await buscarFonte(fonte, { termo, pagina, tamanhoPagina, uf, dataInicial, dataFinal });
+  const { logEvento } = await import("@/lib/logger");
+  logEvento("consulta_fonte", { fonte, termo: termo.slice(0, 120), uf, total: result?.total ?? 0, items: result?.items?.length ?? 0, erro: result?.erro ?? null, ms: Date.now() - inicio });
   return NextResponse.json(result);
 }

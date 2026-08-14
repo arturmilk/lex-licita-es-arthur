@@ -9,6 +9,7 @@ export async function POST(req: NextRequest) {
     if (!objeto || !Array.isArray(candidatos) || candidatos.length === 0) {
       return NextResponse.json({ error: "objeto e candidatos[] são obrigatórios" }, { status: 400 });
     }
+    const inicio = Date.now();
     const resultados = await Promise.all(
       candidatos.map(async (c: any) => {
         const sim = await calcularSimilaridade(objeto, especificacoes || [], {
@@ -19,8 +20,12 @@ export async function POST(req: NextRequest) {
         return { ...c, ...sim };
       })
     );
+    const { logEvento } = await import("@/lib/logger");
+    logEvento("ia_similaridade", { ok: true, n: resultados.length, ms: Date.now() - inicio });
     return NextResponse.json({ resultados });
   } catch (err: any) {
+    const { logEvento } = await import("@/lib/logger");
+    logEvento("ia_similaridade", { ok: false, erro: err?.message?.slice(0, 300) });
     return NextResponse.json({ error: "Erro no agente similaridade", detalhe: err?.message }, { status: 500 });
   }
 }
