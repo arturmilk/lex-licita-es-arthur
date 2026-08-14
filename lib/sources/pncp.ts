@@ -8,7 +8,8 @@ import type { BuscaParams, ResultadoFonte, ResultadoBruto } from "./types";
 //   tamanhoPagina mínimo = 10
 // O WAF do PNCP bloqueia IPs fora do Brasil; por isso o proxy roda num VPS BR
 // (Oracle, IP brasileiro) e expõe o mesmo caminho /v1/... localmente via túnel.
-const PROXY_BASE = (process.env.PNCP_PROXY_URL || "http://172.21.0.1:8787").replace(/\/$/, "");
+// No VPS do Brasil (ex.: Hostinger) usa direto; na Europa usa o proxy via túnel.
+const PROXY_BASE = (process.env.PNCP_PROXY_URL || "").replace(/\/$/, "");
 const PROXY_TOKEN = process.env.PNCP_PROXY_TOKEN || "";
 const DIRETO_BASE = "https://pncp.gov.br/api/consulta";
 const MODALIDADE_DEFAULT = 8; // Pregão (maior volume de publicações com preços)
@@ -37,7 +38,8 @@ export async function buscarPNCP(params: BuscaParams): Promise<ResultadoFonte> {
 
   try {
     // endpoint documentado: /v1/contratacoes/publicacao (singular)
-    const url = new URL(`${PROXY_BASE}/v1/contratacoes/publicacao`);
+    const base = PROXY_BASE || DIRETO_BASE;
+    const url = new URL(`${base}/v1/contratacoes/publicacao`);
     url.searchParams.set("dataInicial", params.dataInicial || dataFormatada(180));
     url.searchParams.set("dataFinal", params.dataFinal || dataFormatada(0));
     url.searchParams.set("codigoModalidadeContratacao", String(params.modalidade || MODALIDADE_DEFAULT));

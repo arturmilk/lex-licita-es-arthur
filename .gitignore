@@ -44,3 +44,12 @@ docker-compose.override.yml
 data/
 *.db
 *.sqlite
+
+# dados locais / volumes
+/minio-data/
+/postgres-data/
+/scripts/__pycache__/
+*.pyc
+# segredos
+service-account.json
+*.log
