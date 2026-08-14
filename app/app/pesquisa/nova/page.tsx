@@ -6,6 +6,7 @@ import { calcularEstatisticas, calcularPrecoEstimado, formatarMoeda } from "@/li
 import { gerarXLSX, downloadXLSX } from "@/lib/xlsx-generator";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { RelatorioPDFDocument } from "@/lib/pdf-generator";
+import { criarProcesso, criarPesquisa, salvarResultadosPesquisa, atualizarPesquisa } from "@/lib/actions";
 
 type MetodoCalculo = "media_aritmetica" | "mediana" | "media_ponderada" | "menor_preco";
 type PeriodoPesquisa = "6_meses" | "12_meses" | "24_meses";
@@ -246,7 +247,6 @@ export default function NovaPesquisaPage() {
     if (pesquisaSalvaId) return pesquisaSalvaId;
     setSalvandoPesquisa(true);
     try {
-      const { criarProcesso, criarPesquisa, salvarResultadosPesquisa, atualizarPesquisa } = await import("@/lib/actions");
       const processoSalvo = await criarProcesso({ numero: processo.numero, objeto: objetoDesc, unidade: processo.unidade });
       const nova = await criarPesquisa({
         processoId: processoSalvo.id,
