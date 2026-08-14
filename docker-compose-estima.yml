@@ -64,6 +64,8 @@ services:
       MINIO_BUCKET: estimaia
       AGENT_API_KEY: ${AGENT_API_KEY}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      PNCP_PROXY_URL: ${PNCP_PROXY_URL:-http://172.21.0.1:8787}
+      PNCP_PROXY_TOKEN: ${PNCP_PROXY_TOKEN:-}
       NODE_ENV: production
     networks:
       - internal
