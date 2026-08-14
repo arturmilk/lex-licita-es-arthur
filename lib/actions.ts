@@ -9,7 +9,7 @@ import {
   evidencias,
   configuracoes,
 } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, inArray, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
 export async function listarProcessos() {
@@ -36,6 +36,7 @@ export async function criarPesquisa(data: {
   unidadeMedida?: string;
   localEntrega?: string;
   especificacoes?: unknown;
+  caracteristicasIA?: unknown;
   periodoPesquisa?: string;
   regiaoPesquisa?: string;
   metodoCalculo?: "media_aritmetica" | "mediana" | "media_ponderada" | "menor_preco";
@@ -54,6 +55,45 @@ export async function atualizarPesquisa(id: string, data: Partial<typeof pesquis
   return updated;
 }
 
+export async function listarPesquisas() {
+  const session = await auth();
+  if (!session) throw new Error("Não autorizado");
+  const orgaoId = (session.user as any).orgaoId;
+
+  const result = await db
+    .select({
+      id: pesquisas.id,
+      objeto: pesquisas.objeto,
+      quantidade: pesquisas.quantidade,
+      status: pesquisas.status,
+      precoUnitarioEstimado: pesquisas.precoUnitarioEstimado,
+      precoTotalEstimado: pesquisas.precoTotalEstimado,
+      estatisticas: pesquisas.estatisticas,
+      createdAt: pesquisas.createdAt,
+      processoId: pesquisas.processoId,
+      processoNumero: processos.numero,
+    })
+    .from(pesquisas)
+    .leftJoin(processos, eq(pesquisas.processoId, processos.id))
+    .where(eq(processos.orgaoId, orgaoId))
+    .orderBy(desc(pesquisas.createdAt));
+
+  const ids = result.map((r) => r.id);
+  let contagens: Record<string, number> = {};
+  if (ids.length) {
+    const rows = await db
+      .select({ pesquisaId: resultadosPesquisa.pesquisaId, avaliacao: resultadosPesquisa.avaliacao })
+      .from(resultadosPesquisa)
+      .where(inArray(resultadosPesquisa.pesquisaId, ids));
+    contagens = rows.reduce((acc, r) => {
+      acc[r.pesquisaId] = (acc[r.pesquisaId] || 0) + (r.avaliacao === "aceito" ? 1 : 0);
+      return acc;
+    }, {} as Record<string, number>);
+  }
+
+  return result.map((r) => ({ ...r, referenciasAceitas: contagens[r.id] || 0 }));
+}
+
 export async function salvarResultadosPesquisa(
   pesquisaId: string,
   resultados: Array<{
@@ -68,6 +108,8 @@ export async function salvarResultadosPesquisa(
     similaridade: number;
     documentoOrigem?: string | null;
     linkEdital?: string | null;
+    avaliacao?: "pendente" | "aceito" | "rejeitado";
+    justificativaRejeicao?: string | null;
     dadosBrutos?: Record<string, unknown>;
   }>
 ) {
@@ -77,6 +119,46 @@ export async function salvarResultadosPesquisa(
 
 // Keep old name as alias
 export const salvarResultadosPNCP = salvarResultadosPesquisa;
+
+export async function buscarPesquisa(id: string) {
+  const session = await auth();
+  if (!session) throw new Error("Não autorizado");
+  const orgaoId = (session.user as any).orgaoId;
+
+  const [pesquisa] = await db
+    .select({
+      id: pesquisas.id,
+      objeto: pesquisas.objeto,
+      especificacoes: pesquisas.especificacoes,
+      caracteristicasIA: pesquisas.caracteristicasIA,
+      quantidade: pesquisas.quantidade,
+      unidadeMedida: pesquisas.unidadeMedida,
+      localEntrega: pesquisas.localEntrega,
+      status: pesquisas.status,
+      precoUnitarioEstimado: pesquisas.precoUnitarioEstimado,
+      precoTotalEstimado: pesquisas.precoTotalEstimado,
+      estatisticas: pesquisas.estatisticas,
+      justificativa: pesquisas.justificativa,
+      metodoCalculo: pesquisas.metodoCalculo,
+      createdAt: pesquisas.createdAt,
+      processoNumero: processos.numero,
+      processoUnidade: processos.unidade,
+    })
+    .from(pesquisas)
+    .innerJoin(processos, eq(pesquisas.processoId, processos.id))
+    .where(and(eq(pesquisas.id, id), eq(processos.orgaoId, orgaoId)))
+    .limit(1);
+
+  if (!pesquisa) throw new Error("Pesquisa não encontrada");
+
+  const resultados = await db
+    .select()
+    .from(resultadosPesquisa)
+    .where(eq(resultadosPesquisa.pesquisaId, id))
+    .orderBy(desc(resultadosPesquisa.createdAt));
+
+  return { ...pesquisa, resultados };
+}
 
 export async function avaliarResultado(
   id: string,
