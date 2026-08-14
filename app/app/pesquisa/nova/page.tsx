@@ -274,6 +274,8 @@ export default function NovaPesquisaPage() {
           similaridade: r.similaridade,
           documentoOrigem: r.documento_origem,
           linkEdital: r.link_origem || null,
+          avaliacao: r.status_avaliacao,
+          justificativaRejeicao: r.justificativa_rejeicao || null,
           dadosBrutos: { fornecedor: r.fornecedor || null },
         })));
       }

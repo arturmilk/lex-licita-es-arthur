@@ -108,6 +108,8 @@ export async function salvarResultadosPesquisa(
     similaridade: number;
     documentoOrigem?: string | null;
     linkEdital?: string | null;
+    avaliacao?: "pendente" | "aceito" | "rejeitado";
+    justificativaRejeicao?: string | null;
     dadosBrutos?: Record<string, unknown>;
   }>
 ) {
@@ -117,6 +119,46 @@ export async function salvarResultadosPesquisa(
 
 // Keep old name as alias
 export const salvarResultadosPNCP = salvarResultadosPesquisa;
+
+export async function buscarPesquisa(id: string) {
+  const session = await auth();
+  if (!session) throw new Error("Não autorizado");
+  const orgaoId = (session.user as any).orgaoId;
+
+  const [pesquisa] = await db
+    .select({
+      id: pesquisas.id,
+      objeto: pesquisas.objeto,
+      especificacoes: pesquisas.especificacoes,
+      caracteristicasIA: pesquisas.caracteristicasIA,
+      quantidade: pesquisas.quantidade,
+      unidadeMedida: pesquisas.unidadeMedida,
+      localEntrega: pesquisas.localEntrega,
+      status: pesquisas.status,
+      precoUnitarioEstimado: pesquisas.precoUnitarioEstimado,
+      precoTotalEstimado: pesquisas.precoTotalEstimado,
+      estatisticas: pesquisas.estatisticas,
+      justificativa: pesquisas.justificativa,
+      metodoCalculo: pesquisas.metodoCalculo,
+      createdAt: pesquisas.createdAt,
+      processoNumero: processos.numero,
+      processoUnidade: processos.unidade,
+    })
+    .from(pesquisas)
+    .innerJoin(processos, eq(pesquisas.processoId, processos.id))
+    .where(and(eq(pesquisas.id, id), eq(processos.orgaoId, orgaoId)))
+    .limit(1);
+
+  if (!pesquisa) throw new Error("Pesquisa não encontrada");
+
+  const resultados = await db
+    .select()
+    .from(resultadosPesquisa)
+    .where(eq(resultadosPesquisa.pesquisaId, id))
+    .orderBy(desc(resultadosPesquisa.createdAt));
+
+  return { ...pesquisa, resultados };
+}
 
 export async function avaliarResultado(
   id: string,
