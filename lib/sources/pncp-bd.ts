@@ -68,6 +68,14 @@ export async function buscarPNCPBigQuery(params: BuscaParams): Promise<Resultado
     const items: ResultadoBruto[] = rows.map((r) => {
       const valorUnitario = r.valor_unitario != null ? Number(r.valor_unitario) : null;
       const quantidade = r.quantidade != null ? Number(r.quantidade) : null;
+      let linkEdital: string | null = null;
+      if (r.id_contrato) {
+        const parts = String(r.id_contrato).split(/[-\/]/);
+        // formato esperado: CNPJ14-TIPO-SEQ/ANO  -> [cnpj, tipo, seq, ano]
+        if (parts.length >= 4 && /^\d{14}$/.test(parts[0])) {
+          linkEdital = `https://pncp.gov.br/app/editais/${parts[0]}/${parts[3]}/${parts[2]}`;
+        }
+      }
       return {
         fonte: "pncp_bd" as const,
         orgao: r.nome_orgao || "Órgão público",
@@ -79,7 +87,7 @@ export async function buscarPNCPBigQuery(params: BuscaParams): Promise<Resultado
         localizacao: r.municipio ? `${r.municipio}/${r.uf || ""}`.replace(/\/$/, "") : r.uf || null,
         similaridade: calcSimilaridade(r.descricao, termos),
         documentoOrigem: r.id_contrato || r.numero_contrato || null,
-        linkEdital: null,
+        linkEdital,
         dadosBrutos: r as unknown as Record<string, unknown>,
       };
     });

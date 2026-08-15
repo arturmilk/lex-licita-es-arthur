@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, ExternalLink } from "lucide-react";
 import { buscarPesquisa } from "@/lib/actions";
 
 interface ResultadoRow {
@@ -85,6 +85,7 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Valor unit.</th>
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Local</th>
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Sim.</th>
+                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Edital</th>
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Avaliacao</th>
                 </tr></thead>
                 <tbody>
@@ -97,6 +98,15 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
                       <td className="py-2 px-3">{fmt(r.valorUnitario)}</td>
                       <td className="py-2 px-3">{r.localizacao || "—"}</td>
                       <td className="py-2 px-3">{r.similaridade ?? "—"}%</td>
+                      <td className="py-2 px-3">
+                        {r.linkEdital ? (
+                          <a href={r.linkEdital} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-medium whitespace-nowrap">
+                            <ExternalLink className="w-3 h-3" /> Ver
+                          </a>
+                        ) : (
+                          <span className="text-xs text-neutral-400">—</span>
+                        )}
+                      </td>
                       <td className="py-2 px-3">
                         <span className={`text-xs px-2 py-0.5 rounded ${r.avaliacao === "aceito" ? "bg-green-100 text-green-700" : r.avaliacao === "rejeitado" ? "bg-red-100 text-red-700" : "bg-neutral-100 text-neutral-600"}`}>{r.avaliacao}</span>
                       </td>
