@@ -180,29 +180,29 @@ export default function NovaPesquisaPage() {
     setPesquisando(true); setResultados([]); setErroPesquisa(null);
     goToStep(9);
 
-    // Monta dois termos de busca: um enriquecido pela IA, outro o objeto original
+    // Monta termos de busca: usa o PRIMEIRO keyword da IA (mais específico) como
+    // termo principal, e o objetoDesc como secundário. Evita juntar tudo numa
+    // string longa repetitiva que confunde o catálogo CATSER/CATMAT.
     const palavrasChave = caracteristicasIA
       .filter(c => c.caracteristica.startsWith("palavra_chave_"))
-      .map(c => c.valor);
-    const caracteristicas = caracteristicasIA
-      .filter(c => !c.caracteristica.startsWith("palavra_chave_"))
-      .map(c => c.valor);
-    const termoIA = palavrasChave.length
-      ? [...palavrasChave, ...caracteristicas.slice(0, 3)].join(" ")
-      : caracteristicas.length
-        ? `${objetoDesc} ${caracteristicas.join(" ")}`
-        : objetoDesc;
-    const termoOriginal = objetoDesc;
+      .map(c => c.valor)
+      .filter((v, i, arr) => arr.indexOf(v) === i); // deduplica
+    // termoIA: primeiro keyword IA ou, se ausente, objetoDesc
+    const termoIA = palavrasChave[0] || objetoDesc;
+    // termoSecundario: segundo keyword IA ou objetoDesc (só chama se diferente)
+    const termoSecundario = (palavrasChave[1] && palavrasChave[1] !== termoIA)
+      ? palavrasChave[1]
+      : objetoDesc !== termoIA ? objetoDesc : null;
 
     const uf = (localEntrega.split("/").pop() || "").trim().toUpperCase().slice(0, 2);
 
-    // Busca em paralelo: termoIA + termoOriginal (evita duplicar se forem iguais)
+    // Busca em paralelo: termoIA + termoSecundario (se existir)
     const buscas: Promise<Response>[] = [
-      fetch(`/api/pncp?termo=${encodeURIComponent(termoIA)}&fontes=precos_abertos&tamanhoPagina=20${uf ? `&uf=${encodeURIComponent(uf)}` : ""}`, { signal: AbortSignal.timeout(120_000) }),
+      fetch(`/api/pncp?termo=${encodeURIComponent(termoIA)}&fontes=precos_abertos&tamanhoPagina=20`, { signal: AbortSignal.timeout(120_000) }),
     ];
-    if (termoOriginal !== termoIA) {
+    if (termoSecundario) {
       buscas.push(
-        fetch(`/api/pncp?termo=${encodeURIComponent(termoOriginal)}&fontes=precos_abertos&tamanhoPagina=15${uf ? `&uf=${encodeURIComponent(uf)}` : ""}`, { signal: AbortSignal.timeout(120_000) })
+        fetch(`/api/pncp?termo=${encodeURIComponent(termoSecundario)}&fontes=precos_abertos&tamanhoPagina=15`, { signal: AbortSignal.timeout(120_000) })
       );
     }
 
@@ -246,7 +246,7 @@ export default function NovaPesquisaPage() {
         goToStep(10);
         return;
       } else {
-        setErroPesquisa(`Nenhuma referência encontrada para "${termoIA}". Tente ampliar o período de pesquisa ou usar termos mais gerais.`);
+        setErroPesquisa(`Nenhuma referência encontrada para "${termoIA}"${termoSecundario ? ` nem "${termoSecundario}"` : ""}. Tente ampliar o período de pesquisa (ex.: 24 meses) ou edite os termos na etapa de revisão.`);
         setResultados([]);
       }
     } catch (err: any) {

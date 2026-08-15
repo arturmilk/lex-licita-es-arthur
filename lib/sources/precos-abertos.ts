@@ -102,10 +102,33 @@ function normalizar(s: string): string {
   return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 }
 
+// Sinônimos para termos de TI que aparecem de formas diferentes no CATSER
+const SINONIMOS: Record<string, string[]> = {
+  datacenter: ["data", "center"],
+  "data center": ["datacenter"],
+  helpdesk: ["help", "desk"],
+  outsourcing: ["terceirizacao"],
+  vmware: ["virtualizacao"],
+  firewall: ["seguranca", "rede"],
+  storage: ["armazenamento"],
+  backup: ["contingencia"],
+};
+
 function tokens(termo: string): string[] {
-  return normalizar(termo)
+  const norm = normalizar(termo);
+  // expande sinônimos antes de tokenizar
+  let expandido = norm;
+  for (const [k, vs] of Object.entries(SINONIMOS)) {
+    if (expandido.includes(normalizar(k))) {
+      expandido += " " + vs.join(" ");
+    }
+  }
+  const tks = expandido
     .split(/[^a-z0-9]+/)
     .filter(t => t.length > 2 && !STOPWORDS.has(t) && !/^\d+$/.test(t));
+  // deduplica mantendo ordem
+  const vistos = new Set<string>();
+  return tks.filter(t => { if (vistos.has(t)) return false; vistos.add(t); return true; });
 }
 
 function variantes(t: string): string[] {
@@ -223,7 +246,7 @@ export async function buscarPrecosAbertos(params: BuscaParams): Promise<Resultad
         .filter(x => x.score > 0)
         .sort((a, b) => b.score - a.score || (a.p.nomePdm || "").length - (b.p.nomePdm || "").length);
 
-      pdms = pontuados.slice(0, 6).map(x => x.p.codigoPdm);
+      pdms = pontuados.slice(0, 10).map(x => x.p.codigoPdm);
 
       // fallback: se não achou no catálogo primário, tenta o outro
       if (!pdms.length) {
@@ -233,12 +256,15 @@ export async function buscarPrecosAbertos(params: BuscaParams): Promise<Resultad
           .map(p => ({ p, score: pontuarPdm(p, termos) }))
           .filter(x => x.score > 0)
           .sort((a, b) => b.score - a.score);
-        pdms = pontuadosFallback.slice(0, 4).map(x => x.p.codigoPdm);
+        pdms = pontuadosFallback.slice(0, 6).map(x => x.p.codigoPdm);
         if (!pdms.length) return { fonte: "precos_abertos", items: [], total: 0 };
       }
     }
 
-    const registros = await buscarPrecos(tipoConsulta, pdms, inicio, fim, pagina, tamanhoPagina, uf);
+    // Para serviços de TI, não filtrar por UF — contratos são nacionais e a
+    // maioria fica em DF/SP/RJ; filtrar por UF zera os resultados fora desses estados.
+    const ufEfetiva = tipoConsulta === "servico" ? undefined : uf;
+    const registros = await buscarPrecos(tipoConsulta, pdms, inicio, fim, pagina, tamanhoPagina, ufEfetiva);
 
     const items: ResultadoBruto[] = registros.map(r => {
       const valorUnitario = r.precoUnitario ?? null;
