@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Users, Settings, Save, Activity, Copy, RefreshCw, CheckCircle2, Loader2 } from "lucide-react";
+import { Users, Settings, Save, Activity, Copy, RefreshCw, CheckCircle2, Loader2, ShieldAlert } from "lucide-react";
 
 interface MonitorData {
   logs: string;
@@ -8,6 +8,51 @@ interface MonitorData {
   sessoes: any[];
   usuarios: any[];
   horario: string;
+}
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>;
+}
+
+function CardHeader({ title, icon: Icon, action }: { title: string; icon: React.ElementType; action?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+      <div className="flex items-center gap-2">
+        <Icon className="w-4 h-4 text-indigo-600" />
+        <h2 className="text-base font-semibold text-slate-800">{title}</h2>
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function StatBox({ label, value, cls = "" }: { label: string; value: React.ReactNode; cls?: string }) {
+  return (
+    <div className="rounded-lg bg-slate-50 border border-slate-200 p-4">
+      <p className="text-xs text-slate-500 mb-1">{label}</p>
+      <p className={`text-2xl font-bold tabular-nums ${cls}`}>{value}</p>
+    </div>
+  );
+}
+
+function Inp({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+      <input className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" {...props} />
+    </div>
+  );
+}
+
+function Sel({ label, children, ...props }: { label: string } & React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div>
+      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+      <select className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" {...props}>
+        {children}
+      </select>
+    </div>
+  );
 }
 
 export default function AdminPage() {
@@ -26,10 +71,7 @@ export default function AdminPage() {
     setMonitorErro(null);
     fetch("/api/admin/logs")
       .then((r) => r.json())
-      .then((d) => {
-        if (d?.error) setMonitorErro(d.error);
-        else setMonitor(d);
-      })
+      .then((d) => { if (d?.error) setMonitorErro(d.error); else setMonitor(d); })
       .catch((e) => setMonitorErro(String(e?.message || e)));
   };
 
@@ -46,9 +88,7 @@ export default function AdminPage() {
   };
 
   const salvarConfig = async () => {
-    setSalvandoConfig(true);
-    setConfigSalva(null);
-    setConfigErro(null);
+    setSalvandoConfig(true); setConfigSalva(null); setConfigErro(null);
     try {
       const res = await fetch("/api/admin/configuracoes", {
         method: "PUT",
@@ -74,199 +114,211 @@ export default function AdminPage() {
       await navigator.clipboard.writeText(monitor.logs);
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
-    } catch {
-      alert("Selecione e copie manualmente (Ctrl+C).");
-    }
+    } catch { alert("Selecione e copie manualmente (Ctrl+C)."); }
   };
 
-  const fmtMoeda = (v: string | null) => (v == null ? "—" : `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`);
+  const fmtMoeda = (v: string | null) => v == null ? "—" : `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
   const fmtData = (d: string) => new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-  const linhasErro = (monitor?.logs || "").split("\n").filter((l) => l.includes("\"ok\":false") || l.includes("erro")).length;
+  const linhasErro = (monitor?.logs || "").split("\n").filter(l => l.includes('"ok":false') || l.includes("erro")).length;
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-medium">Administracao</h1>
-        <span className="text-xs text-neutral-400">Ultima atualizacao: {monitor ? fmtData(monitor.horario) : "—"}</span>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-slate-800">Administração</h1>
+          <p className="text-sm text-slate-500 mt-0.5">
+            {monitor ? `Última atualização: ${fmtData(monitor.horario)}` : "Carregando..."}
+          </p>
+        </div>
       </div>
 
-      {/* MONITORAMENTO */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm mb-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Activity className="w-5 h-5 text-neutral-600" />
-            <h2 className="text-base font-medium">Monitoramento do sistema</h2>
-          </div>
-          <button onClick={carregarMonitor} className="inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 px-2 py-1 rounded border border-neutral-200">
-            <RefreshCw className="w-3.5 h-3.5" /> Atualizar
-          </button>
-        </div>
-
-        {monitorErro && <p className="text-sm text-red-600 mb-3">{monitorErro}</p>}
-        {!monitor && !monitorErro && (
-          <div className="flex items-center gap-2 text-neutral-400 text-sm py-8 justify-center">
-            <Loader2 className="w-4 h-4 animate-spin" /> Carregando monitor...
-          </div>
-        )}
-
-        {monitor && (
-          <>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-              <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-3">
-                <p className="text-xs text-neutral-500">Pesquisas no sistema</p>
-                <p className="text-2xl font-semibold">{monitor.pesquisas.length}</p>
-              </div>
-              <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-3">
-                <p className="text-xs text-neutral-500">Sessoes de agentes</p>
-                <p className="text-2xl font-semibold">{monitor.sessoes.length}</p>
-              </div>
-              <div className="rounded-lg bg-neutral-50 border border-neutral-200 p-3">
-                <p className="text-xs text-neutral-500">Utilizadores</p>
-                <p className="text-2xl font-semibold">{monitor.usuarios.length}</p>
-              </div>
-              <div className={`rounded-lg border p-3 ${linhasErro > 0 ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200"}`}>
-                <p className="text-xs text-neutral-500">Erros nos logs</p>
-                <p className={`text-2xl font-semibold ${linhasErro > 0 ? "text-red-600" : "text-green-600"}`}>{linhasErro}</p>
-              </div>
+      {/* Monitoramento */}
+      <Card>
+        <CardHeader
+          title="Monitoramento do sistema"
+          icon={Activity}
+          action={
+            <button
+              onClick={carregarMonitor}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Atualizar
+            </button>
+          }
+        />
+        <div className="p-6">
+          {monitorErro && (
+            <div className="mb-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              <ShieldAlert className="w-4 h-4 shrink-0" /> {monitorErro}
             </div>
+          )}
+          {!monitor && !monitorErro ? (
+            <div className="flex items-center justify-center py-10 gap-2 text-slate-400">
+              <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
+            </div>
+          ) : monitor && (
+            <div className="space-y-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <StatBox label="Pesquisas" value={monitor.pesquisas.length} />
+                <StatBox label="Sessões de agentes" value={monitor.sessoes.length} />
+                <StatBox label="Usuários" value={monitor.usuarios.length} />
+                <StatBox
+                  label="Erros nos logs"
+                  value={linhasErro}
+                  cls={linhasErro > 0 ? "text-red-600" : "text-green-600"}
+                />
+              </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-              <div className="rounded-lg border border-neutral-200 overflow-hidden">
-                <h3 className="text-xs font-medium text-neutral-500 uppercase px-3 py-2 bg-neutral-50 border-b border-neutral-200">Pesquisas recentes</h3>
-                <div className="overflow-x-auto">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Pesquisas recentes */}
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pesquisas recentes</p>
+                  </div>
                   <table className="w-full text-sm">
-                    <thead><tr className="border-b border-neutral-100">
-                      <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs">Processo</th>
-                      <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs">Objeto</th>
-                      <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs">Status</th>
-                      <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs">Total</th>
-                    </tr></thead>
-                    <tbody>
-                      {(monitor.pesquisas || []).map((p) => (
-                        <tr key={p.id} className="border-b border-neutral-100">
+                    <thead className="border-b border-slate-100">
+                      <tr>
+                        {["Processo", "Objeto", "Status", "Total"].map(h => (
+                          <th key={h} className="text-left py-2 px-3 text-xs font-medium text-slate-500">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {monitor.pesquisas.length === 0 ? (
+                        <tr><td colSpan={4} className="py-6 text-center text-xs text-slate-400">Sem pesquisas</td></tr>
+                      ) : monitor.pesquisas.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-50">
                           <td className="py-2 px-3 font-mono text-xs">{p.processoNumero || "—"}</td>
-                          <td className="py-2 px-3 max-w-[160px] truncate" title={p.objeto}>{p.objeto}</td>
-                          <td className="py-2 px-3"><span className="text-xs px-2 py-0.5 rounded bg-neutral-100 text-neutral-600">{p.status}</span></td>
-                          <td className="py-2 px-3 text-xs">{fmtMoeda(p.precoTotalEstimado)}</td>
+                          <td className="py-2 px-3 max-w-[140px] truncate text-xs" title={p.objeto}>{p.objeto}</td>
+                          <td className="py-2 px-3">
+                            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{p.status}</span>
+                          </td>
+                          <td className="py-2 px-3 text-xs font-mono">{fmtMoeda(p.precoTotalEstimado)}</td>
                         </tr>
                       ))}
-                      {(monitor.pesquisas || []).length === 0 && <tr><td colSpan={4} className="py-6 text-center text-xs text-neutral-400">Sem pesquisas</td></tr>}
                     </tbody>
                   </table>
                 </div>
-              </div>
 
-              <div className="rounded-lg border border-neutral-200 overflow-hidden">
-                <h3 className="text-xs font-medium text-neutral-500 uppercase px-3 py-2 bg-neutral-50 border-b border-neutral-200">Sessoes de agentes</h3>
-                <div className="overflow-x-auto">
+                {/* Sessões */}
+                <div className="rounded-lg border border-slate-200 overflow-hidden">
+                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Sessões de agentes</p>
+                  </div>
                   <table className="w-full text-sm">
-                    <thead><tr className="border-b border-neutral-100">
-                      <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs">Agente</th>
-                      <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs">Fonte</th>
-                      <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs">Status</th>
-                      <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs">Total</th>
-                    </tr></thead>
-                    <tbody>
-                      {(monitor.sessoes || []).map((s) => (
-                        <tr key={s.id} className="border-b border-neutral-100">
-                          <td className="py-2 px-3">{s.nomeAgente}</td>
-                          <td className="py-2 px-3 text-xs text-neutral-500">{s.fonte}</td>
+                    <thead className="border-b border-slate-100">
+                      <tr>
+                        {["Agente", "Fonte", "Status", "Total"].map(h => (
+                          <th key={h} className="text-left py-2 px-3 text-xs font-medium text-slate-500">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {monitor.sessoes.length === 0 ? (
+                        <tr><td colSpan={4} className="py-6 text-center text-xs text-slate-400">Sem sessões</td></tr>
+                      ) : monitor.sessoes.map((s) => (
+                        <tr key={s.id} className="hover:bg-slate-50">
+                          <td className="py-2 px-3 text-xs">{s.nomeAgente}</td>
+                          <td className="py-2 px-3 text-xs text-slate-500">{s.fonte}</td>
                           <td className="py-2 px-3">
-                            <span className={`text-xs px-2 py-0.5 rounded ${s.status === "concluido" ? "bg-green-100 text-green-700" : s.status === "erro" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{s.status}</span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${s.status === "concluido" ? "bg-green-100 text-green-700" : s.status === "erro" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                              {s.status}
+                            </span>
                           </td>
                           <td className="py-2 px-3 text-xs">{s.totalEncontrado ?? "—"}</td>
                         </tr>
                       ))}
-                      {(monitor.sessoes || []).length === 0 && <tr><td colSpan={4} className="py-6 text-center text-xs text-neutral-400">Sem sessoes</td></tr>}
                     </tbody>
                   </table>
                 </div>
               </div>
-            </div>
 
-            <div className="rounded-lg border border-neutral-200 overflow-hidden">
-              <div className="flex items-center justify-between px-3 py-2 bg-neutral-50 border-b border-neutral-200">
-                <h3 className="text-xs font-medium text-neutral-500 uppercase">Logs do sistema (copie e cole para analise)</h3>
-                <button onClick={copiarLogs} className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-800">
-                  <Copy className="w-3.5 h-3.5" /> {copiado ? "Copiado!" : "Copiar logs"}
-                </button>
+              {/* Logs */}
+              <div className="rounded-lg border border-slate-200 overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Logs do sistema</p>
+                  <button onClick={copiarLogs} className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
+                    <Copy className="w-3.5 h-3.5" /> {copiado ? "Copiado!" : "Copiar"}
+                  </button>
+                </div>
+                <pre className="text-[11px] leading-relaxed font-mono text-slate-700 bg-slate-50 p-4 max-h-64 overflow-auto whitespace-pre-wrap">
+                  {monitor.logs || "(sem logs ainda — execute uma pesquisa para gerar atividade)"}
+                </pre>
               </div>
-              <pre className="text-[11px] leading-relaxed font-mono text-neutral-700 bg-neutral-50 p-3 max-h-72 overflow-auto whitespace-pre-wrap">
-                {monitor.logs || "(sem logs ainda — execute uma pesquisa para gerar atividade)"}
-              </pre>
             </div>
-          </>
-        )}
-      </div>
-
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Users className="w-5 h-5 text-neutral-600" />
-          <h2 className="text-base font-medium">Usuarios do orgao</h2>
+          )}
         </div>
+      </Card>
+
+      {/* Usuários */}
+      <Card>
+        <CardHeader title="Usuários do órgão" icon={Users} />
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-neutral-200">
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Nome</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">E-mail</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Perfil</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Status</th>
-            </tr></thead>
-            <tbody>
-              {(monitor?.usuarios || []).map(u => (
-                <tr key={u.id} className="border-b border-neutral-100 hover:bg-neutral-50 transition-colors">
-                  <td className="py-2.5 px-3">{u.nome}</td>
-                  <td className="py-2.5 px-3 text-neutral-500 text-xs">{u.email}</td>
-                  <td className="py-2.5 px-3"><span className={`text-xs font-medium px-2 py-0.5 rounded border ${u.perfil === "administrador" ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>{u.perfil}</span></td>
-                  <td className="py-2.5 px-3"><span className={`text-xs font-medium px-2 py-0.5 rounded border ${u.ativo ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>{u.ativo ? "ativo" : "inativo"}</span></td>
+            <thead className="bg-slate-50 border-b border-slate-200">
+              <tr>
+                {["Nome", "E-mail", "Perfil", "Status"].map(h => (
+                  <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {(monitor?.usuarios || []).length === 0 ? (
+                <tr><td colSpan={4} className="py-8 text-center text-xs text-slate-400">Sem usuários</td></tr>
+              ) : (monitor?.usuarios || []).map(u => (
+                <tr key={u.id} className="hover:bg-slate-50 transition-colors">
+                  <td className="py-2.5 px-4 text-slate-800 font-medium">{u.nome}</td>
+                  <td className="py-2.5 px-4 text-slate-500 text-xs">{u.email}</td>
+                  <td className="py-2.5 px-4">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded border ${u.perfil === "administrador" ? "bg-purple-50 text-purple-700 border-purple-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>{u.perfil}</span>
+                  </td>
+                  <td className="py-2.5 px-4">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded border ${u.ativo ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>{u.ativo ? "Ativo" : "Inativo"}</span>
+                  </td>
                 </tr>
               ))}
-              {(monitor?.usuarios || []).length === 0 && <tr><td colSpan={4} className="py-6 text-center text-xs text-neutral-400">Sem utilizadores</td></tr>}
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
 
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <Settings className="w-5 h-5 text-neutral-600" />
-          <h2 className="text-base font-medium">Configuracoes do sistema</h2>
+      {/* Configurações */}
+      <Card>
+        <CardHeader title="Configurações do sistema" icon={Settings} />
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <Inp label="Similaridade mínima (%)" type="number" min={0} max={100} value={similaridadeMinima} onChange={e => setSimilaridadeMinima(Number(e.target.value))} />
+            <Inp label="CV — limite de alerta (%)" type="number" min={0} max={100} value={cvAlerta} onChange={e => setCvAlerta(Number(e.target.value))} />
+            <Sel label="Período padrão" value={periodoPadrao} onChange={e => setPeriodoPadrao(e.target.value)}>
+              <option value="6_meses">Últimos 6 meses</option>
+              <option value="12_meses">Últimos 12 meses</option>
+              <option value="24_meses">Últimos 24 meses</option>
+            </Sel>
+            <Sel label="Método padrão" value={metodoPadrao} onChange={e => setMetodoPadrao(e.target.value)}>
+              <option value="media_aritmetica">Média aritmética</option>
+              <option value="mediana">Mediana</option>
+              <option value="media_ponderada">Média ponderada</option>
+              <option value="menor_preco">Menor preço</option>
+            </Sel>
+          </div>
+          {configErro && <p className="text-sm text-red-600 mb-3">{configErro}</p>}
+          {configSalva && (
+            <div className="flex items-center gap-2 text-sm text-green-700 mb-3">
+              <CheckCircle2 className="w-4 h-4" /> Configurações salvas com sucesso.
+            </div>
+          )}
+          <div className="flex justify-end">
+            <button
+              onClick={salvarConfig}
+              disabled={salvandoConfig}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+            >
+              {salvandoConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {salvandoConfig ? "Salvando..." : "Salvar configurações"}
+            </button>
+          </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-          <div>
-            <label className="block text-xs font-medium text-neutral-500 mb-1.5">Similaridade minima (%)</label>
-            <input type="number" min={0} max={100} className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-400" value={similaridadeMinima} onChange={e => setSimilaridadeMinima(Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-neutral-500 mb-1.5">CV - alerta (%)</label>
-            <input type="number" min={0} max={100} className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm focus:outline-none focus:border-neutral-400" value={cvAlerta} onChange={e => setCvAlerta(Number(e.target.value))} />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-neutral-500 mb-1.5">Periodo padrao</label>
-            <select className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm bg-white" value={periodoPadrao} onChange={e => setPeriodoPadrao(e.target.value)}>
-              <option value="6_meses">Ultimos 6 meses</option><option value="12_meses">Ultimos 12 meses</option><option value="24_meses">Ultimos 24 meses</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-neutral-500 mb-1.5">Metodo padrao</label>
-            <select className="w-full px-3 py-2 rounded-lg border border-neutral-200 text-sm bg-white" value={metodoPadrao} onChange={e => setMetodoPadrao(e.target.value)}>
-              <option value="media_aritmetica">Media aritmetica</option><option value="mediana">Mediana</option><option value="media_ponderada">Media ponderada</option><option value="menor_preco">Menor preco</option>
-            </select>
-          </div>
-        </div>
-        {configErro && <p className="text-sm text-red-600 mb-3">{configErro}</p>}
-        {configSalva && (
-          <div className="flex items-center gap-2 text-sm text-green-700 mb-3">
-            <CheckCircle2 className="w-4 h-4" /> Configurações salvas com sucesso.
-          </div>
-        )}
-        <div className="flex justify-end">
-          <button onClick={salvarConfig} disabled={salvandoConfig} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 disabled:opacity-60">
-            {salvandoConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {salvandoConfig ? "Salvando..." : "Salvar configurações"}
-          </button>
-        </div>
-      </div>
+      </Card>
     </div>
   );
 }

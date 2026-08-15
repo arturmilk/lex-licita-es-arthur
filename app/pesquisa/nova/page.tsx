@@ -637,15 +637,7 @@ export default function NovaPesquisaPage() {
       case 9: return (
         <StepCard title="Consultando fontes de preços" desc="">
           {pesquisando ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-5">
-              <div className="w-16 h-16 rounded-full bg-indigo-50 flex items-center justify-center">
-                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium text-slate-700">Consultando Compras.gov.br (Dados Abertos)</p>
-                <p className="text-xs text-slate-400 mt-1 font-mono">{config.regiao} · {config.periodo} · mín. {config.qtdMin} refs.</p>
-              </div>
-            </div>
+            <BuscaAnimada regiao={config.regiao} periodo={config.periodo} qtdMin={config.qtdMin} />
           ) : (
             <div className="flex flex-col items-center justify-center py-20 gap-5">
               <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center">
@@ -1053,6 +1045,80 @@ export default function NovaPesquisaPage() {
 }
 
 // ─── Componentes de UI ────────────────────────────────────────────────────────
+
+const MENSAGENS_BUSCA = [
+  "Consultando Compras.gov.br (Dados Abertos)...",
+  "Buscando preços por código PDM...",
+  "Analisando referências de preço encontradas...",
+  "Filtrando por similaridade com o objeto...",
+  "Cruzando dados de múltiplas fontes...",
+  "Verificando preços dos últimos meses...",
+  "Calculando índices de similaridade...",
+  "Organizando resultados por relevância...",
+  "Validando referências de preço...",
+  "Quase pronto, aguarde mais um instante...",
+];
+
+function BuscaAnimada({ regiao, periodo, qtdMin }: { regiao: string; periodo: string; qtdMin: number }) {
+  const [idx, setIdx] = React.useState(0);
+  const [fade, setFade] = React.useState(true);
+  const [progresso, setProgresso] = React.useState(0);
+
+  React.useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false);
+      setTimeout(() => {
+        setIdx(i => (i + 1) % MENSAGENS_BUSCA.length);
+        setFade(true);
+      }, 300);
+    }, 2800);
+    return () => clearInterval(interval);
+  }, []);
+
+  React.useEffect(() => {
+    const start = Date.now();
+    const duration = 90_000; // assume ~90s max
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - start;
+      setProgresso(Math.min(95, (elapsed / duration) * 100));
+    }, 500);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="flex flex-col items-center justify-center py-20 gap-6">
+      {/* Ícone animado */}
+      <div className="relative">
+        <div className="w-20 h-20 rounded-full bg-indigo-50 flex items-center justify-center">
+          <Loader2 className="w-9 h-9 animate-spin text-indigo-600" />
+        </div>
+        <div className="absolute inset-0 rounded-full border-2 border-indigo-200 animate-ping opacity-30" />
+      </div>
+
+      {/* Mensagem rotativa */}
+      <div className="text-center min-h-[48px] flex flex-col items-center justify-center gap-1">
+        <p
+          className="text-sm font-medium text-slate-700 transition-opacity duration-300"
+          style={{ opacity: fade ? 1 : 0 }}
+        >
+          {MENSAGENS_BUSCA[idx]}
+        </p>
+        <p className="text-xs text-slate-400 font-mono">{regiao} · {periodo} · mín. {qtdMin} refs.</p>
+      </div>
+
+      {/* Barra de progresso */}
+      <div className="w-72">
+        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-indigo-500 rounded-full transition-all duration-500 ease-out"
+            style={{ width: `${progresso}%` }}
+          />
+        </div>
+        <p className="text-center text-xs text-slate-400 mt-2">Pesquisa em andamento — não feche a página</p>
+      </div>
+    </div>
+  );
+}
 
 function StepCard({
   title, desc, children, footer,
