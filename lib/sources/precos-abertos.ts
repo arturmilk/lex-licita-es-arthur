@@ -249,7 +249,7 @@ export async function buscarPrecosAbertos(params: BuscaParams): Promise<Resultad
         similaridade: r.descricaoItem.toLowerCase().includes(itensTermos) ? 95 : 70,
         documentoOrigem: r.idCompra ? String(r.idCompra) : null,
         linkEdital: r.idCompra
-          ? `https://paineldeprecos.planejamento.gov.br/analise-material?idCompra=${r.idCompra}`
+          ? `https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial?tipo=idCompra&codigo=${r.idCompra}`
           : null,
         dadosBrutos: r as unknown as Record<string, unknown>,
       };

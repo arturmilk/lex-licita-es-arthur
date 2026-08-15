@@ -4,7 +4,7 @@ import React, { useState, useCallback } from "react";
 import {
   Loader2, AlertCircle, Check, X, ExternalLink, MapPin,
   FileSearch, ChevronRight, Sparkles, BarChart3, FileText,
-  ClipboardList, Settings, Search, CheckCircle2, TrendingUp,
+  ClipboardList, Settings, Search, CheckCircle2, TrendingUp, RefreshCw,
 } from "lucide-react";
 import { calcularEstatisticas, calcularPrecoEstimado, formatarMoeda } from "@/lib/math";
 import { gerarXLSX, downloadXLSX } from "@/lib/xlsx-generator";
@@ -661,7 +661,7 @@ export default function NovaPesquisaPage() {
         <StepCard
           title="Resultados da pesquisa"
           desc={`${resultados.length} referências encontradas · ${nAceitos} aceitas · ${nRejeitados} rejeitadas`}
-          footer={<><Btn onClick={() => goToStep(8)}>Voltar</Btn><Btn primary onClick={() => { calcular(); nextStep(); }} icon={<BarChart3 size={14}/>}>Calcular e analisar</Btn></>}
+          footer={<><Btn onClick={() => goToStep(8)}>← Refazer busca</Btn><Btn primary onClick={() => { calcular(); setJustificativaIA(null); setValidacaoIA(null); nextStep(); }} icon={<BarChart3 size={14}/>}>Calcular e analisar</Btn></>}
         >
           {resultados.length === 0 ? (
             <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-10 text-center text-sm text-slate-400">
@@ -743,7 +743,17 @@ export default function NovaPesquisaPage() {
         <StepCard
           title="Análise da pesquisa (IA)"
           desc="O agente IA gera a justificativa técnica e valida a robustez estatística da amostra."
-          footer={<><Btn onClick={prevStep}>Voltar</Btn><Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Próximo</Btn></>}
+          footer={
+            <div className="flex items-center gap-3 flex-wrap">
+              <Btn onClick={() => goToStep(10)}>Voltar e revisar referências</Btn>
+              {validacaoIA && !validacaoIA.valido && (
+                <Btn onClick={() => { calcular(); gerarConteudoIA(estatisticas, resultados.filter(r => r.status_avaliacao === "aceito").length); }} icon={<RefreshCw size={14}/>}>
+                  Recalcular após ajuste
+                </Btn>
+              )}
+              <Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Próximo</Btn>
+            </div>
+          }
         >
           {justificativaIA ? (
             <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
@@ -757,18 +767,28 @@ export default function NovaPesquisaPage() {
             </div>
           )}
           {validacaoIA && (
-            <div className={`mt-4 rounded-lg border p-4 ${validacaoIA.valido ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
-              <div className="flex items-center gap-2 mb-2">
+            <div className={`mt-4 rounded-lg border p-4 ${validacaoIA.valido ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+              <div className="flex items-center gap-2 mb-3">
                 {validacaoIA.valido
                   ? <CheckCircle2 size={16} className="text-green-600" />
-                  : <AlertCircle size={16} className="text-red-600" />}
-                <p className={`text-sm font-semibold ${validacaoIA.valido ? "text-green-800" : "text-red-800"}`}>
-                  Validação {validacaoIA.valido ? "aprovada" : "reprovada"} · score {validacaoIA.score_confianca}
+                  : <AlertCircle size={16} className="text-amber-600" />}
+                <p className={`text-sm font-semibold ${validacaoIA.valido ? "text-green-800" : "text-amber-800"}`}>
+                  {validacaoIA.valido
+                    ? `Validação aprovada — score de confiança: ${validacaoIA.score_confianca}/100`
+                    : `Atenção: score de confiança ${validacaoIA.score_confianca}/100 (abaixo de 70)`}
                 </p>
               </div>
+              {!validacaoIA.valido && (
+                <p className="text-xs text-amber-700 mb-3 leading-relaxed">
+                  O score baixo <strong>não impede</strong> a conclusão da pesquisa. Significa que a amostra tem
+                  alta dispersão ou poucas referências aceitas. Para melhorar: volte à etapa de resultados e aceite
+                  mais referências (✓), ou prossiga mesmo assim — a pesquisa continua válida.
+                </p>
+              )}
               {(validacaoIA.alertas || []).map((a: any, i: number) => (
-                <div key={i} className={`mt-1.5 text-xs px-3 py-1.5 rounded ${a.tipo === "erro" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
-                  <strong>[{a.tipo}]</strong> {a.campo}: {a.mensagem} — <em>{a.sugestao}</em>
+                <div key={i} className={`mt-1.5 text-xs px-3 py-2 rounded-lg ${a.tipo === "erro" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                  <span className="font-semibold">{a.campo}:</span> {a.mensagem}
+                  {a.sugestao && <span className="block mt-0.5 opacity-80">→ {a.sugestao}</span>}
                 </div>
               ))}
             </div>
