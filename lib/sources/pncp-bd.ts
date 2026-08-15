@@ -70,10 +70,10 @@ export async function buscarPNCPBigQuery(params: BuscaParams): Promise<Resultado
       const quantidade = r.quantidade != null ? Number(r.quantidade) : null;
       let linkEdital: string | null = null;
       if (r.id_contrato) {
-        const parts = String(r.id_contrato).split(/[-\/]/);
-        // formato esperado: CNPJ14-TIPO-SEQ/ANO  -> [cnpj, tipo, seq, ano]
-        if (parts.length >= 4 && /^\d{14}$/.test(parts[0])) {
-          linkEdital = `https://pncp.gov.br/app/editais/${parts[0]}/${parts[3]}/${parts[2]}`;
+        // formato numeroControlePNCP: CNPJ14-modalidade-sequencial/ano
+        const match = String(r.id_contrato).match(/^(\d{14})-\d+-(\d+)\/(\d{4})$/);
+        if (match) {
+          linkEdital = `https://pncp.gov.br/app/editais/${match[1]}/${match[3]}/${parseInt(match[2], 10)}`;
         }
       }
       return {
