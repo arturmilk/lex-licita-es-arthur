@@ -23,6 +23,7 @@ interface ResultadoPNCP {
   valor_unitario: number | null; valor_total: number | null; localizacao: string | null;
   similaridade: number; documento_origem: string; link_origem: string;
   fornecedor?: string; status_avaliacao: StatusAvaliacao; justificativa_rejeicao?: string;
+  dadosBrutos?: Record<string, unknown>;
 }
 
 interface EditalProximo {
@@ -253,6 +254,7 @@ export default function NovaPesquisaPage() {
             : ""),
           fornecedor: it.dadosBrutos?.nomeFornecedor || "",
           status_avaliacao: "pendente" as const,
+          dadosBrutos: it.dadosBrutos || {},
         }));
         setResultados(novos);
         setPesquisando(false);
@@ -717,86 +719,173 @@ export default function NovaPesquisaPage() {
       );
 
       // ── Etapa 10 ────────────────────────────────────────────────────────────
-      case 10: return (
-        <StepCard
-          title="Resultados da pesquisa"
-          desc={`${resultados.length} referências encontradas · ${nAceitos} aceitas · ${nRejeitados} rejeitadas`}
-          footer={<><Btn onClick={() => goToStep(8)}>← Refazer busca</Btn><Btn primary onClick={() => { calcular(); setJustificativaIA(null); setValidacaoIA(null); nextStep(); }} icon={<BarChart3 size={14}/>}>Calcular e analisar</Btn></>}
-        >
-          {resultados.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-10 text-center text-sm text-slate-400">
-              Nenhum resultado. Volte e refaça a pesquisa.
+      case 10: {
+        const fmtData = (d: string) => {
+          if (!d) return "—";
+          try { return new Date(d).toLocaleDateString("pt-BR"); } catch { return d; }
+        };
+        const badgeSit = (sit: string) => {
+          if (!sit) return null;
+          const l = sit.toLowerCase();
+          if (l.includes("divulgada") || l.includes("aberta") || l.includes("recebendo"))
+            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 whitespace-nowrap">{sit}</span>;
+          if (l.includes("anulada") || l.includes("cancelada") || l.includes("revogada"))
+            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 whitespace-nowrap">{sit}</span>;
+          if (l.includes("encerrada") || l.includes("homologada") || l.includes("adjudicada"))
+            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 whitespace-nowrap">{sit}</span>;
+          return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 whitespace-nowrap">{sit}</span>;
+        };
+        return (
+        <div className="flex flex-col h-full">
+          {/* cabeçalho da etapa */}
+          <div className="px-6 pt-5 pb-3 border-b border-slate-100 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h2 className="text-base font-bold text-slate-800">Resultados da pesquisa</h2>
+              <div className="mt-1.5 flex flex-wrap gap-2 text-xs">
+                <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
+                  <FileSearch size={11}/> {resultados.length} referências encontradas
+                </span>
+                <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 px-3 py-1 rounded-full font-semibold">
+                  <Check size={11}/> {nAceitos} aceitas
+                </span>
+                {nRejeitados > 0 && (
+                  <span className="inline-flex items-center gap-1.5 bg-red-100 text-red-600 px-3 py-1 rounded-full font-semibold">
+                    <X size={11}/> {nRejeitados} rejeitadas
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-500 px-3 py-1 rounded-full">
+                  Fonte: PNCP / Dados Abertos
+                </span>
+                <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 px-3 py-1 rounded-full">
+                  IN nº 65/2021 · Lei 14.133/2021
+                </span>
+              </div>
             </div>
-          ) : (
-            <div className="overflow-x-auto rounded-lg border border-slate-200">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    {["Órgão", "Descrição", "Qtd", "Data", "Valor unit.", "Fornecedor", "Local", "Sim.", "Edital", "Avaliação"].map(h => (
-                      <th key={h} className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
-                    ))}
+            <p className="text-xs text-slate-400">Clique em ✓ para aceitar ou ✗ para rejeitar cada referência antes de calcular.</p>
+          </div>
+
+          {/* tabela */}
+          <div className="flex-1 overflow-auto">
+            {resultados.length === 0 ? (
+              <div className="py-16 text-center text-slate-400">
+                <FileSearch size={40} className="mx-auto mb-3 opacity-30" />
+                <p className="text-sm">Nenhum resultado. Volte e refaça a pesquisa.</p>
+              </div>
+            ) : (
+              <table className="w-full text-xs border-collapse" style={{minWidth: 900}}>
+                <thead>
+                  <tr className="bg-slate-700 text-white">
+                    <th className="px-3 py-2.5 text-center font-semibold w-8 border-r border-slate-600">#</th>
+                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600 w-[160px]">Órgão / Unidade</th>
+                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600">Objeto da Contratação</th>
+                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600 whitespace-nowrap w-[100px]">Modalidade</th>
+                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600 w-[90px]">Local</th>
+                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600 whitespace-nowrap w-[76px]">Publicação</th>
+                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600 w-[90px]">Valor unit.</th>
+                    <th className="px-3 py-2.5 text-center font-semibold border-r border-slate-600 w-[50px]">Sim.</th>
+                    <th className="px-3 py-2.5 text-center font-semibold border-r border-slate-600 w-[70px]">Situação</th>
+                    <th className="px-3 py-2.5 text-center font-semibold border-r border-slate-600 w-[70px]">Edital</th>
+                    <th className="px-3 py-2.5 text-center font-semibold w-[80px]">Avaliação</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {resultados.map(r => (
-                    <tr key={r.id} className={`transition-colors ${
-                      r.status_avaliacao === "aceito"
-                        ? "bg-green-50 hover:bg-green-100"
-                        : r.status_avaliacao === "rejeitado"
-                        ? "bg-red-50 opacity-60"
-                        : "hover:bg-slate-50"
-                    }`}>
-                      <td className="px-3 py-2 max-w-[140px] truncate text-slate-700" title={r.orgao}>{r.orgao}</td>
-                      <td className="px-3 py-2 max-w-[200px] truncate text-slate-600" title={r.descricao}>{r.descricao}</td>
-                      <td className="px-3 py-2 text-slate-500">{r.quantidade ?? "—"}</td>
-                      <td className="px-3 py-2 text-slate-500 whitespace-nowrap text-xs">{r.data}</td>
-                      <td className="px-3 py-2 font-mono font-medium text-slate-800 whitespace-nowrap">{formatarMoeda(r.valor_unitario ?? 0)}</td>
-                      <td className="px-3 py-2 max-w-[160px] truncate text-slate-500" title={r.fornecedor}>{r.fornecedor || "—"}</td>
-                      <td className="px-3 py-2 text-slate-500 whitespace-nowrap text-xs">{r.localizacao}</td>
-                      <td className="px-3 py-2">
-                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${
-                          r.similaridade >= 80 ? "bg-green-100 text-green-700" :
-                          r.similaridade >= 60 ? "bg-amber-100 text-amber-700" :
-                          "bg-slate-100 text-slate-500"
-                        }`}>{r.similaridade}%</span>
-                      </td>
-                      <td className="px-3 py-2">
-                        {r.link_origem
-                          ? <a href={r.link_origem} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-medium whitespace-nowrap"><ExternalLink className="w-3 h-3" /> Ver</a>
-                          : <span className="text-slate-300 text-xs">—</span>}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex gap-1">
-                          <button
-                            type="button"
-                            onClick={() => avaliarResultado(r.id, "aceito")}
-                            title="Aceitar"
-                            className={`p-1 rounded border text-xs transition-colors ${r.status_avaliacao === "aceito" ? "bg-green-600 text-white border-green-600" : "border-green-400 text-green-600 hover:bg-green-100"}`}
-                          ><Check size={13} /></button>
-                          <button
-                            type="button"
-                            onClick={() => avaliarResultado(r.id, "rejeitado")}
-                            title="Rejeitar"
-                            className={`p-1 rounded border text-xs transition-colors ${r.status_avaliacao === "rejeitado" ? "bg-red-600 text-white border-red-600" : "border-red-400 text-red-600 hover:bg-red-100"}`}
-                          ><X size={13} /></button>
-                        </div>
-                        {r.status_avaliacao === "rejeitado" && (
-                          <input
-                            className="mt-1 w-full text-xs px-2 py-1 rounded border border-slate-200 bg-white"
-                            placeholder="Justificativa..."
-                            value={r.justificativa_rejeicao || ""}
-                            onChange={e => avaliarResultado(r.id, "rejeitado", e.target.value)}
-                          />
+                <tbody>
+                  {resultados.map((r, idx) => {
+                    const sit = (r as any).dadosBrutos?.situacao_nome as string | undefined;
+                    const modal = (r as any).dadosBrutos?.modalidade_licitacao_nome as string | undefined;
+                    const isAceito = r.status_avaliacao === "aceito";
+                    const isRejeit = r.status_avaliacao === "rejeitado";
+                    return (
+                      <React.Fragment key={r.id}>
+                        <tr className={`border-b border-slate-100 transition-colors ${
+                          isAceito ? "bg-green-50 hover:bg-green-100" :
+                          isRejeit ? "bg-red-50 opacity-60 hover:bg-red-100" :
+                          idx % 2 === 0 ? "bg-white hover:bg-slate-50" : "bg-slate-50/60 hover:bg-slate-100"
+                        }`}>
+                          <td className="px-3 py-2.5 text-center text-slate-400 font-bold border-r border-slate-100">{idx + 1}</td>
+                          <td className="px-3 py-2.5 border-r border-slate-100">
+                            <div className="font-semibold text-slate-700 leading-tight" style={{maxWidth:156}} title={r.orgao}>
+                              {r.orgao.length > 40 ? r.orgao.slice(0, 40) + "…" : r.orgao}
+                            </div>
+                            {r.fonte && <div className="text-[10px] text-slate-400 mt-0.5 font-mono">{r.fonte}</div>}
+                          </td>
+                          <td className="px-3 py-2.5 border-r border-slate-100">
+                            <div className="text-slate-700 leading-snug" title={r.descricao} style={{maxWidth: 340}}>
+                              {r.descricao.length > 120 ? r.descricao.slice(0, 120) + "…" : r.descricao}
+                            </div>
+                            {r.documento_origem && (
+                              <div className="text-[10px] font-mono text-slate-400 mt-0.5 truncate" style={{maxWidth:340}}>{r.documento_origem}</div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2.5 border-r border-slate-100 text-slate-500">
+                            {modal ? <span title={modal}>{modal.length > 18 ? modal.slice(0,18)+"…" : modal}</span> : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-3 py-2.5 border-r border-slate-100 text-slate-500 whitespace-nowrap">{r.localizacao || "—"}</td>
+                          <td className="px-3 py-2.5 border-r border-slate-100 text-slate-500 whitespace-nowrap">{fmtData(r.data)}</td>
+                          <td className="px-3 py-2.5 border-r border-slate-100 font-mono font-semibold text-slate-800 whitespace-nowrap">
+                            {r.valor_unitario != null && r.valor_unitario > 0
+                              ? formatarMoeda(r.valor_unitario)
+                              : r.valor_total != null && r.valor_total > 0
+                                ? <span className="text-slate-500">{formatarMoeda(r.valor_total)} <span className="font-normal text-[10px]">(total)</span></span>
+                                : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-3 py-2.5 border-r border-slate-100 text-center">
+                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              r.similaridade >= 80 ? "bg-green-100 text-green-700" :
+                              r.similaridade >= 60 ? "bg-amber-100 text-amber-700" :
+                              "bg-slate-100 text-slate-400"
+                            }`}>{r.similaridade}%</span>
+                          </td>
+                          <td className="px-3 py-2.5 border-r border-slate-100 text-center">
+                            {sit ? badgeSit(sit) : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-3 py-2.5 border-r border-slate-100 text-center">
+                            {r.link_origem
+                              ? <a href={r.link_origem} target="_blank" rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-slate-700 hover:bg-indigo-600 text-white text-[11px] font-bold transition-colors whitespace-nowrap shadow-sm">
+                                  <ExternalLink size={10}/> Abrir
+                                </a>
+                              : <span className="text-slate-300">—</span>}
+                          </td>
+                          <td className="px-3 py-2.5 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button type="button" onClick={() => avaliarResultado(r.id, "aceito")} title="Aceitar"
+                                className={`p-1.5 rounded transition-colors ${isAceito ? "bg-green-600 text-white" : "border border-green-400 text-green-600 hover:bg-green-50"}`}>
+                                <Check size={12}/>
+                              </button>
+                              <button type="button" onClick={() => avaliarResultado(r.id, "rejeitado")} title="Rejeitar"
+                                className={`p-1.5 rounded transition-colors ${isRejeit ? "bg-red-600 text-white" : "border border-red-400 text-red-600 hover:bg-red-50"}`}>
+                                <X size={12}/>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                        {isRejeit && (
+                          <tr className="bg-red-50 border-b border-slate-100">
+                            <td colSpan={11} className="px-4 py-1.5">
+                              <input className="w-full text-xs px-2 py-1 rounded border border-red-200 bg-white text-red-700 placeholder-red-300"
+                                placeholder="Justificativa da rejeição (opcional)..."
+                                value={r.justificativa_rejeicao || ""}
+                                onChange={e => avaliarResultado(r.id, "rejeitado", e.target.value)} />
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                    </tr>
-                  ))}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
-            </div>
-          )}
-        </StepCard>
-      );
+            )}
+          </div>
+
+          {/* rodapé */}
+          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
+            <Btn onClick={() => goToStep(8)}>← Refazer busca</Btn>
+            <Btn primary onClick={() => { calcular(); setJustificativaIA(null); setValidacaoIA(null); nextStep(); }} icon={<BarChart3 size={14}/>}>
+              Calcular e analisar ({nAceitos} aceitas)
+            </Btn>
+          </div>
+        </div>
+      );}
 
       // ── Etapa 11 ────────────────────────────────────────────────────────────
       case 11: return (
