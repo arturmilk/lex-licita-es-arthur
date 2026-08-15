@@ -3,7 +3,7 @@
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Layers, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
@@ -36,55 +36,106 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-sm border border-neutral-200 p-8">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-neutral-900 rounded-xl flex items-center justify-center">
-              <Layers className="w-5 h-5 text-white" />
+    <div className="min-h-screen flex">
+      {/* Left panel */}
+      <div className="hidden lg:flex lg:w-1/2 bg-indigo-700 flex-col justify-between p-12 relative overflow-hidden">
+        {/* Background decoration */}
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
+        </div>
+
+        {/* Logo */}
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
+            <ShieldCheck className="w-5 h-5 text-white" />
+          </div>
+          <span className="text-white font-bold text-xl tracking-tight">Estima.IA</span>
+        </div>
+
+        {/* Main content */}
+        <div className="relative z-10">
+          <h2 className="text-4xl font-bold text-white leading-tight mb-4">
+            Pesquisa de preços<br />inteligente para<br />licitações públicas
+          </h2>
+          <p className="text-indigo-200 text-base leading-relaxed max-w-sm">
+            Automatize a pesquisa de preços de mercado com IA, em conformidade com a IN SEGES 65/2021.
+          </p>
+
+          <div className="mt-10 grid grid-cols-3 gap-6">
+            {[
+              { label: "Fontes integradas", value: "3+" },
+              { label: "Conformidade", value: "IN 65" },
+              { label: "Relatórios", value: "PDF/XLSX" },
+            ].map(({ label, value }) => (
+              <div key={label}>
+                <p className="text-2xl font-bold text-white">{value}</p>
+                <p className="text-indigo-300 text-xs mt-1">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <p className="relative z-10 text-indigo-300 text-xs">
+          © {new Date().getFullYear()} Estima.IA — Uso exclusivo de servidores públicos
+        </p>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-center justify-center p-6 bg-slate-50">
+        <div className="w-full max-w-sm">
+          {/* Mobile logo */}
+          <div className="flex items-center gap-2 mb-8 lg:hidden">
+            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
+              <ShieldCheck className="w-5 h-5 text-white" />
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-neutral-900">Estima.IA</h1>
-              <p className="text-xs text-neutral-500">Pesquisa de Preços para Licitações</p>
-            </div>
+            <span className="font-bold text-slate-800 text-lg">Estima.IA</span>
           </div>
 
-          <h2 className="text-lg font-semibold text-neutral-800 mb-6">Acesse sua conta</h2>
+          <h1 className="text-2xl font-bold text-slate-800 mb-1">Bem-vindo de volta</h1>
+          <p className="text-sm text-slate-500 mb-8">Entre com suas credenciais para continuar</p>
 
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+            <div className="mb-5 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
+              <span className="shrink-0 w-4 h-4 rounded-full bg-red-200 flex items-center justify-center text-red-600 text-xs font-bold">!</span>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Email</label>
+              <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                Email institucional
+              </label>
               <input
                 type="email"
                 required
+                autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                 placeholder="seu@orgao.gov.br"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-1">Senha</label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-sm font-medium text-slate-700">Senha</label>
+              </div>
               <div className="relative">
                 <input
                   type={showSenha ? "text" : "password"}
                   required
+                  autoComplete="current-password"
                   value={form.senha}
                   onChange={(e) => setForm({ ...form, senha: e.target.value })}
-                  className="w-full px-3 py-2 pr-10 border border-neutral-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900 focus:border-transparent"
+                  className="w-full px-4 py-2.5 pr-11 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowSenha(!showSenha)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-400"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                 >
                   {showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -94,16 +145,21 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-neutral-900 text-white rounded-lg text-sm font-medium hover:bg-neutral-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
             >
-              {loading ? "Entrando..." : "Entrar"}
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Entrando...
+                </>
+              ) : "Entrar"}
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-neutral-500">
-              Não tem conta?{" "}
-              <a href="/register" className="text-neutral-900 font-medium hover:underline">
+            <p className="text-sm text-slate-500">
+              Primeiro acesso?{" "}
+              <a href="/register" className="text-indigo-600 font-medium hover:text-indigo-800 transition-colors">
                 Cadastre seu órgão
               </a>
             </p>
@@ -116,7 +172,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-neutral-50 flex items-center justify-center" />}>
+    <Suspense fallback={<div className="min-h-screen bg-slate-50" />}>
       <LoginForm />
     </Suspense>
   );
