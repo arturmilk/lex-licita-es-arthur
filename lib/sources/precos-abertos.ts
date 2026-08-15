@@ -114,8 +114,16 @@ const SINONIMOS: Record<string, string[]> = {
   backup: ["contingencia"],
 };
 
+// Remove padrões como "CÓDIGO: 78C0W00", "APLICAÇÃO: X", "REF.: X" antes de tokenizar
+function preProcessarTermo(termo: string): string {
+  return termo
+    .replace(/\b(c[oó]digo|cod|ref|referencia|aplica[cç][aã]o|modelo|part\s*number|pn|sku)\s*[:\-\.]\s*\S+/gi, " ")
+    .replace(/\b[A-Z]{1,3}[0-9]{2,}[A-Z0-9]*\b/g, " ") // códigos alfanuméricos tipo 78C0W00, XL-123
+    .replace(/\s+/g, " ").trim();
+}
+
 function tokens(termo: string): string[] {
-  const norm = normalizar(termo);
+  const norm = normalizar(preProcessarTermo(termo));
   // expande sinônimos antes de tokenizar
   let expandido = norm;
   for (const [k, vs] of Object.entries(SINONIMOS)) {
@@ -125,7 +133,9 @@ function tokens(termo: string): string[] {
   }
   const tks = expandido
     .split(/[^a-z0-9]+/)
-    .filter(t => t.length > 2 && !STOPWORDS.has(t) && !/^\d+$/.test(t));
+    .filter(t => t.length > 2 && !STOPWORDS.has(t) && !/^\d+$/.test(t)
+      && !/^[a-z]{1,2}\d/.test(t)   // filtra códigos curtos tipo "c0w", "x1a"
+    );
   // deduplica mantendo ordem
   const vistos = new Set<string>();
   return tks.filter(t => { if (vistos.has(t)) return false; vistos.add(t); return true; });

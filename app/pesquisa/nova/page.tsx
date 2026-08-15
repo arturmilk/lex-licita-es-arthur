@@ -180,19 +180,28 @@ export default function NovaPesquisaPage() {
     setPesquisando(true); setResultados([]); setErroPesquisa(null);
     goToStep(9);
 
+    // Remove "CÓDIGO: X", "APLICAÇÃO: X", códigos alfanuméricos (78C0W00) do texto
+    function limparTermo(t: string): string {
+      return t
+        .replace(/\b(c[oó]digo|cod|ref|referencia|aplica[cç][aã]o|modelo|pn|sku)\s*[:\-\.]\s*\S+/gi, " ")
+        .replace(/\b[A-Z]{1,3}[0-9]{2,}[A-Z0-9]*\b/g, " ")
+        .replace(/,\s*/g, " ")
+        .replace(/\s+/g, " ").trim();
+    }
+
     // Monta termos de busca: usa o PRIMEIRO keyword da IA (mais específico) como
-    // termo principal, e o objetoDesc como secundário. Evita juntar tudo numa
-    // string longa repetitiva que confunde o catálogo CATSER/CATMAT.
+    // termo principal, e o objetoDesc limpo como secundário.
     const palavrasChave = caracteristicasIA
       .filter(c => c.caracteristica.startsWith("palavra_chave_"))
       .map(c => c.valor)
       .filter((v, i, arr) => arr.indexOf(v) === i); // deduplica
-    // termoIA: primeiro keyword IA ou, se ausente, objetoDesc
-    const termoIA = palavrasChave[0] || objetoDesc;
-    // termoSecundario: segundo keyword IA ou objetoDesc (só chama se diferente)
+    // termoIA: primeiro keyword IA ou, se ausente, objetoDesc limpo
+    const termoIA = palavrasChave[0] || limparTermo(objetoDesc);
+    // termoSecundario: segundo keyword IA ou objetoDesc limpo (só chama se diferente)
+    const objetoLimpo = limparTermo(objetoDesc);
     const termoSecundario = (palavrasChave[1] && palavrasChave[1] !== termoIA)
       ? palavrasChave[1]
-      : objetoDesc !== termoIA ? objetoDesc : null;
+      : objetoLimpo !== termoIA ? objetoLimpo : null;
 
     const uf = (localEntrega.split("/").pop() || "").trim().toUpperCase().slice(0, 2);
 
