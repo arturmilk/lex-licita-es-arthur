@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import { Users, Settings, Save, Activity, Copy, RefreshCw, AlertTriangle, CheckCircle2, Loader2 } from "lucide-react";
+import { Users, Settings, Save, Activity, Copy, RefreshCw, CheckCircle2, Loader2 } from "lucide-react";
 
 interface MonitorData {
   logs: string;
@@ -18,6 +18,9 @@ export default function AdminPage() {
   const [monitor, setMonitor] = useState<MonitorData | null>(null);
   const [monitorErro, setMonitorErro] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [salvandoConfig, setSalvandoConfig] = useState(false);
+  const [configSalva, setConfigSalva] = useState<boolean | null>(null);
+  const [configErro, setConfigErro] = useState<string | null>(null);
 
   const carregarMonitor = () => {
     setMonitorErro(null);
@@ -30,7 +33,40 @@ export default function AdminPage() {
       .catch((e) => setMonitorErro(String(e?.message || e)));
   };
 
-  useEffect(carregarMonitor, []);
+  const carregarConfig = () => {
+    fetch("/api/admin/configuracoes")
+      .then(r => r.json())
+      .then(d => {
+        if (d.similaridadeMinima != null) setSimilaridadeMinima(d.similaridadeMinima);
+        if (d.cvAlerta != null) setCvAlerta(d.cvAlerta);
+        if (d.periodoPadrao) setPeriodoPadrao(d.periodoPadrao);
+        if (d.metodoPadrao) setMetodoPadrao(d.metodoPadrao);
+      })
+      .catch(() => {});
+  };
+
+  const salvarConfig = async () => {
+    setSalvandoConfig(true);
+    setConfigSalva(null);
+    setConfigErro(null);
+    try {
+      const res = await fetch("/api/admin/configuracoes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ similaridadeMinima, cvAlerta, periodoPadrao, metodoPadrao }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || "Erro ao salvar");
+      setConfigSalva(true);
+      setTimeout(() => setConfigSalva(null), 3000);
+    } catch (e: any) {
+      setConfigErro(String(e?.message || e));
+    } finally {
+      setSalvandoConfig(false);
+    }
+  };
+
+  useEffect(() => { carregarMonitor(); carregarConfig(); }, []);
 
   const copiarLogs = async () => {
     if (!monitor?.logs) return;
@@ -218,9 +254,16 @@ export default function AdminPage() {
             </select>
           </div>
         </div>
+        {configErro && <p className="text-sm text-red-600 mb-3">{configErro}</p>}
+        {configSalva && (
+          <div className="flex items-center gap-2 text-sm text-green-700 mb-3">
+            <CheckCircle2 className="w-4 h-4" /> Configurações salvas com sucesso.
+          </div>
+        )}
         <div className="flex justify-end">
-          <button onClick={() => alert("Configuracoes salvas")} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800">
-            <Save className="w-4 h-4" /> Salvar configuracoes
+          <button onClick={salvarConfig} disabled={salvandoConfig} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 disabled:opacity-60">
+            {salvandoConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {salvandoConfig ? "Salvando..." : "Salvar configurações"}
           </button>
         </div>
       </div>

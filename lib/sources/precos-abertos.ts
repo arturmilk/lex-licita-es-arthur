@@ -248,7 +248,9 @@ export async function buscarPrecosAbertos(params: BuscaParams): Promise<Resultad
         localizacao: r.municipio ? `${r.municipio}/${r.estado || ""}`.replace(/\/$/, "") : r.estado || null,
         similaridade: r.descricaoItem.toLowerCase().includes(itensTermos) ? 95 : 70,
         documentoOrigem: r.idCompra ? String(r.idCompra) : null,
-        linkEdital: null,
+        linkEdital: r.idCompra
+          ? `https://paineldeprecos.planejamento.gov.br/analise-material?idCompra=${r.idCompra}`
+          : null,
         dadosBrutos: r as unknown as Record<string, unknown>,
       };
     });

@@ -1,111 +1,167 @@
 "use client";
-import React, { useState } from "react";
-import { Upload, FileImage, FileText, FileSpreadsheet, Link2, Trash2, ExternalLink } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { FileImage, FileText, FileSpreadsheet, Link2, Trash2, ExternalLink, Loader2 } from "lucide-react";
+import { listarEvidenciasOrg, removerEvidencia } from "@/lib/actions";
 
-interface Evidencia {
-  id: string;
-  nome: string;
-  processo: string;
-  tipo: "imagem" | "pdf" | "xlsx" | "link";
-  origem: string;
-  anexadoEm: string;
-  url?: string;
-}
+type Ev = Awaited<ReturnType<typeof listarEvidenciasOrg>>[number];
 
-const MOCK: Evidencia[] = [
-  { id: "1", nome: "print_pncp_001.png", processo: "2026/0042", tipo: "imagem", origem: "PNCP", anexadoEm: "06/08/2026", url: "https://pncp.gov.br/compra/982341" },
-  { id: "2", nome: "termo_referencia.pdf", processo: "2026/0042", tipo: "pdf", origem: "upload", anexadoEm: "06/08/2026" },
-  { id: "3", nome: "planilha_calculo.xlsx", processo: "2026/0038", tipo: "xlsx", origem: "sistema", anexadoEm: "05/08/2026" },
-  { id: "4", nome: "link_pncp_consulta", processo: "2026/0042", tipo: "link", origem: "PNCP", anexadoEm: "06/08/2026", url: "https://pncp.gov.br/compra/982341" },
-  { id: "5", nome: "edital_techsolucoes.pdf", processo: "2026/0042", tipo: "pdf", origem: "edital", anexadoEm: "06/08/2026", url: "https://pncp.gov.br/edital/techsolucoes-2026" },
-];
-
-function ti(t: string) {
-  switch (t) {
+function TipoIcon({ tipo }: { tipo: string }) {
+  switch (tipo) {
     case "imagem": return <FileImage className="w-4 h-4 text-blue-500" />;
-    case "pdf": return <FileText className="w-4 h-4 text-red-500" />;
-    case "xlsx": return <FileSpreadsheet className="w-4 h-4 text-green-600" />;
-    case "link": return <Link2 className="w-4 h-4 text-neutral-500" />;
-    default: return null;
+    case "pdf":    return <FileText className="w-4 h-4 text-red-500" />;
+    case "xlsx":   return <FileSpreadsheet className="w-4 h-4 text-green-600" />;
+    case "link":   return <Link2 className="w-4 h-4 text-slate-500" />;
+    default:       return <FileText className="w-4 h-4 text-slate-400" />;
   }
 }
 
+function fmtData(d: Date | string) {
+  return new Date(d).toLocaleDateString("pt-BR");
+}
+
 export default function EvidenciasPage() {
-  const [evidencias, setEvidencias] = useState(MOCK);
-  const handleDelete = (id: string) => { if (confirm("Remover esta evidencia?")) setEvidencias(prev => prev.filter(e => e.id !== id)); };
+  const [evidencias, setEvidencias] = useState<Ev[] | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [removendo, setRemovendo] = useState<string | null>(null);
+
+  const carregar = () => {
+    listarEvidenciasOrg()
+      .then(setEvidencias)
+      .catch(e => setErro(String(e?.message || e)));
+  };
+
+  useEffect(carregar, []);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Remover esta evidência?")) return;
+    setRemovendo(id);
+    try {
+      await removerEvidencia(id);
+      setEvidencias(prev => prev?.filter(e => e.id !== id) ?? null);
+    } catch (e: any) {
+      alert("Erro ao remover: " + (e?.message || e));
+    } finally {
+      setRemovendo(null);
+    }
+  };
+
+  const comLink = evidencias?.filter(e => e.url) ?? [];
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-medium">Evidencias</h1>
+        <h1 className="text-xl font-semibold text-slate-800">Evidências</h1>
       </div>
 
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm mb-6">
-        <div className="flex items-center gap-2 mb-4">
-          <Link2 className="w-5 h-5 text-blue-600" />
-          <h2 className="text-base font-medium">Links das referencias aceitas</h2>
+      {erro && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">Erro: {erro}</div>
+      )}
+
+      {/* Links do PNCP aceitos */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden mb-6">
+        <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-100">
+          <Link2 className="w-5 h-5 text-indigo-600" />
+          <h2 className="text-base font-semibold text-slate-800">Links de referências aceitas</h2>
         </div>
-        <p className="text-sm text-neutral-500 mb-3">Links automaticamente vinculados dos resultados do PNCP que foram aceitos na pesquisa.</p>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-neutral-200">
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Documento de origem</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Processo</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Link</th>
-            </tr></thead>
-            <tbody>
-              {evidencias.filter(e => e.url).map(e => (
-                <tr key={e.id} className="border-b border-neutral-100 hover:bg-neutral-50 transition-colors">
-                  <td className="py-2.5 px-3 font-mono text-xs">{e.nome}</td>
-                  <td className="py-2.5 px-3 font-mono text-xs">{e.processo}</td>
-                  <td className="py-2.5 px-3">
-                    <a href={e.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium">
-                      <ExternalLink className="w-3 h-3" /> Abrir link
-                    </a>
-                  </td>
+        <div className="px-6 py-2 text-xs text-slate-400 border-b border-slate-50">
+          Links vinculados automaticamente a partir dos resultados aceitos nas pesquisas.
+        </div>
+        {evidencias === null ? (
+          <div className="flex items-center justify-center py-12 gap-2 text-slate-400">
+            <Loader2 className="w-5 h-5 animate-spin" />
+          </div>
+        ) : comLink.length === 0 ? (
+          <p className="py-10 text-center text-sm text-slate-400">Nenhum link vinculado ainda.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  {["Documento", "Processo", "Pesquisa", "Link"].map(h => (
+                    <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                  ))}
                 </tr>
-              ))}
-              {evidencias.filter(e => e.url).length === 0 && (
-                <tr><td colSpan={3} className="py-4 text-center text-neutral-400 text-sm">Nenhum link vinculado.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {comLink.map(e => (
+                  <tr key={e.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-2.5 px-4 font-mono text-xs text-slate-600">{e.nome}</td>
+                    <td className="py-2.5 px-4 font-mono text-xs">{e.processoNumero || "—"}</td>
+                    <td className="py-2.5 px-4 text-slate-600 max-w-[220px] truncate" title={e.pesquisaObjeto}>{e.pesquisaObjeto}</td>
+                    <td className="py-2.5 px-4">
+                      <a href={e.url!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-medium">
+                        <ExternalLink className="w-3 h-3" /> Abrir
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-        <div className="flex justify-between mb-4">
-          <h2 className="text-base font-medium">Todos os documentos</h2>
-          <button onClick={() => alert("Upload simulado")} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800">
-            <Upload className="w-4 h-4" /> Anexar evidencia
-          </button>
+      {/* Todos os documentos */}
+      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <h2 className="text-base font-semibold text-slate-800">Todos os documentos</h2>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="border-b border-neutral-200">
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Documento</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Processo</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Tipo</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Origem</th>
-              <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Anexado em</th>
-              <th></th>
-            </tr></thead>
-            <tbody>
-              {evidencias.map(e => (
-                <tr key={e.id} className="border-b border-neutral-100 hover:bg-neutral-50 transition-colors">
-                  <td className="py-2.5 px-3 flex items-center gap-2">{ti(e.tipo)}<span className="font-mono text-xs">{e.nome}</span></td>
-                  <td className="py-2.5 px-3 font-mono text-xs">{e.processo}</td>
-                  <td className="py-2.5 px-3"><span className="text-xs font-medium px-2 py-0.5 rounded border bg-neutral-50 text-neutral-600 border-neutral-200 capitalize">{e.tipo}</span></td>
-                  <td className="py-2.5 px-3 capitalize">{e.origem}</td>
-                  <td className="py-2.5 px-3 text-neutral-500">{e.anexadoEm}</td>
-                  <td className="py-2.5 px-3">
-                    <button onClick={() => handleDelete(e.id)} className="p-1.5 rounded hover:bg-red-100 text-neutral-400 hover:text-red-600 transition-colors" title="Remover"><Trash2 className="w-4 h-4" /></button>
-                  </td>
+        {evidencias === null ? (
+          <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
+            <Loader2 className="w-5 h-5 animate-spin" /> Carregando...
+          </div>
+        ) : evidencias.length === 0 ? (
+          <p className="py-16 text-center text-sm text-slate-400">
+            Nenhuma evidência registrada. Complete uma pesquisa para gerar evidências.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  {["Documento", "Processo", "Pesquisa", "Tipo", "Origem", "Data", ""].map((h, i) => (
+                    <th key={i} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {evidencias.map(e => (
+                  <tr key={e.id} className="hover:bg-slate-50 transition-colors">
+                    <td className="py-2.5 px-4">
+                      <div className="flex items-center gap-2">
+                        <TipoIcon tipo={e.tipo} />
+                        <span className="font-mono text-xs text-slate-700">{e.nome}</span>
+                      </div>
+                    </td>
+                    <td className="py-2.5 px-4 font-mono text-xs">{e.processoNumero || "—"}</td>
+                    <td className="py-2.5 px-4 text-slate-600 max-w-[200px] truncate" title={e.pesquisaObjeto}>{e.pesquisaObjeto}</td>
+                    <td className="py-2.5 px-4">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded border bg-slate-50 text-slate-600 border-slate-200 capitalize">{e.tipo}</span>
+                    </td>
+                    <td className="py-2.5 px-4 capitalize text-slate-500 text-xs">{e.origem}</td>
+                    <td className="py-2.5 px-4 text-slate-500 text-xs">{fmtData(e.createdAt)}</td>
+                    <td className="py-2.5 px-4 flex items-center gap-2">
+                      {e.url && (
+                        <a href={e.url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors" title="Abrir">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      )}
+                      <button
+                        type="button"
+                        disabled={removendo === e.id}
+                        onClick={() => handleDelete(e.id)}
+                        className="p-1.5 rounded hover:bg-red-50 text-slate-300 hover:text-red-500 transition-colors disabled:opacity-40"
+                        title="Remover"
+                      >
+                        {removendo === e.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import {
   resultadosPesquisa,
   evidencias,
   configuracoes,
+  usuarios,
 } from "@/lib/db/schema";
 import { eq, desc, inArray, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -188,4 +189,94 @@ export async function buscarConfiguracoes() {
   const orgaoId = (session.user as any).orgaoId;
   const result = await db.select().from(configuracoes).where(eq(configuracoes.orgaoId, orgaoId)).limit(1);
   return result[0] || { similaridadeMinima: 75, cvAlerta: 25, periodoPadrao: "12_meses", metodoPadrao: "media_aritmetica", fontesAtivas: ["pncp", "painel_precos"] };
+}
+
+export async function salvarConfiguracoes(data: {
+  similaridadeMinima: number;
+  cvAlerta: number;
+  periodoPadrao: string;
+  metodoPadrao: "media_aritmetica" | "mediana" | "media_ponderada" | "menor_preco";
+}) {
+  const session = await auth();
+  if (!session) throw new Error("Não autorizado");
+  const orgaoId = (session.user as any).orgaoId;
+  const [updated] = await db
+    .insert(configuracoes)
+    .values({ ...data, orgaoId } as any)
+    .onConflictDoUpdate({ target: configuracoes.orgaoId, set: { ...data, updatedAt: new Date() } })
+    .returning();
+  return updated;
+}
+
+export async function listarEvidenciasOrg() {
+  const session = await auth();
+  if (!session) throw new Error("Não autorizado");
+  const orgaoId = (session.user as any).orgaoId;
+  // join evidencias → pesquisas → processos (para filtrar por orgao)
+  const rows = await db
+    .select({
+      id: evidencias.id,
+      nome: evidencias.nome,
+      tipo: evidencias.tipo,
+      url: evidencias.url,
+      origem: evidencias.origem,
+      tamanhoBytes: evidencias.tamanhoBytes,
+      createdAt: evidencias.createdAt,
+      pesquisaId: evidencias.pesquisaId,
+      processoNumero: processos.numero,
+      pesquisaObjeto: pesquisas.objeto,
+    })
+    .from(evidencias)
+    .innerJoin(pesquisas, eq(evidencias.pesquisaId, pesquisas.id))
+    .innerJoin(processos, eq(pesquisas.processoId, processos.id))
+    .where(eq(processos.orgaoId, orgaoId))
+    .orderBy(desc(evidencias.createdAt));
+  return rows;
+}
+
+export async function removerEvidencia(id: string) {
+  const session = await auth();
+  if (!session) throw new Error("Não autorizado");
+  await db.delete(evidencias).where(eq(evidencias.id, id));
+}
+
+export async function listarDashboard() {
+  const session = await auth();
+  if (!session) throw new Error("Não autorizado");
+  const orgaoId = (session.user as any).orgaoId;
+
+  const [pesquisasRecentes, totais] = await Promise.all([
+    db
+      .select({
+        id: pesquisas.id,
+        objeto: pesquisas.objeto,
+        status: pesquisas.status,
+        precoTotalEstimado: pesquisas.precoTotalEstimado,
+        createdAt: pesquisas.createdAt,
+        processoNumero: processos.numero,
+        usuarioNome: usuarios.nome,
+      })
+      .from(pesquisas)
+      .leftJoin(processos, eq(pesquisas.processoId, processos.id))
+      .leftJoin(usuarios, eq(pesquisas.usuarioId, usuarios.id))
+      .where(eq(processos.orgaoId, orgaoId))
+      .orderBy(desc(pesquisas.createdAt))
+      .limit(8),
+    db
+      .select({
+        id: pesquisas.id,
+        status: pesquisas.status,
+        precoTotalEstimado: pesquisas.precoTotalEstimado,
+      })
+      .from(pesquisas)
+      .leftJoin(processos, eq(pesquisas.processoId, processos.id))
+      .where(eq(processos.orgaoId, orgaoId)),
+  ]);
+
+  const total = totais.length;
+  const concluidas = totais.filter(p => p.status === "concluida").length;
+  const emAndamento = totais.filter(p => p.status === "em_andamento").length;
+  const valorTotal = totais.reduce((acc, p) => acc + (p.precoTotalEstimado ? Number(p.precoTotalEstimado) : 0), 0);
+
+  return { pesquisasRecentes, total, concluidas, emAndamento, valorTotal };
 }

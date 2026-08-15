@@ -73,6 +73,20 @@ export async function buscarPNCP(params: BuscaParams): Promise<ResultadoFonte> {
       const homologado = r?.valorTotalHomologado != null ? Number(r.valorTotalHomologado) : null;
       const valor = homologado && homologado > 0 ? homologado : estimado;
       const id = r?.numeroControlePNCP || `${r?.sequencialCompra || ""}-${r?.anoCompra || ""}`;
+      // Constrói URL correta do portal PNCP: /app/editais/{cnpj14}/{ano}/{sequencial}
+      const cnpj = (orgao?.cnpj || "").replace(/\D/g, "");
+      const anoCompra = r?.anoCompra;
+      const seqCompra = r?.sequencialCompra;
+      let linkEdital: string | null = null;
+      if (cnpj && anoCompra && seqCompra != null) {
+        linkEdital = `https://pncp.gov.br/app/editais/${cnpj}/${anoCompra}/${seqCompra}`;
+      } else if (id) {
+        // fallback: tenta parsear numeroControlePNCP no formato CNPJ14-mod-seq/ano
+        const match = id.match(/^(\d{14})-\d+-(\d+)\/(\d{4})$/);
+        if (match) {
+          linkEdital = `https://pncp.gov.br/app/editais/${match[1]}/${match[3]}/${parseInt(match[2], 10)}`;
+        }
+      }
       return {
         fonte: "pncp" as const,
         orgao: unidade?.nomeUnidade || orgao?.razaoSocial || "Não informado",
@@ -84,7 +98,7 @@ export async function buscarPNCP(params: BuscaParams): Promise<ResultadoFonte> {
         localizacao: unidade?.municipioNome ? `${unidade.municipioNome}/${unidade?.ufSigla || ""}` : unidade?.ufSigla || null,
         similaridade: calcSimilaridade(r?.objetoCompra || "", termos),
         documentoOrigem: id || null,
-        linkEdital: id ? `https://pncp.gov.br/app/compra/${encodeURIComponent(id)}` : null,
+        linkEdital,
         dadosBrutos: r as unknown as Record<string, unknown>,
       };
     });
