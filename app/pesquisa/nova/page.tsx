@@ -155,7 +155,14 @@ export default function NovaPesquisaPage() {
       const data = await res.json();
       if (data.caracteristicas && data.caracteristicas.length > 0) {
         setErroExtracao(null);
-        setCaracteristicasIA(data.caracteristicas.map((c: any) => ({ caracteristica: c.nome, valor: c.valor, confianca: c.confianca })));
+        // inclui palavras_chave_busca como primeiras características para enriquecer a busca
+        const extras = (data.palavras_chave_busca || []).map((kw: string, i: number) => ({
+          caracteristica: `palavra_chave_${i + 1}`, valor: kw, confianca: 88,
+        }));
+        setCaracteristicasIA([
+          ...extras,
+          ...data.caracteristicas.map((c: any) => ({ caracteristica: c.nome, valor: c.valor, confianca: c.confianca })),
+        ]);
       } else {
         setErroExtracao("O agente extrator não retornou características para este objeto. Verifique a descrição e tente novamente.");
         setCaracteristicasIA([]);
@@ -172,9 +179,20 @@ export default function NovaPesquisaPage() {
   const pesquisarPNCP = async () => {
     setPesquisando(true); setResultados([]); setErroPesquisa(null);
     goToStep(9);
-    const termo = caracteristicasIA.length
-      ? caracteristicasIA.map(c => c.valor).join(" ")
-      : objetoDesc;
+    // Constrói termo de busca enriquecido:
+    // Prioriza as palavras-chave extraídas pela IA (mais precisas),
+    // complementadas pelo objeto original
+    const palavrasChave = caracteristicasIA
+      .filter(c => c.caracteristica.startsWith("palavra_chave_"))
+      .map(c => c.valor);
+    const caracteristicas = caracteristicasIA
+      .filter(c => !c.caracteristica.startsWith("palavra_chave_"))
+      .map(c => c.valor);
+    const termo = palavrasChave.length
+      ? [...palavrasChave, ...caracteristicas].join(" ")
+      : caracteristicas.length
+        ? `${objetoDesc} ${caracteristicas.join(" ")}`
+        : objetoDesc;
     try {
       const res = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fonte=precos_abertos&tamanhoPagina=20`, {
         signal: AbortSignal.timeout(120_000),
@@ -572,7 +590,7 @@ export default function NovaPesquisaPage() {
             <Field label="Órgão"><input className="inp inp-ro" value={processo.orgao} readOnly /></Field>
             <Field label="Responsável"><input className="inp inp-ro" value={processo.responsavel} readOnly /></Field>
             <Field label="E-mail"><input className="inp inp-ro" value={processo.email} readOnly /></Field>
-            <Field label="Objeto resumido"><input className="inp inp-ro" value={`Aquisição de ${quantidade} ${unidadeMedida}(s)`} readOnly /></Field>
+            <Field label="Objeto"><input className="inp inp-ro" value={objetoDesc} readOnly /></Field>
             <Field label="Parcelamento"><input className="inp inp-ro" value={formaParcelamento} readOnly /></Field>
           </Grid2>
           {caracteristicasIA.length > 0 && (

@@ -67,34 +67,48 @@ export async function extrairCaracteristicas(
 ) {
   const systemPrompt = `Você é o Agente Extrator da Estima.IA, especialista em análise técnica de objetos de contratação pública brasileira.
 
-Sua função é ler descrições de objetos de compra/contratação e extrair características técnicas estruturadas em JSON.
+Sua função é ler descrições de objetos de compra/contratação e extrair:
+1. Características técnicas estruturadas
+2. Palavras-chave de busca otimizadas para encontrar contratos similares nas bases de preços do governo (PNCP, Compras.gov.br, CATMAT, CATSER)
 
-Regras:
-- Categoria: use categorias padronizadas (informatica, obras, servicos, veiculos, mobiliario, materiais) com subcategoria específica (ex.: computadores-portateis)
-- Nome das características em snake_case (ex: processador, memoria_ram, tamanho_tela)
-- Tipo "obrigatorio": mencionado com "deverá", "deve", "mínimo", "obrigatório" ou essencial para funcionamento
-- Tipo "desejavel": mencionado com "desejável", "preferencialmente", "se possível" ou é um diferencial
-- Confiança: 90-100 explícita e inequívoca; 70-89 implícita mas clara; 50-69 provável mas ambígua; 0-49 incerta (incluir só se relevante)
-- Fonte: sempre cite o trecho original do texto que originou a característica
-- Alertas: sinalize omissões importantes (ex.: marca/fabricante não especificado, geração não informada)
+Regras para características:
+- Categoria: informatica, obras, servicos, veiculos, mobiliario, materiais, saude
+- Subcategoria específica (ex.: servidores, storage, licencas-software, suporte-ti, data-center)
+- Nome em snake_case (ex: tipo_servico, capacidade_storage, nivel_sla)
+- Tipo "obrigatorio" ou "desejavel"
+- Confiança: 90-100 explícita; 70-89 implícita; 50-69 provável; <50 incerta
+- Alertas: omissões relevantes para precificação
 
-Responda APENAS com JSON válido, sem markdown, sem texto extra:
+Regras para palavras_chave_busca:
+- Liste de 3 a 8 termos curtos e específicos que representam EXATAMENTE o objeto
+- Foque nos substantivos técnicos principais, sem verbos ou preposições
+- Para TI: inclua termos como "datacenter", "storage", "servidor", "suporte tecnico ti", "help desk", etc.
+- Para materiais: inclua o nome técnico do item no catálogo (CATMAT/CATSER)
+- Evite termos genéricos como "aquisição", "contratação", "fornecimento"
+- Coloque os termos mais importantes PRIMEIRO
+
+Responda APENAS com JSON válido, sem markdown:
 {
   "categoria": "string",
   "subcategoria": "string",
+  "palavras_chave_busca": ["termo1", "termo2", "..."],
   "caracteristicas": [
     {"nome": "string", "valor": "string", "tipo": "obrigatorio|desejavel", "confianca": 0-100, "fonte": "string"}
   ],
   "resumo": "string com até 200 caracteres",
-  "alertas": ["lista de ambiguidades ou omissões"]
+  "alertas": ["lista de omissões relevantes para pesquisa de preços"]
 }`;
 
-  const userMessage = `Extraia as características técnicas do seguinte objeto de contratação:
+  const especStr = especificacoes.length
+    ? especificacoes.map(e => `- ${e.item}: ${e.especificacao} (${e.obrigatorio ? "obrigatório" : "desejável"})`).join("\n")
+    : "(nenhuma especificação informada — infira as características a partir da descrição)";
+
+  const userMessage = `Extraia as características técnicas e palavras-chave de busca do seguinte objeto de contratação pública:
 
 Descrição: ${descricao}
 
 Especificações informadas:
-${especificacoes.map((e) => `- ${e.item}: ${e.especificacao} (${e.obrigatorio ? "obrigatório" : "desejável"})`).join("\n")}`;
+${especStr}`;
 
   const text = await callDeepSeek(systemPrompt, userMessage, 0.15);
   return parseJsonResponse(text);
