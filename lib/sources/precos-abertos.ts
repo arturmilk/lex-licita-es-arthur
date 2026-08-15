@@ -248,9 +248,7 @@ export async function buscarPrecosAbertos(params: BuscaParams): Promise<Resultad
         localizacao: r.municipio ? `${r.municipio}/${r.estado || ""}`.replace(/\/$/, "") : r.estado || null,
         similaridade: r.descricaoItem.toLowerCase().includes(itensTermos) ? 95 : 70,
         documentoOrigem: r.idCompra ? String(r.idCompra) : null,
-        linkEdital: r.idCompra
-          ? `https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial?tipo=idCompra&codigo=${r.idCompra}`
-          : null,
+        linkEdital: null, // dadosabertos.compras.gov.br não oferece URL pública por idCompra
         dadosBrutos: r as unknown as Record<string, unknown>,
       };
     });
