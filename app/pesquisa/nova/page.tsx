@@ -19,7 +19,7 @@ type StatusAvaliacao = "pendente" | "aceito" | "rejeitado";
 type FormaParcelamento = "item" | "lote" | "global";
 
 interface ResultadoPNCP {
-  id: string; orgao: string; descricao: string; quantidade: number | null; data: string;
+  id: string; fonte: string; orgao: string; descricao: string; quantidade: number | null; data: string;
   valor_unitario: number | null; valor_total: number | null; localizacao: string | null;
   similaridade: number; documento_origem: string; link_origem: string;
   fornecedor?: string; status_avaliacao: StatusAvaliacao; justificativa_rejeicao?: string;
@@ -183,6 +183,7 @@ export default function NovaPesquisaPage() {
       if (data?.items?.length > 0) {
         const novos = data.items.map((it: any, idx: number) => ({
           id: String(idx + 1),
+          fonte: it.fonte || "precos_abertos",
           orgao: it.orgao || "Órgão público",
           descricao: it.descricao || "",
           quantidade: it.quantidade,
@@ -245,11 +246,13 @@ export default function NovaPesquisaPage() {
   };
 
   const calcular = () => {
-    const aceitos = resultados.filter(r => r.status_avaliacao === "aceito").map(r => r.valor_unitario).filter((v): v is number => v != null);
+    const aceitosRaw = resultados.filter(r => r.status_avaliacao === "aceito" && r.valor_unitario != null);
+    const aceitos = aceitosRaw.map(r => r.valor_unitario as number);
     if (aceitos.length === 0) { setEstatisticas(null); return; }
+    const pesos = aceitosRaw.map(r => r.quantidade ?? 1);
     const stats = calcularEstatisticas(aceitos);
     setEstatisticas(stats);
-    const preco = calcularPrecoEstimado(aceitos, config.metodo, quantidade);
+    const preco = calcularPrecoEstimado(aceitos, config.metodo, quantidade, pesos);
     setPrecoEstimado(preco);
     gerarConteudoIA(stats, aceitos.length);
   };
@@ -273,11 +276,11 @@ export default function NovaPesquisaPage() {
         periodoPesquisa: config.periodo,
         regiaoPesquisa: config.regiao,
         metodoCalculo: config.metodo,
-        fontesAtivas: ["precos_abertos"],
+        fontesAtivas: [...new Set(resultados.map(r => r.fonte).filter(Boolean))] as string[] || ["precos_abertos"],
       });
       if (resultados.length > 0) {
         await salvarResultadosPesquisa(nova.id, resultados.map((r) => ({
-          fonte: "precos_abertos",
+          fonte: r.fonte || "precos_abertos",
           orgao: r.orgao,
           descricao: r.descricao,
           quantidade: r.quantidade,
