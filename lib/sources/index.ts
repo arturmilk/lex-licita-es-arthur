@@ -1,4 +1,5 @@
 import { buscarPNCP } from "./pncp";
+import { buscarPNCPSearch } from "./pncp-search";
 import { buscarPainelPrecos } from "./painel-precos";
 import { buscarComprasGov } from "./compras-gov";
 import { buscarPrecosAbertos } from "./precos-abertos";
@@ -12,8 +13,8 @@ export type { FonteId, ResultadoBruto, ResultadoFonte, BuscaParams, FonteConfig 
 export const FONTES_CONFIG: FonteConfig[] = [
   {
     id: "pncp",
-    nome: "PNCP",
-    descricao: "Portal Nacional de Contratações Públicas",
+    nome: "PNCP (busca textual)",
+    descricao: "Portal Nacional de Contratações Públicas — busca por texto com links de edital",
     disponivel: true,
     categorias: ["geral", "bens", "servicos", "obras"],
   },
@@ -67,7 +68,7 @@ export async function buscarFonte(
 ): Promise<ResultadoFonte> {
   switch (fonte) {
     case "pncp":
-      return buscarPNCP(params);
+      return buscarPNCPSearch(params);
     case "painel_precos":
       return buscarPainelPrecos(params);
     case "compras_gov":

@@ -196,13 +196,15 @@ export default function NovaPesquisaPage() {
 
     const uf = (localEntrega.split("/").pop() || "").trim().toUpperCase().slice(0, 2);
 
-    // Busca em paralelo: termoIA + termoSecundario (se existir)
+    // Busca em paralelo:
+    // - pncp,precos_abertos com termoIA (PNCP traz links reais de edital; precos_abertos traz preços unitários)
+    // - precos_abertos com termoSecundario (se houver)
     const buscas: Promise<Response>[] = [
-      fetch(`/api/pncp?termo=${encodeURIComponent(termoIA)}&fontes=precos_abertos&tamanhoPagina=20`, { signal: AbortSignal.timeout(120_000) }),
+      fetch(`/api/pncp?termo=${encodeURIComponent(termoIA)}&fontes=pncp,precos_abertos&tamanhoPagina=20`, { signal: AbortSignal.timeout(120_000) }),
     ];
     if (termoSecundario) {
       buscas.push(
-        fetch(`/api/pncp?termo=${encodeURIComponent(termoSecundario)}&fontes=precos_abertos&tamanhoPagina=15`, { signal: AbortSignal.timeout(120_000) })
+        fetch(`/api/pncp?termo=${encodeURIComponent(termoSecundario)}&fontes=pncp,precos_abertos&tamanhoPagina=15`, { signal: AbortSignal.timeout(120_000) })
       );
     }
 
@@ -237,7 +239,9 @@ export default function NovaPesquisaPage() {
           localizacao: it.localizacao || "",
           similaridade: it.similaridade ?? 0,
           documento_origem: it.documentoOrigem || "",
-          link_origem: it.linkEdital || "",
+          link_origem: it.linkEdital || (it.descricao
+            ? `https://pncp.gov.br/app/editais?q=${encodeURIComponent((it.descricao as string).slice(0, 60))}`
+            : ""),
           fornecedor: it.dadosBrutos?.nomeFornecedor || "",
           status_avaliacao: "pendente" as const,
         }));
