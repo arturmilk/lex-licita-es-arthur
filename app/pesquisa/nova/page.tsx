@@ -115,7 +115,7 @@ export default function NovaPesquisaPage() {
     try {
       const uf = (localEntrega.split("/").pop() || "").trim().toUpperCase().slice(0, 2);
       const termo = objetoDesc || (especificacao[0]?.item || "");
-      const res = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fonte=precos_abertos&tamanhoPagina=10&uf=${encodeURIComponent(uf)}`, {
+      const res = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fontes=precos_abertos&tamanhoPagina=10${uf ? `&uf=${encodeURIComponent(uf)}` : ""}`, {
         signal: AbortSignal.timeout(120_000),
       });
       const data = await res.json();
@@ -179,27 +179,53 @@ export default function NovaPesquisaPage() {
   const pesquisarPNCP = async () => {
     setPesquisando(true); setResultados([]); setErroPesquisa(null);
     goToStep(9);
-    // Constrói termo de busca enriquecido:
-    // Prioriza as palavras-chave extraídas pela IA (mais precisas),
-    // complementadas pelo objeto original
+
+    // Monta dois termos de busca: um enriquecido pela IA, outro o objeto original
     const palavrasChave = caracteristicasIA
       .filter(c => c.caracteristica.startsWith("palavra_chave_"))
       .map(c => c.valor);
     const caracteristicas = caracteristicasIA
       .filter(c => !c.caracteristica.startsWith("palavra_chave_"))
       .map(c => c.valor);
-    const termo = palavrasChave.length
-      ? [...palavrasChave, ...caracteristicas].join(" ")
+    const termoIA = palavrasChave.length
+      ? [...palavrasChave, ...caracteristicas.slice(0, 3)].join(" ")
       : caracteristicas.length
         ? `${objetoDesc} ${caracteristicas.join(" ")}`
         : objetoDesc;
+    const termoOriginal = objetoDesc;
+
+    const uf = (localEntrega.split("/").pop() || "").trim().toUpperCase().slice(0, 2);
+
+    // Busca em paralelo: termoIA + termoOriginal (evita duplicar se forem iguais)
+    const buscas: Promise<Response>[] = [
+      fetch(`/api/pncp?termo=${encodeURIComponent(termoIA)}&fontes=precos_abertos&tamanhoPagina=20${uf ? `&uf=${encodeURIComponent(uf)}` : ""}`, { signal: AbortSignal.timeout(120_000) }),
+    ];
+    if (termoOriginal !== termoIA) {
+      buscas.push(
+        fetch(`/api/pncp?termo=${encodeURIComponent(termoOriginal)}&fontes=precos_abertos&tamanhoPagina=15${uf ? `&uf=${encodeURIComponent(uf)}` : ""}`, { signal: AbortSignal.timeout(120_000) })
+      );
+    }
+
     try {
-      const res = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fonte=precos_abertos&tamanhoPagina=20`, {
-        signal: AbortSignal.timeout(120_000),
-      });
-      const data = await res.json();
-      if (data?.items?.length > 0) {
-        const novos = data.items.map((it: any, idx: number) => ({
+      const respostas = await Promise.allSettled(buscas);
+      const todasItems: any[] = [];
+
+      for (const resp of respostas) {
+        if (resp.status !== "fulfilled") continue;
+        const data = await resp.value.json().catch(() => null);
+        if (data?.items?.length) todasItems.push(...data.items);
+      }
+
+      // Deduplica por descrição+orgão e ordena por similaridade
+      const vistos = new Set<string>();
+      const unicos = todasItems.filter(it => {
+        const chave = `${(it.descricao || "").slice(0, 60)}|${it.orgao}`;
+        if (vistos.has(chave)) return false;
+        vistos.add(chave); return true;
+      }).sort((a, b) => (b.similaridade ?? 0) - (a.similaridade ?? 0));
+
+      if (unicos.length > 0) {
+        const novos = unicos.map((it: any, idx: number) => ({
           id: String(idx + 1),
           fonte: it.fonte || "precos_abertos",
           orgao: it.orgao || "Órgão público",
@@ -220,7 +246,7 @@ export default function NovaPesquisaPage() {
         goToStep(10);
         return;
       } else {
-        setErroPesquisa(`Nenhuma referência encontrada para "${termo}". ${data?.erro || ""}`.trim());
+        setErroPesquisa(`Nenhuma referência encontrada para "${termoIA}". Tente ampliar o período de pesquisa ou usar termos mais gerais.`);
         setResultados([]);
       }
     } catch (err: any) {
