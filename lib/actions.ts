@@ -228,7 +228,7 @@ export async function listarEvidenciasOrg() {
     })
     .from(evidencias)
     .innerJoin(pesquisas, eq(evidencias.pesquisaId, pesquisas.id))
-    .innerJoin(processos, eq(pesquisas.processoId, processos.id))
+    .leftJoin(processos, eq(pesquisas.processoId, processos.id))
     .where(eq(processos.orgaoId, orgaoId))
     .orderBy(desc(evidencias.createdAt));
   return rows;
