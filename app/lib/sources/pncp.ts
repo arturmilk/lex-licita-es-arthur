@@ -84,7 +84,10 @@ export async function buscarPNCP(params: BuscaParams): Promise<ResultadoFonte> {
         localizacao: unidade?.municipioNome ? `${unidade.municipioNome}/${unidade?.ufSigla || ""}` : unidade?.ufSigla || null,
         similaridade: calcSimilaridade(r?.objetoCompra || "", termos),
         documentoOrigem: id || null,
-        linkEdital: id ? `https://pncp.gov.br/app/compra/${encodeURIComponent(id)}` : null,
+        linkEdital: (() => {
+          const match = id.match(/^(\d{14})-\d+-(\d+)\/(\d{4})$/);
+          return match ? `https://pncp.gov.br/app/editais/${match[1]}/${match[3]}/${parseInt(match[2], 10)}` : null;
+        })(),
         dadosBrutos: r as unknown as Record<string, unknown>,
       };
     });

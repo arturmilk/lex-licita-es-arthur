@@ -44,10 +44,10 @@ export async function buscarPNCPSearch(params: BuscaParams): Promise<ResultadoFo
     const raw: any[] = data?.items || [];
 
     const items: ResultadoBruto[] = raw.map((item: any) => {
-      // Link direto: a API já retorna item_url com o caminho completo
-      const linkEdital = item.item_url
-        ? `https://pncp.gov.br/app${item.item_url}`
-        : null;
+      // Link direto: a API retorna item_url com o caminho completo.
+      // Garante que o segmento seja sempre /editais/ (nunca /compras/)
+      const rawUrl = item.item_url ? String(item.item_url).replace(/\/compras\//, "/editais/") : null;
+      const linkEdital = rawUrl ? `https://pncp.gov.br/app${rawUrl}` : null;
 
       const loc = item.municipio_nome && item.uf
         ? `${item.municipio_nome}/${item.uf}`
