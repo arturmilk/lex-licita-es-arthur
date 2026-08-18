@@ -335,7 +335,7 @@ export default function NovaPesquisaPage() {
         periodoPesquisa: config.periodo,
         regiaoPesquisa: config.regiao,
         metodoCalculo: config.metodo,
-        fontesAtivas: [...new Set(resultados.map(r => r.fonte).filter(Boolean))] as string[] || ["precos_abertos"],
+        fontesAtivas: ([...new Set(resultados.map(r => r.fonte).filter(Boolean))] as string[]).length > 0 ? [...new Set(resultados.map(r => r.fonte).filter(Boolean))] as string[] : ["precos_abertos"],
       });
       if (resultados.length > 0) {
         await salvarResultadosPesquisa(nova.id, resultados.map((r) => ({
