@@ -1,7 +1,12 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, Loader2, ExternalLink } from "lucide-react";
+import { ArrowLeft, Loader2, ExternalLink, Check } from "lucide-react";
 import { buscarPesquisa } from "@/lib/actions";
+
+function fmtMoeda(v: number | null | undefined) {
+  if (v == null || isNaN(Number(v))) return "—";
+  return `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
 
 interface ResultadoRow {
   id: string;
@@ -17,6 +22,8 @@ interface ResultadoRow {
   linkEdital: string | null;
   avaliacao: string;
   justificativaRejeicao: string | null;
+  itemId?: string | null;
+  cnpj?: string | null;
 }
 
 export default function PesquisaDetalhePage({ params }: { params: { id: string } }) {
@@ -54,9 +61,47 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
               <div><p className="text-xs text-neutral-500 uppercase">Unidade</p><p className="font-medium">{dados.processoUnidade || "—"}</p></div>
               <div><p className="text-xs text-neutral-500 uppercase">Quantidade</p><p className="font-medium">{dados.quantidade} {dados.unidadeMedida}</p></div>
               <div><p className="text-xs text-neutral-500 uppercase">Metodo</p><p className="font-medium">{String(dados.metodoCalculo || "").replace("_", " ")}</p></div>
+              <div><p className="text-xs text-neutral-500 uppercase">Parcelamento</p><p className="font-medium">{dados.formaParcelamento || "—"}</p></div>
+              <div><p className="text-xs text-neutral-500 uppercase">Local de entrega</p><p className="font-medium">{dados.localEntrega || "—"}</p></div>
+              <div><p className="text-xs text-neutral-500 uppercase">Limite de CV</p><p className="font-medium">{dados.cvLimite ?? 20}%</p></div>
+              <div><p className="text-xs text-neutral-500 uppercase">Período</p><p className="font-medium">{dados.premissas?.periodoPesquisa || "—"}</p></div>
             </div>
             <p className="mt-4 text-sm text-neutral-700">{dados.objeto}</p>
           </div>
+
+          {(dados.itens || []).length > 0 && (
+            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+              <h2 className="text-sm font-semibold mb-3">Itens / lotes da contratação ({dados.itens.length})</h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-neutral-200">
+                    {["#", "Descrição", "Especificação", "Qtd", "Un.", "Item edital", "Obrigatório"].map(h => (
+                      <th key={h} className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {(dados.itens || []).map((i: any, idx: number) => (
+                      <tr key={i.id} className="border-b border-neutral-100">
+                        <td className="py-2 px-3">{idx + 1}</td>
+                        <td className="py-2 px-3 font-medium">{i.descricao}</td>
+                        <td className="py-2 px-3 max-w-[280px] text-neutral-600">{i.especificacao || "—"}</td>
+                        <td className="py-2 px-3">{i.quantidade}</td>
+                        <td className="py-2 px-3">{i.unidadeMedida || "un"}</td>
+                        <td className="py-2 px-3">
+                          {i.itemEdital ? (
+                            <a href={`https://pncp.gov.br/app/editais?q=${encodeURIComponent(i.itemEdital)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-medium whitespace-nowrap">
+                              {i.itemEdital} <ExternalLink className="w-3 h-3" />
+                            </a>
+                          ) : <span className="text-xs text-neutral-400">—</span>}
+                        </td>
+                        <td className="py-2 px-3">{i.obrigatorio ? "Sim" : "Não"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
             <h2 className="text-sm font-semibold mb-3">Preco estimado</h2>
@@ -71,7 +116,45 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
                 {dados.justificativa}
               </div>
             )}
+            {dados.meEpp?.aplicar && (
+              <div className="mt-4 rounded-lg bg-indigo-50 border border-indigo-200 p-4 text-sm text-indigo-800">
+                <strong>ME/EPP (LC 123/2006):</strong>{" "}
+                {dados.meEpp.tipo === "exclusividade" ? "exclusividade" : "reserva de 25%"} —{" "}
+                {fmtMoeda(dados.meEpp.valorReservado)} reservados · base legal: {dados.meEpp.baseLegal || "LC 123/2006, art. 48"}
+              </div>
+            )}
+            {dados.premissas?.alertaCv && (
+              <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
+                <strong>Alerta de CV:</strong> dispersão de {Number(dados.premissas.alertaCv.cv).toFixed(1).replace(".", ",")}%
+                ultrapassou o limite ({dados.premissas.alertaCv.limite}%) — foi aplicado o menor preço.
+              </div>
+            )}
           </div>
+
+          {(dados.decomposicaoCustos || []).length > 0 && (
+            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+              <h2 className="text-sm font-semibold mb-3">Decomposição de custos ({dados.decomposicaoCustos.length})</h2>
+              {(dados.decomposicaoCustos || []).map((c: any) => (
+                <div key={c.id} className="mb-4 rounded-lg bg-neutral-50 border border-neutral-200 p-4">
+                  <p className="text-sm font-medium mb-2">
+                    {(dados.itens || []).find((i: any) => i.id === c.itemId)?.descricao || "Objeto (global)"}
+                    {c.nome ? ` — ${c.nome}` : ""}
+                  </p>
+                  <ul className="text-xs text-neutral-600 space-y-1">
+                    {(c.custos || []).map((x: any) => (
+                      <li key={x.id} className="flex gap-2">
+                        <Check size={12} className="text-green-500 shrink-0 mt-0.5" />
+                        <span><strong>{x.tipo}:</strong> {x.descricao}
+                          {x.custoUnitario != null ? ` · ${fmtMoeda(x.custoUnitario)}` : ""}
+                          {x.percentual != null ? ` · ${x.percentual}%` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
             <h2 className="text-sm font-semibold mb-3">Referencias ({dados.resultados?.length || 0})</h2>
@@ -79,12 +162,14 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
               <table className="w-full text-sm">
                 <thead><tr className="border-b border-neutral-200">
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Orgao</th>
+                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Item</th>
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Descricao</th>
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Qtd</th>
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Data</th>
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Valor unit.</th>
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Local</th>
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Sim.</th>
+                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">CNPJ</th>
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Edital</th>
                   <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Avaliacao</th>
                 </tr></thead>
@@ -92,12 +177,16 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
                   {(dados.resultados || []).map((r: ResultadoRow) => (
                     <tr key={r.id} className="border-b border-neutral-100">
                       <td className="py-2 px-3">{r.orgao}</td>
+                      <td className="py-2 px-3 text-xs text-neutral-500">
+                        {(dados.itens || []).find((i: any) => i.id === r.itemId)?.descricao || (r.itemId === "global" ? "Objeto (global)" : "—")}
+                      </td>
                       <td className="py-2 px-3 max-w-[220px] truncate" title={r.descricao}>{r.descricao}</td>
                       <td className="py-2 px-3">{r.quantidade ?? "—"}</td>
                       <td className="py-2 px-3">{r.dataContrato || "—"}</td>
                       <td className="py-2 px-3">{fmt(r.valorUnitario)}</td>
                       <td className="py-2 px-3">{r.localizacao || "—"}</td>
                       <td className="py-2 px-3">{r.similaridade ?? "—"}%</td>
+                      <td className="py-2 px-3 text-xs font-mono text-neutral-500">{r.cnpj || "—"}</td>
                       <td className="py-2 px-3">
                         {r.linkEdital ? (
                           <a href={r.linkEdital} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-medium whitespace-nowrap">
