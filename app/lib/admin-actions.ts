@@ -93,7 +93,7 @@ export async function listarFeedbacks() {
     .orderBy(desc(feedbacks.createdAt));
 
   // Busca nomes dos usuários separadamente
-  const ids = [...new Set(resultado.map(f => f.usuarioId).filter(Boolean))] as string[];
+  const ids = Array.from(new Set(resultado.map(f => f.usuarioId).filter(Boolean))) as string[];
   let nomes: Record<string, string> = {};
   if (ids.length > 0) {
     const users = await db
