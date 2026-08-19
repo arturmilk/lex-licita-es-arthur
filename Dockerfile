@@ -8,7 +8,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN mkdir -p public && npm run build
+# .next pode vir da camada cacheada (cache do buildx) e o cache do webpack
+# reusado gera chunks com IDs de módulo colidindo (ex: "listarDashboard is not a function")
+RUN rm -rf .next && mkdir -p public && npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app

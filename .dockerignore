@@ -1,0 +1,32 @@
+# dependências e build local (nunca devem entrar no contexto do build)
+node_modules
+.next
+out
+build
+
+# git e metadados
+.git
+.gitignore
+.DS_Store
+
+# envs e segredos (o runtime recebe via docker-compose)
+.env
+.env.*
+!*.env.example
+service-account.json
+*.pem
+
+# logs
+*.log
+
+# dados locais / volumes
+data
+minio-data
+postgres-data
+*.sqlite
+*.db
+
+# docs e artefatos que não entram na imagem
+docs
+*.tsbuildinfo
+tsconfig.tsbuildinfo
