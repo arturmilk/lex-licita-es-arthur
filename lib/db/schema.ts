@@ -176,6 +176,16 @@ export const configuracoes = pgTable("configuracoes", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const feedbacks = pgTable("feedbacks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+  orgaoId: uuid("orgao_id").references(() => orgaos.id, { onDelete: "set null" }),
+  mensagem: text("mensagem").notNull(),
+  pagina: varchar("pagina", { length: 255 }),
+  lido: boolean("lido").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("feedbacks_orgao_idx").on(t.orgaoId)]);
+
 // Relations
 export const orgaosRelations = relations(orgaos, ({ many, one }) => ({
   usuarios: many(usuarios),

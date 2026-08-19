@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { auth } from "@/auth";
 import Sidebar from "@/components/Sidebar";
+import FeedbackButton from "@/components/FeedbackButton";
 
 export const metadata: Metadata = {
   title: "Estima.IA - Pesquisa de Preços",
@@ -51,6 +52,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </main>
           </div>
         </div>
+        <FeedbackButton />
       </body>
     </html>
   );
