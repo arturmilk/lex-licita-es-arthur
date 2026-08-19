@@ -36,7 +36,15 @@ export async function criarPesquisa(data: {
   quantidade: number;
   unidadeMedida?: string;
   localEntrega?: string;
+  formaParcelamento?: string;
   especificacoes?: unknown;
+  itens?: unknown;
+  pesquisaMercado?: unknown;
+  cvLimite?: number;
+  parametrosRelatorio?: unknown;
+  meEpp?: unknown;
+  decomposicaoCustos?: unknown;
+  premissas?: unknown;
   caracteristicasIA?: unknown;
   periodoPesquisa?: string;
   regiaoPesquisa?: string;
@@ -111,6 +119,9 @@ export async function salvarResultadosPesquisa(
     linkEdital?: string | null;
     avaliacao?: "pendente" | "aceito" | "rejeitado";
     justificativaRejeicao?: string | null;
+    itemId?: string | null;
+    cnpj?: string | null;
+    fonteDados?: string | null;
     dadosBrutos?: Record<string, unknown>;
   }>
 ) {

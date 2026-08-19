@@ -63,6 +63,44 @@ export function calcularPrecoEstimado(
   return { unitario: unit, total: unit * quantidade };
 }
 
+/**
+ * Regra de negócio da reunião (CV > limite): se a dispersão dos preços pesquisados
+ * ultrapassar o limite (default 20%), o sistema emite alerta e usa automaticamente
+ * o MENOR PREÇO como referência de cálculo (em vez de uma média distorcida).
+ *
+ * Retorna o método efetivamente aplicado — quando o CV estoura o limite, o método
+ * efetivo é "menor_preco" (a menos que o usuário já tenha escolhido menor_preco,
+ * caso em que nada muda). O alerta fica disponível para exibição na UI.
+ */
+export function calcularComRegraCv(
+  valores: number[],
+  metodo: MetodoCalculo,
+  quantidade: number,
+  limiteCv = 20,
+  pesos?: number[],
+): {
+  estatisticas: EstatisticasPreco;
+  alertaCv: boolean;
+  cvExcedido: number | null;
+  metodoEfetivo: MetodoCalculo;
+  preco: { unitario: number; total: number };
+} {
+  const estatisticas = calcularEstatisticas(valores);
+  const cvExcedido =
+    estatisticas.n > 1 && estatisticas.coeficienteVariacao > limiteCv
+      ? estatisticas.coeficienteVariacao
+      : null;
+  const alertaCv = cvExcedido !== null;
+
+  // Se o CV estourou o limite e o método escolhido seria uma média (distorcida),
+  // aplica automaticamente o menor preço.
+  const metodoEfetivo: MetodoCalculo =
+    alertaCv && metodo !== "menor_preco" ? "menor_preco" : metodo;
+
+  const preco = calcularPrecoEstimado(valores, metodoEfetivo, quantidade, pesos);
+  return { estatisticas, alertaCv, cvExcedido, metodoEfetivo, preco };
+}
+
 export function formatarMoeda(valor: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(valor);
 }
