@@ -16,8 +16,18 @@ import { revalidatePath } from "next/cache";
 export async function listarProcessos() {
   const session = await auth();
   if (!session) throw new Error("Não autorizado");
-  const orgaoId = (session.user as any).orgaoId;
-  return db.select().from(processos).where(eq(processos.orgaoId, orgaoId)).orderBy(desc(processos.updatedAt));
+  const user = session.user as any;
+  const orgaoId = user.orgaoId;
+  const perfil: string = user.perfil || "pesquisador";
+
+  // Gestor e administrador veem processos de toda a equipe do órgão
+  // Pesquisador vê apenas os próprios
+  const query = db.select().from(processos).where(
+    perfil === "pesquisador"
+      ? and(eq(processos.orgaoId, orgaoId), eq(processos.usuarioId, user.id))
+      : eq(processos.orgaoId, orgaoId)
+  );
+  return query.orderBy(desc(processos.updatedAt));
 }
 
 export async function criarProcesso(data: { numero: string; objeto: string; unidade?: string }) {
@@ -67,9 +77,17 @@ export async function atualizarPesquisa(id: string, data: Partial<typeof pesquis
 export async function listarPesquisas() {
   const session = await auth();
   if (!session) throw new Error("Não autorizado");
-  const orgaoId = (session.user as any).orgaoId;
+  const user = session.user as any;
+  const orgaoId = user.orgaoId;
+  const perfil: string = user.perfil || "pesquisador";
 
   try {
+    // Gestor e administrador veem pesquisas de toda a equipe do órgão
+    // Pesquisador vê apenas as próprias
+    const condicao = perfil === "pesquisador"
+      ? and(eq(processos.orgaoId, orgaoId), eq(pesquisas.usuarioId, user.id))
+      : eq(processos.orgaoId, orgaoId);
+
     const result = await db
       .select({
         id: pesquisas.id,
@@ -85,7 +103,7 @@ export async function listarPesquisas() {
       })
       .from(pesquisas)
       .leftJoin(processos, eq(pesquisas.processoId, processos.id))
-      .where(eq(processos.orgaoId, orgaoId))
+      .where(condicao)
       .orderBy(desc(pesquisas.createdAt));
 
     const ids = result.map((r) => r.id);

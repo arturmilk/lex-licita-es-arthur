@@ -6,18 +6,31 @@ import { usePathname } from "next/navigation";
 import { sair } from "@/lib/auth-actions";
 
 const navItems = [
-  { href: "/pesquisa/nova", icon: Plus, label: "Nova pesquisa" },
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/processos", icon: FileText, label: "Processos" },
-  { href: "/pesquisas", icon: Search, label: "Pesquisas" },
-  { href: "/relatorios", icon: BarChart3, label: "Relatórios" },
-  { href: "/evidencias", icon: Paperclip, label: "Evidências" },
-  { href: "/admin", icon: Settings, label: "Administração" },
+  { href: "/pesquisa/nova", icon: Plus, label: "Nova pesquisa", roles: ["pesquisador", "gestor", "administrador"] },
+  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["pesquisador", "gestor", "administrador"] },
+  { href: "/processos", icon: FileText, label: "Processos", roles: ["pesquisador", "gestor", "administrador"] },
+  { href: "/pesquisas", icon: Search, label: "Pesquisas", roles: ["pesquisador", "gestor", "administrador"] },
+  { href: "/relatorios", icon: BarChart3, label: "Relatórios", roles: ["pesquisador", "gestor", "administrador"] },
+  { href: "/evidencias", icon: Paperclip, label: "Evidências", roles: ["pesquisador", "gestor", "administrador"] },
+  { href: "/admin", icon: Settings, label: "Administração", roles: ["administrador"] },
 ];
+
+const perfilLabel: Record<string, string> = {
+  administrador: "Administrador",
+  gestor: "Gestor",
+  pesquisador: "Pesquisador",
+};
+
+const perfilCor: Record<string, string> = {
+  administrador: "bg-purple-700 text-purple-200",
+  gestor: "bg-amber-700 text-amber-200",
+  pesquisador: "bg-neutral-700 text-neutral-300",
+};
 
 export default function Sidebar({ user }: { user: any }) {
   const [aberto, setAberto] = useState(false);
   const pathname = usePathname();
+  const perfil: string = user.perfil || "pesquisador";
 
   const conteudo = (
     <>
@@ -35,7 +48,7 @@ export default function Sidebar({ user }: { user: any }) {
       </div>
 
       <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {navItems.map(({ href, icon: Icon, label }) => {
+        {navItems.filter(item => item.roles.includes(perfil)).map(({ href, icon: Icon, label }) => {
           const ativo = pathname === href || (href !== "/" && pathname.startsWith(href));
           return (
             <Link
@@ -57,8 +70,8 @@ export default function Sidebar({ user }: { user: any }) {
         <div className="mb-3">
           <p className="text-white text-sm font-medium truncate">{user.name}</p>
           <p className="text-neutral-400 text-xs truncate">{user.email}</p>
-          <span className="inline-block mt-1 px-2 py-0.5 bg-neutral-700 text-neutral-300 text-xs rounded">
-            {user.perfil}
+          <span className={`inline-block mt-1 px-2 py-0.5 text-xs rounded font-medium ${perfilCor[perfil] || perfilCor.pesquisador}`}>
+            {perfilLabel[perfil] || perfil}
           </span>
         </div>
         <form action={sair}>

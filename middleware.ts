@@ -2,6 +2,7 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
 const publicRoutes = ["/login", "/register", "/api/auth", "/api/agent"];
+const adminRoutes = ["/admin"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -17,6 +18,16 @@ export default auth((req) => {
     url.pathname = "/login";
     url.searchParams.set("callbackUrl", pathname);
     return NextResponse.redirect(url);
+  }
+
+  // Rotas exclusivas de administrador
+  if (adminRoutes.some((r) => pathname.startsWith(r))) {
+    const perfil = (req.auth.user as any)?.perfil;
+    if (perfil !== "administrador") {
+      const url = req.nextUrl.clone();
+      url.pathname = "/dashboard";
+      return NextResponse.redirect(url);
+    }
   }
 
   return NextResponse.next();
