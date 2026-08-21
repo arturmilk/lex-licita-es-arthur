@@ -115,7 +115,7 @@ export function gerarXLSX(dados: any): Uint8Array {
     ["Memoria de calculo"], [],
     ["Formula", "Descricao", "Valor"],
     ["N", "Numero de referencias aceitas", dados.estatisticas.n],
-    ["SOMA", "Soma dos valores unitarios", dados.referencias.filter((r: any) => r.valor_unitario != null).reduce((a: number, r: any) => a + r.valor_unitario, 0)],
+    ["SOMA", "Soma dos valores unitarios", dados.referencias.filter((r: any) => r.valor_unitario != null && r.valor_unitario > 0).reduce((a: number, r: any) => a + r.valor_unitario, 0)],
     ["MEDIA", "SOMA / N", dados.estatisticas.media],
     ["MEDIANA", "Valor central do conjunto ordenado", dados.estatisticas.mediana],
     ["MINIMO", "Menor valor unitario", dados.estatisticas.minimo],

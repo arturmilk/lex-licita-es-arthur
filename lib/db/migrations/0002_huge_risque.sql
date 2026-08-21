@@ -1,0 +1,1 @@
+ALTER TYPE "public"."fonte" ADD VALUE IF NOT EXISTS 'pesquisa_precos_gov' BEFORE 'bps';

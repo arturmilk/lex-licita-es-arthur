@@ -3,7 +3,7 @@
 import React, { useState, useCallback } from "react";
 import {
   Loader2, AlertCircle, Check, X, ExternalLink, MapPin,
-  FileSearch, ChevronRight, Sparkles, BarChart3, FileText,
+  FileSearch, ChevronRight, ChevronDown, Sparkles, BarChart3, FileText,
   ClipboardList, Settings, Search, CheckCircle2, TrendingUp, RefreshCw,
 } from "lucide-react";
 import { calcularEstatisticas, calcularPrecoEstimado, formatarMoeda } from "@/lib/math";
@@ -19,14 +19,24 @@ type RegiaoPesquisa = "brasil" | "centro_oeste" | "sudeste" | "sul" | "nordeste"
 type StatusAvaliacao = "pendente" | "aceito" | "rejeitado";
 type FormaParcelamento = "item" | "lote" | "global";
 
-interface ItemPesquisa {
+interface SubItem {
   id: string;
   descricao: string;
   especificacao: string;
   quantidade: number;
   unidadeMedida: string;
   itemEdital?: string;
+}
+
+interface ItemPesquisa {
+  id: string;
+  descricao: string;         // nome do lote (quando formaParcelamento==="lote")
+  especificacao: string;
+  quantidade: number;
+  unidadeMedida: string;
+  itemEdital?: string;
   obrigatorio?: boolean;
+  subitens?: SubItem[];      // itens dentro do lote (só usado em modo lote)
 }
 
 interface RegistroMercado {
@@ -81,24 +91,24 @@ const UNIDADES_MEDIDA = [
 // ─── Fases do wizard ──────────────────────────────────────────────────────────
 const FASES = [
   { nome: "Objeto",     icon: ClipboardList, steps: [1, 2] },
-  { nome: "Processo",   icon: Settings,      steps: [3, 4] },
-  { nome: "Pesquisa",   icon: Search,        steps: [5, 6, 7, 8, 9] },
-  { nome: "Análise",    icon: BarChart3,     steps: [10, 11, 12, 13] },
-  { nome: "Relatório",  icon: FileText,      steps: [14, 15, 16, 17] },
+  { nome: "Processo",   icon: Settings,      steps: [3] },
+  { nome: "Pesquisa",   icon: Search,        steps: [4, 5, 6, 7, 8] },
+  { nome: "Análise",    icon: BarChart3,     steps: [9, 10, 11, 12] },
+  { nome: "Relatório",  icon: FileText,      steps: [13, 14, 15, 16] },
 ];
 
 const STEP_NAMES: Record<number, string> = {
   1: "Objeto e parcelamento", 2: "Itens da contratação", 3: "Informações do processo",
-  4: "Quantidade e local", 5: "Pesquisa de mercado", 6: "Extração IA",
-  7: "Revisão", 8: "Configurações", 9: "Pesquisa PNCP",
-  10: "Resultados", 11: "Análise IA", 12: "Estatísticas",
-  13: "Preço estimado", 14: "Metodologia e ME/EPP", 15: "Decomposição de custos",
-  16: "Evidências", 17: "Relatório final",
+  4: "Pesquisa de mercado", 5: "Realizar pesquisa",
+  6: "Revisão", 7: "Configurações", 8: "Pesquisa PNCP",
+  9: "Resultados", 10: "Análise IA", 11: "Estatísticas",
+  12: "Preço estimado", 13: "Metodologia e ME/EPP", 14: "Decomposição de custos",
+  15: "Evidências", 16: "Relatório final",
 };
 
 export default function NovaPesquisaPage() {
   const [step, setStep] = useState(1);
-  const totalSteps = 17;
+  const totalSteps = 16;
   const [processo, setProcesso] = useState({ numero: "", orgao: "", unidade: "", responsavel: "", email: "" });
   const [objetoDesc, setObjetoDesc] = useState("");
   const [itens, setItens] = useState<ItemPesquisa[]>([]);
@@ -147,6 +157,17 @@ export default function NovaPesquisaPage() {
   const [justificativaIA, setJustificativaIA] = useState<string | null>(null);
   const [validacaoIA, setValidacaoIA] = useState<any | null>(null);
   const [itemFiltro, setItemFiltro] = useState<string>("todos");
+  const [situFiltro, setSituFiltro] = useState<"todos" | "abertos" | "encerrados" | "ia">("todos");
+  const [paginaPorItem, setPaginaPorItem] = useState<Record<string, number>>({});
+  const [totalPorItem, setTotalPorItem] = useState<Record<string, number>>({});
+  const [totalPagsPorItem, setTotalPagsPorItem] = useState<Record<string, number>>({});
+  const [termoPorItem, setTermoPorItem] = useState<Record<string, string>>({});
+  const [iaAnalisando, setIaAnalisando] = useState(false);
+  const [iaFiltroReady, setIaFiltroReady] = useState(false);
+  const [textoFiltro, setTextoFiltro] = useState("");
+  const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
+  const [erroPaginacao, setErroPaginacao] = useState<string | null>(null);
+  const [erroStep1, setErroStep1] = useState<string | null>(null);
 
   const nextStep = useCallback(() => setStep(s => Math.min(s + 1, totalSteps)), []);
   const prevStep = useCallback(() => setStep(s => Math.max(s - 1, 1)), []);
@@ -154,6 +175,7 @@ export default function NovaPesquisaPage() {
 
   // ── Itens (acordeão) ────────────────────────────────────────────────────────
   const [expandido, setExpandido] = useState<Record<string, boolean>>({});
+  const [expandidoRes, setExpandidoRes] = useState<Record<string, boolean>>({});
 
   const addItem = () => {
     const novo: ItemPesquisa = {
@@ -172,6 +194,26 @@ export default function NovaPesquisaPage() {
     const removido = itens[idx];
     setItens(itens.filter((_, i) => i !== idx));
     if (removido) setExpandido(e => { const n = { ...e }; delete n[removido.id]; return n; });
+  };
+
+  // ── Sub-itens do lote ────────────────────────────────────────────────────────
+  const addSubItem = (loteIdx: number) => {
+    const novo = [...itens];
+    const subNovo: SubItem = { id: crypto.randomUUID(), descricao: "", especificacao: "", quantidade: 1, unidadeMedida: "" };
+    novo[loteIdx] = { ...novo[loteIdx], subitens: [...(novo[loteIdx].subitens || []), subNovo] };
+    setItens(novo);
+  };
+  const updateSubItem = (loteIdx: number, subIdx: number, field: keyof SubItem, value: string | number) => {
+    const novo = [...itens];
+    const subs = [...(novo[loteIdx].subitens || [])];
+    (subs[subIdx] as unknown as Record<string, unknown>)[field] = value;
+    novo[loteIdx] = { ...novo[loteIdx], subitens: subs };
+    setItens(novo);
+  };
+  const removeSubItem = (loteIdx: number, subIdx: number) => {
+    const novo = [...itens];
+    novo[loteIdx] = { ...novo[loteIdx], subitens: (novo[loteIdx].subitens || []).filter((_, i) => i !== subIdx) };
+    setItens(novo);
   };
 
   // ── Pesquisa de mercado (manual) ────────────────────────────────────────────
@@ -270,14 +312,14 @@ export default function NovaPesquisaPage() {
       setCaracteristicasIA([]);
     }
     setIaLoading(false);
-    nextStep();
   };
 
   const pesquisarPNCP = async () => {
     setPesquisando(true); setResultados([]); setErroPesquisa(null);
+    setSituFiltro("todos"); setIaFiltroReady(false); setIaAnalisando(false);
+    setPaginaPorItem({}); setTotalPorItem({}); setTotalPagsPorItem({});
     goToStep(9);
 
-    // Remove "CÓDIGO: X", "APLICAÇÃO: X", códigos alfanuméricos (78C0W00) do texto
     function limparTermo(t: string): string {
       return t
         .replace(/\b(c[oó]digo|cod|ref|referencia|aplica[cç][aã]o|modelo|pn|sku)\s*[:\-\.]\s*\S+/gi, " ")
@@ -286,119 +328,200 @@ export default function NovaPesquisaPage() {
         .replace(/\s+/g, " ").trim();
     }
 
-    // Monta termos de busca: usa o PRIMEIRO keyword da IA (mais específico) como
-    // termo principal, e o objetoDesc limpo como secundário.
-    const palavrasChave = caracteristicasIA
-      .filter(c => c.caracteristica.startsWith("palavra_chave_"))
-      .map(c => c.valor)
-      .filter((v, i, arr) => arr.indexOf(v) === i); // deduplica
-    // termoIA: primeiro keyword IA ou, se ausente, objetoDesc limpo
-    const termoIA = palavrasChave[0] || limparTermo(objetoDesc);
-    // termoSecundario: segundo keyword IA ou objetoDesc limpo (só chama se diferente)
     const objetoLimpo = limparTermo(objetoDesc);
-    const termoSecundario = (palavrasChave[1] && palavrasChave[1] !== termoIA)
-      ? palavrasChave[1]
-      : objetoLimpo !== termoIA ? objetoLimpo : null;
 
-    const uf = (localEntrega.split("/").pop() || "").trim().toUpperCase().slice(0, 2);
-
-    // Busca SEGREGADA POR ITEM: cada item com descrição gera um alvo de busca.
-    // No modo global, um único alvo (objeto + keywords da IA).
+    // Um alvo por item (busca separada para cada item/lote)
     const alvos: { itemId: string; rotulo: string; termo: string }[] = [];
     if (formaParcelamento === "global" || itens.length === 0) {
-      alvos.push({ itemId: "global", rotulo: "Objeto", termo: termoIA });
+      alvos.push({ itemId: "global", rotulo: objetoDesc.slice(0, 60) || "Objeto", termo: objetoLimpo || objetoDesc });
     } else {
-      const itensComDescricao = itens.filter(i => (i.descricao || "").trim().length > 0);
-      const base = itensComDescricao.length > 0 ? itensComDescricao : itens;
-      for (const item of base) {
-        const espec = limparTermo(`${item.descricao} ${item.especificacao}`.trim());
-        alvos.push({ itemId: item.id, rotulo: item.descricao.slice(0, 60), termo: espec || termoIA });
+      const base = itens.filter(i => (i.descricao || "").trim().length > 0);
+      for (const item of (base.length ? base : itens)) {
+        const termo = limparTermo(`${item.descricao} ${item.especificacao}`.trim()) || objetoLimpo || objetoDesc;
+        alvos.push({ itemId: item.id, rotulo: item.descricao.slice(0, 60), termo });
       }
     }
 
-    // Busca em paralelo (até 6 alvos para não estourar a API)
-    const buscas = alvos.slice(0, 6).map(alvo =>
-      fetch(`/api/pncp?termo=${encodeURIComponent(alvo.termo)}&fontes=pncp,precos_abertos&tamanhoPagina=15${uf ? `&uf=${encodeURIComponent(uf)}` : ""}`, { signal: AbortSignal.timeout(120_000) })
-        .then(async (resp) => ({ alvo, data: await resp.json().catch(() => null) }))
+    // Salva os termos para paginação posterior
+    const novosTermos: Record<string, string> = {};
+    for (const a of alvos) novosTermos[a.itemId] = a.termo;
+    setTermoPorItem(novosTermos);
+
+    // Busca PNCP pura (sem IA, sem filtro) — tam=50 para trazer o máximo possível
+    const TAM = 50;
+    const buscas = alvos.map(alvo =>
+      fetch(`/api/pncp?termo=${encodeURIComponent(alvo.termo)}&fonte=pncp&tamanhoPagina=${TAM}`, { signal: AbortSignal.timeout(30_000) })
+        .then(async r => ({ alvo, data: await r.json().catch(() => null) }))
+        .catch(() => ({ alvo, data: null }))
     );
 
     try {
       const respostas = await Promise.allSettled(buscas);
-      const todasItems: { itemId: string; it: any }[] = [];
+      const novosResultados: ResultadoPNCP[] = [];
+      const novoTotal: Record<string, number> = {};
+      const novoPags: Record<string, number> = {};
+      const novoPagAtual: Record<string, number> = {};
       const rotulos = new Map(alvos.map(a => [a.itemId, a.rotulo]));
 
       for (const resp of respostas) {
-        if (resp.status !== "fulfilled" || !resp.value?.data?.items?.length) continue;
-        for (const it of resp.value.data.items) {
-          todasItems.push({ itemId: resp.value.alvo.itemId, it });
-        }
+        if (resp.status !== "fulfilled" || !resp.value?.data) continue;
+        const { alvo, data } = resp.value;
+        const items: any[] = data.items || [];
+        const total: number = data.total ?? items.length;
+
+        novoTotal[alvo.itemId] = total;
+        novoPags[alvo.itemId] = Math.max(1, Math.ceil(total / TAM));
+        novoPagAtual[alvo.itemId] = 1;
+
+        items.forEach((it, idx) => {
+          novosResultados.push({
+            id: `${alvo.itemId}-${idx}`,
+            fonte: "pncp",
+            itemId: alvo.itemId,
+            orgao: it.orgao || "Órgão público",
+            descricao: it.descricao || "",
+            quantidade: null,
+            data: it.dataContrato || "",
+            valor_unitario: null,           // PNCP search não retorna preço unitário (Opção B preenche depois)
+            valor_total: it.valorTotal ?? null, // valor_total_estimado do edital (Opção A)
+            localizacao: it.localizacao || "",
+            similaridade: it.similaridade ?? 0,
+            documento_origem: it.documentoOrigem || "",
+            link_origem: it.linkEdital || "",
+            status_avaliacao: "pendente" as const,
+            dadosBrutos: it.dadosBrutos || {},
+          });
+        });
       }
 
-      // Deduplica por item + descrição + orgão e ordena por similaridade
-      const vistos = new Set<string>();
-      const unicos = todasItems.filter(({ itemId, it }) => {
-        const chave = `${itemId}|${(it.descricao || "").slice(0, 60)}|${it.orgao}`;
-        if (vistos.has(chave)) return false;
-        vistos.add(chave); return true;
-      }).sort((a, b) => (b.it.similaridade ?? 0) - (a.it.similaridade ?? 0));
-
-      if (unicos.length > 0) {
-        const novos = unicos.map(({ itemId, it }, idx: number) => ({
-          id: String(idx + 1),
-          fonte: it.fonte || "precos_abertos",
-          itemId,
-          orgao: it.orgao || "Órgão público",
-          descricao: it.descricao || "",
-          quantidade: it.quantidade,
-          data: it.dataContrato || "",
-          valor_unitario: it.valorUnitario,
-          valor_total: it.valorTotal,
-          localizacao: it.localizacao || "",
-          similaridade: it.similaridade ?? 0,
-          documento_origem: it.documentoOrigem || "",
-          link_origem: it.linkEdital || (it.descricao
-            ? `https://pncp.gov.br/app/editais?q=${encodeURIComponent((it.descricao as string).slice(0, 60))}`
-            : ""),
-          fornecedor: it.dadosBrutos?.nomeFornecedor || "",
-          status_avaliacao: "pendente" as const,
-          dadosBrutos: it.dadosBrutos || {},
-        }));
-        // resultados de pesquisa de mercado manual entram como fonte "manual"
-        const manuais: ResultadoPNCP[] = pesquisaMercado
-          .filter(r => r.valor > 0)
-          .map((r, idx) => ({
-            id: `manual-${idx}`,
-            fonte: "manual" as const,
-            itemId: r.itemId,
-            cnpj: r.cnpj,
-            fonte_dados: r.fonte,
-            orgao: r.fornecedor || "Fornecedor (cotação)",
-            descricao: `Cotação manual — ${r.observacao || r.fonte || "pesquisa de mercado"}`,
-            quantidade: null,
-            data: r.data,
-            valor_unitario: r.valor,
-            valor_total: null,
-            localizacao: "",
-            similaridade: 100,
-            documento_origem: r.cnpj || r.fornecedor,
-            link_origem: "",
-            fornecedor: r.fornecedor,
-            status_avaliacao: "pendente" as const,
-            dadosBrutos: { pesquisa_mercado: true, rotulo: rotulos.get(r.itemId) || "" },
-          }));
-        setResultados([...manuais, ...novos]);
-        setPesquisando(false);
-        goToStep(10);
-        return;
+      if (novosResultados.length === 0) {
+        setErroPesquisa("Nenhum edital encontrado. Tente termos mais genéricos.");
       } else {
-        setErroPesquisa(`Nenhuma referência encontrada para os termos pesquisados. Tente ampliar o período de pesquisa (ex.: 24 meses) ou edite os termos na etapa de revisão.`);
-        setResultados([]);
+        setResultados(novosResultados);
+        setTotalPorItem(novoTotal);
+        setTotalPagsPorItem(novoPags);
+        setPaginaPorItem(novoPagAtual);
+
+        // Opção B: busca preços unitários dos top-10 editais mais similares em background
+        buscarPrecosUnitariosBackground(novosResultados.slice(0, 10));
+
+        // IA: analisa em background e ativa o filtro "IA" quando pronto
+        rodarIABackground(novosResultados, alvos.map(a => a.rotulo));
       }
     } catch (err: any) {
-      console.error("Erro na pesquisa:", err);
-      setErroPesquisa("Erro ao consultar as fontes de preços: " + (err?.message || "falha na rede"));
+      setErroPesquisa("Erro ao consultar o PNCP: " + (err?.message || "falha na rede"));
     }
     setPesquisando(false);
+  };
+
+  // ── Troca de página por item ─────────────────────────────────────────────────
+  const buscarPaginaItem = async (itemId: string, pagina: number) => {
+    const termo = termoPorItem[itemId];
+    if (!termo) return;
+    const TAM = 50;
+    try {
+      const resp = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fonte=pncp&tamanhoPagina=${TAM}&pagina=${pagina}`, { signal: AbortSignal.timeout(30_000) });
+      const data = await resp.json();
+      const items: any[] = data.items || [];
+      const novos: ResultadoPNCP[] = items.map((it, idx) => ({
+        id: `${itemId}-p${pagina}-${idx}`,
+        fonte: "pncp",
+        itemId,
+        orgao: it.orgao || "Órgão público",
+        descricao: it.descricao || "",
+        quantidade: null,
+        data: it.dataContrato || "",
+        valor_unitario: null,
+        valor_total: it.valorTotal ?? null,
+        localizacao: it.localizacao || "",
+        similaridade: it.similaridade ?? 0,
+        documento_origem: it.documentoOrigem || "",
+        link_origem: it.linkEdital || "",
+        status_avaliacao: "pendente" as const,
+        dadosBrutos: it.dadosBrutos || {},
+      }));
+      setResultados(prev => [...prev.filter(r => r.itemId !== itemId), ...novos]);
+      setPaginaPorItem(prev => ({ ...prev, [itemId]: pagina }));
+    } catch {
+      setErroPaginacao("Erro ao carregar página " + pagina + ". Verifique sua conexão.");
+    }
+  };
+
+  // ── IA em background: extrai keywords e re-pontua os resultados ──────────────
+  const rodarIABackground = async (res: ResultadoPNCP[], rotulos: string[]) => {
+    setIaAnalisando(true);
+
+    // Fallback: scoring local por palavras-chave do objeto (sempre executa)
+    const aplicarFallback = () => {
+      const termos = (objetoDesc || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/\s+/).filter(t => t.length > 3);
+      if (termos.length === 0) { setIaFiltroReady(true); return; }
+      setResultados(prev => prev.map(r => {
+        const desc = (r.descricao || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const hits = termos.filter(t => desc.includes(t));
+        const sim = termos.length === 0 ? 0 : Math.min(100, Math.round((hits.length / termos.length) * 100));
+        return { ...r, similaridade: Math.max(r.similaridade, sim) };
+      }));
+      setIaFiltroReady(true);
+    };
+
+    try {
+      const resp = await fetch("/api/ia/extracao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          descricao: objetoDesc,
+          especificacoes: itens.map(i => ({ item: i.descricao, especificacao: i.especificacao, obrigatorio: i.obrigatorio ?? true })),
+        }),
+      });
+      if (!resp.ok) { aplicarFallback(); return; }
+      const data = await resp.json();
+      if (data.error) { aplicarFallback(); return; }
+
+      const keywords: string[] = [
+        ...(data.palavras_chave_busca || []),
+        ...(data.caracteristicas || []).map((c: any) => c.valor),
+      ].map((s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+
+      if (keywords.length > 0) {
+        setCaracteristicasIA(
+          (data.palavras_chave_busca || []).map((kw: string, i: number) => ({ caracteristica: `palavra_chave_${i + 1}`, valor: kw, confianca: 88 })).concat(
+            (data.caracteristicas || []).map((c: any) => ({ caracteristica: c.nome, valor: c.valor, confianca: c.confianca }))
+          )
+        );
+        setResultados(prev => prev.map(r => {
+          const desc = (r.descricao || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const hits = keywords.filter(kw => desc.includes(kw));
+          const sim = Math.min(100, Math.round((hits.length / Math.max(keywords.length, 1)) * 100));
+          return { ...r, similaridade: Math.max(r.similaridade, sim) };
+        }));
+        setIaFiltroReady(true);
+      } else {
+        aplicarFallback();
+      }
+    } catch {
+      aplicarFallback();
+    }
+    setIaAnalisando(false);
+  };
+
+  // ── Opção B: busca preços unitários dos primeiros editais via API de itens ───
+  const buscarPrecosUnitariosBackground = async (top: ResultadoPNCP[]) => {
+    await Promise.allSettled(top.map(async (r) => {
+      try {
+        const db = r.dadosBrutos as any;
+        const cnpj = db?._cnpjOrgao || db?.orgao_cnpj || "";
+        const ano  = db?.ano || "";
+        const seq  = db?.numero_sequencial || "";
+        if (!cnpj || !ano || !seq) return;
+        const resp = await fetch(`/api/pncp/itens?cnpj=${cnpj}&ano=${ano}&seq=${seq}`, { signal: AbortSignal.timeout(10_000) });
+        if (!resp.ok) return;
+        const data = await resp.json();
+        const precos: number[] = (data.itens || []).map((i: any) => Number(i.valorUnitarioEstimado || i.valorUnitario || 0)).filter((v: number) => v > 0);
+        if (precos.length === 0) return;
+        const menor = Math.min(...precos);
+        setResultados(prev => prev.map(x => x.id === r.id ? { ...x, valor_unitario: menor } : x));
+      } catch { /* ignora timeout individual */ }
+    }));
   };
 
   const avaliarResultado = (id: string, status: StatusAvaliacao, justificativa?: string) => {
@@ -406,15 +529,26 @@ export default function NovaPesquisaPage() {
   };
 
   const gerarConteudoIA = async (stats: any, nAceitas: number) => {
+    if (!stats) {
+      setJustificativaIA("⚠️ Nenhuma referência aceita com valor. Volte à tabela de resultados e clique em ✓ Aceitar em editais com preço.");
+      return;
+    }
+    setIaLoading(true);
+    setJustificativaIA(null);
+    setValidacaoIA(null);
     try {
       const res = await fetch("/api/ia/justificativa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estatisticas: stats, metodo: config.metodo, quantidade, referenciasAceitas: nAceitas }),
       });
+      if (!res.ok) throw new Error(`Erro ${res.status}: ${await res.text()}`);
       const data = await res.json();
       if (data.justificativa) setJustificativaIA(data.justificativa);
-    } catch (err) { console.error("Erro no agente justificador:", err); }
+    } catch (err: any) {
+      console.error("Erro no agente justificador:", err);
+      setJustificativaIA(`⚠️ Erro ao gerar justificativa: ${err?.message || "falha na rede"}. Tente novamente.`);
+    }
     try {
       const aceitos = resultados.filter(r => r.status_avaliacao === "aceito");
       const menores = aceitos.map(r => r.similaridade);
@@ -430,14 +564,16 @@ export default function NovaPesquisaPage() {
           menor_similaridade_aceita: menores.length ? Math.min(...menores) : 100,
         }),
       });
-      setValidacaoIA(await res2.json());
+      if (res2.ok) setValidacaoIA(await res2.json());
     } catch (err) { console.error("Erro no agente validador:", err); }
+    setIaLoading(false);
   };
 
-  const calcular = () => {
-    const aceitosRaw = resultados.filter(r => r.status_avaliacao === "aceito" && r.valor_unitario != null);
-    const aceitos = aceitosRaw.map(r => r.valor_unitario as number);
-    if (aceitos.length === 0) { setEstatisticas(null); setAlertaCv(null); setPrecoEstimado(null); return; }
+  const calcular = (): { stats: ReturnType<typeof calcularEstatisticas>; nAceitas: number } | null => {
+    // Usa valor_unitario quando disponível; cai para valor_total como fallback (Opção A)
+    const aceitosRaw = resultados.filter(r => r.status_avaliacao === "aceito" && (r.valor_unitario != null || r.valor_total != null));
+    const aceitos = aceitosRaw.map(r => (r.valor_unitario ?? r.valor_total) as number);
+    if (aceitos.length === 0) { setEstatisticas(null); setAlertaCv(null); setPrecoEstimado(null); return null; }
     const pesos = aceitosRaw.map(r => r.quantidade ?? 1);
     // Regra da reunião: CV > limite (20%) → alerta + menor preço automaticamente
     const { estatisticas: stats, alertaCv, cvExcedido, metodoEfetivo, preco } = calcularComRegraCv(
@@ -447,7 +583,7 @@ export default function NovaPesquisaPage() {
     setAlertaCv(alertaCv ? { cv: cvExcedido as number, limite: config.cvLimite, metodoEfetivo } : null);
     setMetodoEfetivo(metodoEfetivo);
     setPrecoEstimado(preco);
-    gerarConteudoIA(stats, aceitos.length);
+    return { stats, nAceitas: aceitosRaw.length };
   };
 
   const linksAceitos = resultados.filter(r => r.status_avaliacao === "aceito").map(r => ({ nome: r.documento_origem, url: r.link_origem, tipo: "link" as const }));
@@ -588,7 +724,14 @@ export default function NovaPesquisaPage() {
         <StepCard
           title="Objeto da contratação e parcelamento"
           desc="Primeiro, diga o que será contratado e como o fornecimento será dividido (por item, por lote ou preço global). Isso define os campos da próxima etapa."
-          footer={<><span /><Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Próximo</Btn></>}
+          footer={<><span /><Btn primary onClick={() => {
+            if (!objetoDesc.trim()) {
+              setErroStep1("Preencha a descrição do objeto antes de avançar.");
+              return;
+            }
+            setErroStep1(null);
+            nextStep();
+          }} icon={<ChevronRight size={15}/>}>Próximo</Btn></>}
         >
           <div className="space-y-5">
             <Field label="Descrição do objeto (visão geral) *">
@@ -596,8 +739,9 @@ export default function NovaPesquisaPage() {
                 className="inp min-h-[110px] resize-y"
                 placeholder="Ex: Aquisição de notebooks para uso nas atividades administrativas da Diretoria de Logística..."
                 value={objetoDesc}
-                onChange={e => setObjetoDesc(e.target.value)}
+                onChange={e => { setObjetoDesc(e.target.value); if (erroStep1) setErroStep1(null); }}
               />
+              {erroStep1 && <p className="text-xs text-red-600 mt-1">{erroStep1}</p>}
             </Field>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Field label="Forma de parcelamento *">
@@ -637,7 +781,17 @@ export default function NovaPesquisaPage() {
                 ? "Cadastre o item com especificação minuciosa. A especificação detalhada evita falhas de precificação por definições genéricas."
                 : "Cadastre os itens. Use o acordeão para expandir e detalhar cada item com especificação minuciosa, quantidade, unidade e nº do item no edital (PNCP)."
           }
-          footer={<><Btn onClick={prevStep}>Voltar</Btn><Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Próximo</Btn></>}
+          footer={<>
+            <Btn onClick={prevStep}>Voltar</Btn>
+            <Btn primary onClick={() => {
+              const validos = itens.filter(i => i.descricao.trim() && i.quantidade > 0);
+              if (validos.length === 0) {
+                alert("Adicione pelo menos um item com descrição e quantidade maior que zero.");
+                return;
+              }
+              nextStep();
+            }} icon={<ChevronRight size={15}/>}>Próximo</Btn>
+          </>}
         >
           <div className="space-y-3">
             {itens.length === 0 && (
@@ -666,7 +820,11 @@ export default function NovaPesquisaPage() {
                       <span className="font-medium text-slate-700 text-sm">
                         {formaParcelamento === "lote" ? `Lote ${idx + 1}` : `Item ${idx + 1}`}: {rotulo}
                       </span>
-                      {(item.quantidade > 0 || item.unidadeMedida) && (
+                      {formaParcelamento === "lote" ? (
+                        <span className="text-xs text-indigo-500 font-medium bg-indigo-50 px-2 py-0.5 rounded-full">
+                          {(item.subitens || []).length} {(item.subitens || []).length === 1 ? "item" : "itens"}
+                        </span>
+                      ) : (item.quantidade > 0 || item.unidadeMedida) && (
                         <span className="text-xs text-slate-400 font-normal">
                           {item.quantidade > 0 ? `${item.quantidade} ` : ""}{item.unidadeMedida || ""}
                         </span>
@@ -679,57 +837,140 @@ export default function NovaPesquisaPage() {
 
                   {/* corpo do acordeão — campos dinâmicos */}
                   {aberto && (
-                    <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-3">
-                      <Field label="Descrição do item *">
-                        <input
-                          className="inp"
-                          placeholder={formaParcelamento === "lote" ? "Ex: Lote 1 — Notebooks 14\"" : "Ex: Notebook 14\" — 16GB RAM, SSD 512GB"}
-                          value={item.descricao}
-                          onChange={e => updateItem(idx, "descricao", e.target.value)}
-                        />
-                      </Field>
-                      <Field label="Especificação minuciosa (tamanho, capacidade, potência, modelo...)">
-                        <textarea
-                          className="inp min-h-[70px] resize-y"
-                          placeholder={'Ex: Processador i5 ou superior, 16GB RAM, SSD 512GB, tela 14" Full HD, peso máx. 1,8kg, garantia 36 meses...'}
-                          value={item.especificacao}
-                          onChange={e => updateItem(idx, "especificacao", e.target.value)}
-                        />
-                      </Field>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                        <Field label="Quantidade *">
-                          <input
-                            type="number" className="inp" min={0}
-                            value={item.quantidade === 0 ? "" : item.quantidade}
-                            onChange={e => updateItem(idx, "quantidade", e.target.value === "" ? 0 : Number(e.target.value))}
-                          />
-                        </Field>
-                        <Field label="Unidade de medida">
-                          <select className="inp" value={item.unidadeMedida} onChange={e => updateItem(idx, "unidadeMedida", e.target.value)}>
-                            <option value="">Selecione...</option>
-                            {UNIDADES_MEDIDA.map(u => <option key={u} value={u}>{u}</option>)}
-                          </select>
-                        </Field>
-                        <Field label="Nº do item no edital (PNCP)">
-                          <input
-                            className="inp"
-                            placeholder="Ex: 1.1"
-                            value={item.itemEdital || ""}
-                            onChange={e => updateItem(idx, "itemEdital", e.target.value)}
-                          />
-                        </Field>
-                        <div className="flex items-end pb-1">
-                          <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+                    <div className="px-4 pb-4 pt-1 border-t border-slate-100 space-y-4">
+
+                      {/* ── Modo LOTE: nome do lote + sub-itens ── */}
+                      {formaParcelamento === "lote" ? (
+                        <>
+                          <Field label="Nome do lote *">
                             <input
-                              type="checkbox"
-                              checked={item.obrigatorio ?? true}
-                              onChange={e => updateItem(idx, "obrigatorio", e.target.checked)}
-                              className="accent-indigo-600"
+                              className="inp"
+                              placeholder={`Ex: Lote ${idx + 1} — Equipamentos de TI`}
+                              value={item.descricao}
+                              onChange={e => updateItem(idx, "descricao", e.target.value)}
                             />
-                            Obrigatório
-                          </label>
-                        </div>
-                      </div>
+                          </Field>
+
+                          {/* Sub-itens */}
+                          <div>
+                            <p className="text-xs font-bold text-slate-600 mb-2">Itens do lote</p>
+                            <div className="space-y-3">
+                              {(item.subitens || []).length === 0 && (
+                                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-5 text-center text-xs text-slate-400">
+                                  Nenhum item adicionado a este lote ainda.
+                                </div>
+                              )}
+                              {(item.subitens || []).map((sub, si) => (
+                                <div key={sub.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                                      Item {si + 1}
+                                    </span>
+                                    <button type="button" onClick={() => removeSubItem(idx, si)}
+                                      className="p-1 rounded hover:bg-red-100 text-slate-300 hover:text-red-500 transition-colors">
+                                      <X size={13} />
+                                    </button>
+                                  </div>
+                                  <Field label="Descrição do item *">
+                                    <input
+                                      className="inp bg-white"
+                                      placeholder='Ex: Notebook 14" — 16GB RAM, SSD 512GB'
+                                      value={sub.descricao}
+                                      onChange={e => updateSubItem(idx, si, "descricao", e.target.value)}
+                                    />
+                                  </Field>
+                                  <Field label="Especificação minuciosa">
+                                    <textarea
+                                      className="inp bg-white min-h-[60px] resize-y"
+                                      placeholder="Processador, memória, dimensões, garantia..."
+                                      value={sub.especificacao}
+                                      onChange={e => updateSubItem(idx, si, "especificacao", e.target.value)}
+                                    />
+                                  </Field>
+                                  <div className="grid grid-cols-3 gap-2">
+                                    <Field label="Quantidade *">
+                                      <input type="number" className="inp bg-white" min={0}
+                                        value={sub.quantidade === 0 ? "" : sub.quantidade}
+                                        onChange={e => updateSubItem(idx, si, "quantidade", e.target.value === "" ? 0 : Number(e.target.value))} />
+                                    </Field>
+                                    <Field label="Unidade">
+                                      <select className="inp bg-white" value={sub.unidadeMedida}
+                                        onChange={e => updateSubItem(idx, si, "unidadeMedida", e.target.value)}>
+                                        <option value="">Selecione...</option>
+                                        {UNIDADES_MEDIDA.map(u => <option key={u} value={u}>{u}</option>)}
+                                      </select>
+                                    </Field>
+                                    <Field label="Nº edital">
+                                      <input className="inp bg-white" placeholder="Ex: 1.1"
+                                        value={sub.itemEdital || ""}
+                                        onChange={e => updateSubItem(idx, si, "itemEdital", e.target.value)} />
+                                    </Field>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <button type="button" onClick={() => addSubItem(idx)}
+                              className="mt-2 inline-flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 font-semibold">
+                              <span className="w-4 h-4 rounded-full border-2 border-current flex items-center justify-center text-[10px] font-bold leading-none">+</span>
+                              Adicionar item ao lote
+                            </button>
+                          </div>
+                        </>
+                      ) : (
+                        /* ── Modo ITEM / GLOBAL: campos simples ── */
+                        <>
+                          <Field label="Descrição do item *">
+                            <input
+                              className="inp"
+                              placeholder='Ex: Notebook 14" — 16GB RAM, SSD 512GB'
+                              value={item.descricao}
+                              onChange={e => updateItem(idx, "descricao", e.target.value)}
+                            />
+                          </Field>
+                          <Field label="Especificação minuciosa (tamanho, capacidade, potência, modelo...)">
+                            <textarea
+                              className="inp min-h-[70px] resize-y"
+                              placeholder={'Ex: Processador i5 ou superior, 16GB RAM, SSD 512GB, tela 14" Full HD, peso máx. 1,8kg, garantia 36 meses...'}
+                              value={item.especificacao}
+                              onChange={e => updateItem(idx, "especificacao", e.target.value)}
+                            />
+                          </Field>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <Field label="Quantidade *">
+                              <input
+                                type="number" className="inp" min={0}
+                                value={item.quantidade === 0 ? "" : item.quantidade}
+                                onChange={e => updateItem(idx, "quantidade", e.target.value === "" ? 0 : Number(e.target.value))}
+                              />
+                            </Field>
+                            <Field label="Unidade de medida">
+                              <select className="inp" value={item.unidadeMedida} onChange={e => updateItem(idx, "unidadeMedida", e.target.value)}>
+                                <option value="">Selecione...</option>
+                                {UNIDADES_MEDIDA.map(u => <option key={u} value={u}>{u}</option>)}
+                              </select>
+                            </Field>
+                            <Field label="Nº do item no edital (PNCP)">
+                              <input
+                                className="inp"
+                                placeholder="Ex: 1.1"
+                                value={item.itemEdital || ""}
+                                onChange={e => updateItem(idx, "itemEdital", e.target.value)}
+                              />
+                            </Field>
+                            <div className="flex items-end pb-1">
+                              <label className="flex items-center gap-2 text-xs text-slate-500 cursor-pointer">
+                                <input
+                                  type="checkbox"
+                                  checked={item.obrigatorio ?? true}
+                                  onChange={e => updateItem(idx, "obrigatorio", e.target.checked)}
+                                  className="accent-indigo-600"
+                                />
+                                Obrigatório
+                              </label>
+                            </div>
+                          </div>
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -773,54 +1014,8 @@ export default function NovaPesquisaPage() {
         </StepCard>
       );
 
-      // ── Etapa 4: Quantidade e local ─────────────────────────────────────────
+      // ── Etapa 4: Pesquisa de mercado ────────────────────────────────────────
       case 4: return (
-        <StepCard
-          title="Quantidade e local de entrega"
-          desc="Confirme as quantidades totais e o local de entrega. Esses dados afetam o cálculo do preço total."
-          footer={<><Btn onClick={prevStep}>Voltar</Btn><Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Próximo</Btn></>}
-        >
-          {formaParcelamento !== "global" && itens.length > 0 && (
-            <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Resumo dos itens</p>
-              <ul className="space-y-1.5 text-slate-600">
-                {itens.map((i, idx) => (
-                  <li key={i.id} className="flex items-center gap-2">
-                    <ChevronRight size={13} className="text-slate-400 shrink-0" />
-                    <span className="font-medium">{i.descricao || `Item ${idx + 1}`}</span>
-                    {i.itemEdital && <span className="text-xs text-slate-400 font-mono">(edital: {i.itemEdital})</span>}
-                    <span className="text-xs text-slate-500 ml-auto tabular-nums">
-                      {i.quantidade} {i.unidadeMedida || "un"}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Field label={formaParcelamento === "global" ? "Quantidade total *" : "Quantidade (referência p/ cálculo)"}>
-              <input type="number" className="inp" placeholder="Ex: 50" value={quantidade === 0 ? "" : quantidade} onChange={e => setQuantidade(e.target.value === "" ? 0 : Number(e.target.value))} />
-            </Field>
-            <Field label="Unidade de medida (referência)">
-              <select className="inp" value={unidadeMedida} onChange={e => setUnidadeMedida(e.target.value)}>
-                <option value="">Selecione...</option>
-                {UNIDADES_MEDIDA.map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </Field>
-            <Field label="Local de entrega">
-              <input className="inp" placeholder="Ex: Porto Velho/RO" value={localEntrega} onChange={e => setLocalEntrega(e.target.value)} />
-            </Field>
-          </div>
-          {formaParcelamento === "global" && (
-            <div className="mt-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
-              <strong>Atenção:</strong> No preço global, o valor total será calculado diretamente sem divisão por unidade.
-            </div>
-          )}
-        </StepCard>
-      );
-
-      // ── Etapa 5: Pesquisa de mercado (substitui busca de fornecedores) ──────
-      case 5: return (
         <StepCard
           title="Pesquisa de mercado"
           desc="Registre cotações manuais junto a fornecedores. CNPJ e fonte dos dados são OBRIGATÓRIOS — garantem a transparência documental da pesquisa."
@@ -899,104 +1094,131 @@ export default function NovaPesquisaPage() {
         </StepCard>
       );
       // ── Etapa 6 ─────────────────────────────────────────────────────────────
-      case 6: return (
+      case 5: return (
         <StepCard
-          title="Extração de características (IA)"
-          desc="O agente IA analisa a descrição e as especificações e extrai os atributos técnicos para melhorar a busca."
-          footer={!iaLoading && caracteristicasIA.length > 0 ? <><Btn onClick={prevStep}>Voltar</Btn><Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Próximo</Btn></> : undefined}
+          title="Realizar pesquisa"
+          desc="O sistema busca simultaneamente no PNCP, Dados Abertos e Compras.gov e traz todos os resultados. Use os filtros na tabela para selecionar o que interessa."
+          footer={
+            <div className="flex items-center gap-3">
+              <Btn onClick={prevStep}>← Voltar</Btn>
+              <Btn primary onClick={pesquisarPNCP} icon={pesquisando ? <Loader2 size={14} className="animate-spin"/> : <Search size={14}/>}>
+                {pesquisando ? "Buscando…" : "Realizar pesquisa"}
+              </Btn>
+            </div>
+          }
         >
-          {iaLoading ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-4">
-              <div className="w-12 h-12 rounded-full bg-indigo-50 flex items-center justify-center">
-                <Loader2 className="w-6 h-6 animate-spin text-indigo-600" />
-              </div>
-              <p className="text-sm text-slate-500">A IA está analisando o objeto e as especificações técnicas...</p>
+          <div className="space-y-5">
+            {/* As 3 fontes que serão consultadas */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[
+                { nome: "PNCP", sub: "Portal Nacional de Contratações Públicas", url: "pncp.gov.br/api/search", cor: "indigo", icon: <FileSearch size={18}/> },
+                { nome: "Dados Abertos", sub: "dadosabertos.compras.gov.br — preços unitários", url: "dadosabertos.compras.gov.br", cor: "teal", icon: <TrendingUp size={18}/> },
+                { nome: "Compras.gov", sub: "compras.dados.gov.br — licitações SIASG", url: "compras.dados.gov.br", cor: "orange", icon: <BarChart3 size={18}/> },
+              ].map(f => (
+                <div key={f.nome} className={`rounded-xl border-2 bg-white p-4 flex items-start gap-3 ${
+                  f.cor === "indigo" ? "border-indigo-200 bg-indigo-50/40" :
+                  f.cor === "teal"   ? "border-teal-200 bg-teal-50/40" :
+                  "border-orange-200 bg-orange-50/40"
+                }`}>
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                    f.cor === "indigo" ? "bg-indigo-100 text-indigo-600" :
+                    f.cor === "teal"   ? "bg-teal-100 text-teal-600" :
+                    "bg-orange-100 text-orange-600"
+                  }`}>{f.icon}</div>
+                  <div>
+                    <p className="font-bold text-slate-800 text-sm">{f.nome}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{f.sub}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          ) : caracteristicasIA.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 gap-4">
-              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-slate-400" />
-              </div>
-              <p className="text-sm text-slate-500">Clique em "Extrair com IA" para analisar o objeto.</p>
-              {erroExtracao && (
-                <div className="max-w-md text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-center">{erroExtracao}</div>
+
+            {/* Objeto que será pesquisado */}
+            <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Objeto que será pesquisado</p>
+              <p className="text-sm text-slate-700 font-medium">{objetoDesc || <span className="text-slate-400 italic">Nenhum objeto informado</span>}</p>
+              {itens.filter(i => i.descricao).length > 0 && (
+                <p className="text-[11px] text-slate-400 mt-1">
+                  {itens.length} {itens.length === 1 ? "item" : "itens"}: {itens.map(i => i.descricao).filter(Boolean).join(" · ").slice(0, 140)}
+                </p>
               )}
-              <div className="flex gap-3">
-                <Btn onClick={prevStep}>Voltar</Btn>
-                <Btn primary onClick={extrairIA} icon={<Sparkles size={14}/>}>Extrair com IA</Btn>
-              </div>
             </div>
-          ) : (
-            <div className="rounded-lg border border-slate-200 overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Característica</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Valor extraído</th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Confiança</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {caracteristicasIA.map((c, i) => (
-                    <tr key={i} className="hover:bg-slate-50">
-                      <td className="px-4 py-2.5 capitalize text-slate-700 font-medium">{c.caracteristica}</td>
-                      <td className="px-4 py-2.5 text-slate-600">{c.valor}</td>
-                      <td className="px-4 py-2.5">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${c.confianca >= 80 ? "bg-green-100 text-green-700" : c.confianca >= 60 ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"}`}>
-                          {c.confianca}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+
+            {erroPesquisa && (
+              <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">{erroPesquisa}</div>
+            )}
+          </div>
         </StepCard>
       );
 
       // ── Etapa 7 ─────────────────────────────────────────────────────────────
-      case 7: return (
+      case 6: return (
         <StepCard
           title="Revisão e confirmação"
-          desc="Verifique os dados antes de avançar para a pesquisa de preços."
+          desc="Verifique os dados extraídos pela IA e os itens antes de avançar para a pesquisa de preços."
           footer={<><Btn onClick={prevStep}>Voltar</Btn><Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Confirmar e prosseguir</Btn></>}
         >
-          <Grid2>
-            <Field label="Processo"><input className="inp inp-ro" value={processo.numero} readOnly /></Field>
-            <Field label="Órgão"><input className="inp inp-ro" value={processo.orgao} readOnly /></Field>
-            <Field label="Responsável"><input className="inp inp-ro" value={processo.responsavel} readOnly /></Field>
-            <Field label="E-mail"><input className="inp inp-ro" value={processo.email} readOnly /></Field>
-            <Field label="Objeto"><input className="inp inp-ro" value={objetoDesc} readOnly /></Field>
-            <Field label="Parcelamento"><input className="inp inp-ro" value={formaParcelamento} readOnly /></Field>
-          </Grid2>
-          {caracteristicasIA.length > 0 && (
-            <InfoBox color="indigo" className="mt-4">
-              <strong>Características extraídas pela IA:</strong> {caracteristicasIA.map(c => c.valor).join(" · ")}
-            </InfoBox>
-          )}
-          {itens.length > 0 && (
-            <div className="mt-3 p-4 rounded-lg bg-slate-50 border border-slate-200 text-sm">
-              <strong className="text-slate-700">{formaParcelamento === "lote" ? "Lotes" : "Itens"} da contratação ({itens.length}):</strong>
-              <ul className="mt-2 space-y-1 text-slate-600">
-                {itens.map((e, i) => (
-                  <li key={i} className="flex items-start gap-2">
-                    <ChevronRight size={14} className="mt-0.5 text-slate-400 shrink-0" />
-                    <span>
-                      <strong>{e.descricao || `Item ${i + 1}`}:</strong> {e.especificacao}
-                      {e.itemEdital && <span className="text-slate-400 font-mono text-xs"> (edital: {e.itemEdital})</span>}
-                      <span className="text-slate-400"> · {e.quantidade} {e.unidadeMedida || "un"}</span>
+          <div className="space-y-4">
+            {caracteristicasIA.length > 0 ? (
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+                <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-2">Características extraídas pela IA</p>
+                <div className="flex flex-wrap gap-2">
+                  {caracteristicasIA.map((c, i) => (
+                    <span key={i} className="inline-flex items-center gap-1 bg-white border border-indigo-200 text-indigo-700 text-xs font-medium px-2.5 py-1 rounded-full">
+                      <span className="text-indigo-400 font-semibold">{c.caracteristica}:</span> {c.valor}
                     </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 text-center">
+                Nenhuma característica extraída pela IA ainda.
+              </div>
+            )}
+
+            {itens.length > 0 && (
+              <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <p className="text-xs font-bold text-slate-600 uppercase tracking-wide mb-3">
+                  {formaParcelamento === "lote" ? "Lotes" : "Itens"} da contratação ({itens.length})
+                </p>
+                <div className="space-y-2">
+                  {itens.map((e, i) => (
+                    <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-indigo-600 text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-700">{e.descricao || `Item ${i + 1}`}</p>
+                        {e.especificacao && <p className="text-xs text-slate-500 mt-0.5 leading-snug">{e.especificacao}</p>}
+                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                          {(e.quantidade > 0 || e.unidadeMedida) && (
+                            <span>{e.quantidade} {e.unidadeMedida || "un"}</span>
+                          )}
+                          {e.itemEdital && <span className="font-mono">edital: {e.itemEdital}</span>}
+                          {formaParcelamento === "lote" && (e.subitens || []).length > 0 && (
+                            <span className="text-indigo-500 font-medium">{(e.subitens || []).length} {(e.subitens || []).length === 1 ? "item" : "itens"}</span>
+                          )}
+                        </div>
+                        {formaParcelamento === "lote" && (e.subitens || []).length > 0 && (
+                          <ul className="mt-2 space-y-1">
+                            {(e.subitens || []).map((sub, si) => (
+                              <li key={si} className="flex items-start gap-2 text-xs text-slate-600 pl-2 border-l-2 border-indigo-100">
+                                <span className="font-medium shrink-0">{si + 1}.</span>
+                                <span>{sub.descricao}{sub.quantidade > 0 ? ` · ${sub.quantidade} ${sub.unidadeMedida || "un"}` : ""}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </StepCard>
       );
 
       // ── Etapa 8 ─────────────────────────────────────────────────────────────
-      case 8: return (
+      case 7: return (
         <StepCard
           title="Configurações da pesquisa"
           desc="Defina os parâmetros que controlam a busca e o cálculo do preço estimado."
@@ -1043,30 +1265,36 @@ export default function NovaPesquisaPage() {
       );
 
       // ── Etapa 9 ─────────────────────────────────────────────────────────────
-      case 9: return (
-        <StepCard title="Consultando fontes de preços" desc="">
-          {pesquisando ? (
-            <BuscaAnimada regiao={config.regiao} periodo={config.periodo} qtdMin={config.qtdMin} />
-          ) : (
-            <div className="flex flex-col items-center justify-center py-20 gap-5">
-              <div className="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center">
-                <AlertCircle className="w-8 h-8 text-amber-500" />
-              </div>
-              <div className="text-center">
-                <p className="text-sm font-medium text-slate-700">Pesquisa não está em execução ou não retornou referências.</p>
-                {erroPesquisa && <p className="text-xs text-slate-500 mt-2 max-w-md">{erroPesquisa}</p>}
-              </div>
-              <div className="flex gap-3">
-                <Btn onClick={() => goToStep(10)}>Ver últimos resultados</Btn>
-                <Btn primary onClick={pesquisarPNCP} icon={<Search size={14}/>}>Refazer pesquisa</Btn>
-              </div>
-            </div>
-          )}
+      case 8: return (
+        <StepCard
+          title="Configurações da pesquisa"
+          desc="Ajuste os parâmetros antes de realizar a pesquisa."
+          footer={<><Btn onClick={prevStep}>← Voltar</Btn><Btn primary onClick={pesquisarPNCP} icon={<Search size={14}/>}>Realizar pesquisa</Btn></>}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <Field label="Período da pesquisa">
+              <select className="inp" value={config.periodo} onChange={e => setConfig({ ...config, periodo: e.target.value as PeriodoPesquisa })}>
+                <option value="6_meses">Últimos 6 meses</option>
+                <option value="12_meses">Últimos 12 meses</option>
+                <option value="24_meses">Últimos 24 meses</option>
+              </select>
+            </Field>
+            <Field label="Região">
+              <select className="inp" value={config.regiao} onChange={e => setConfig({ ...config, regiao: e.target.value as RegiaoPesquisa })}>
+                <option value="brasil">Brasil (todo o país)</option>
+                <option value="sudeste">Sudeste</option>
+                <option value="sul">Sul</option>
+                <option value="centro_oeste">Centro-Oeste</option>
+                <option value="nordeste">Nordeste</option>
+                <option value="norte">Norte</option>
+              </select>
+            </Field>
+          </div>
         </StepCard>
       );
 
       // ── Etapa 10 ────────────────────────────────────────────────────────────
-      case 10: {
+      case 9: {
         const fmtData = (d: string) => {
           if (!d) return "—";
           try { return new Date(d).toLocaleDateString("pt-BR"); } catch { return d; }
@@ -1075,267 +1303,403 @@ export default function NovaPesquisaPage() {
           if (!sit) return null;
           const l = sit.toLowerCase();
           if (l.includes("divulgada") || l.includes("aberta") || l.includes("recebendo"))
-            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 whitespace-nowrap">{sit}</span>;
+            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 whitespace-nowrap">✔ {sit}</span>;
           if (l.includes("anulada") || l.includes("cancelada") || l.includes("revogada"))
-            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 whitespace-nowrap">{sit}</span>;
+            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 whitespace-nowrap">✖ {sit}</span>;
           if (l.includes("encerrada") || l.includes("homologada") || l.includes("adjudicada"))
             return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 whitespace-nowrap">{sit}</span>;
           return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 whitespace-nowrap">{sit}</span>;
         };
         const rotuloItem = (itemId?: string) => {
-          if (!itemId || itemId === "global") return "Objeto (global)";
+          if (!itemId || itemId === "global") return objetoDesc.slice(0, 60) || "Objeto";
           const item = itens.find(i => i.id === itemId);
           return item ? (item.descricao || "Item") : "Item";
         };
-        const numeroEdital = (itemId?: string) => {
-          if (!itemId) return "";
-          const item = itens.find(i => i.id === itemId);
-          return item?.itemEdital || "";
+
+        // Agrupa resultados por itemId
+        const itemIds = Array.from(new Set(resultados.map(r => r.itemId || "global")));
+
+        // Normaliza string para comparação (remove acentos, lowercase)
+        const norm = (s: string) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+        // Aplica filtro de situação/IA + busca textual sobre todos os resultados
+        const aplicarFiltro = (res: ResultadoPNCP[]) => res.filter(r => {
+          const db = r.dadosBrutos as any;
+          // Filtro de situação
+          if (situFiltro === "abertos") {
+            const s = norm(db?._situacao || db?.situacao_nome || "");
+            if (!(s.includes("divulgada") || s.includes("aberta") || s.includes("recebendo"))) return false;
+          }
+          if (situFiltro === "encerrados") {
+            const s = norm(db?._situacao || db?.situacao_nome || "");
+            if (!(s.includes("encerrada") || s.includes("homologada") || s.includes("adjudicada"))) return false;
+          }
+          if (situFiltro === "ia") {
+            if (r.similaridade < 70) return false;
+          }
+          // Filtro de texto (busca em múltiplos campos)
+          if (textoFiltro.trim()) {
+            const q = norm(textoFiltro.trim());
+            const campos = [
+              r.descricao, r.orgao, r.documento_origem, r.localizacao || "",
+              db?._modalidade || "", db?._unidade || "", db?._situacao || "",
+            ].map(norm).join(" ");
+            if (!campos.includes(q)) return false;
+          }
+          return true;
+        });
+
+        const totalGeral = Object.values(totalPorItem).reduce((a, b) => a + b, 0);
+
+        // Tabela de resultados de um item específico
+        const TabelaItem = ({ itemId }: { itemId: string }) => {
+          const todosDoItem = resultados.filter(r => (r.itemId || "global") === itemId);
+          const filtrados   = aplicarFiltro(todosDoItem);
+          const pagAtual    = paginaPorItem[itemId] || 1;
+          const totalItem   = totalPorItem[itemId] || todosDoItem.length;
+          const totalPags   = totalPagsPorItem[itemId] || 1;
+
+          return (
+            <div className="mb-8">
+              {/* Cabeçalho da tabela deste item */}
+              <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-full bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                    {itemIds.indexOf(itemId) + 1}
+                  </span>
+                  <h3 className="font-bold text-slate-800 text-sm">{rotuloItem(itemId)}</h3>
+                  <span className="text-xs text-slate-400">
+                    {totalItem.toLocaleString("pt-BR")} editais · pág. {pagAtual}/{totalPags}
+                  </span>
+                </div>
+                <div className="flex gap-2">
+                  <button disabled={pagAtual <= 1}
+                    onClick={() => buscarPaginaItem(itemId, pagAtual - 1)}
+                    className="px-3 py-1 text-xs border border-slate-300 rounded-lg font-semibold disabled:opacity-30 hover:bg-slate-50 transition-colors">
+                    ← Anterior
+                  </button>
+                  <button disabled={pagAtual >= totalPags}
+                    onClick={() => buscarPaginaItem(itemId, pagAtual + 1)}
+                    className="px-3 py-1 text-xs border border-slate-300 rounded-lg font-semibold disabled:opacity-30 hover:bg-slate-50 transition-colors">
+                    Próxima →
+                  </button>
+                </div>
+              </div>
+
+              {filtrados.length === 0 ? (
+                <div className="rounded-xl bg-slate-50 border border-dashed border-slate-200 py-8 text-center text-slate-400 text-sm">
+                  Nenhum edital encontrado com o filtro selecionado.
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs border-collapse" style={{minWidth: 960}}>
+                      <thead>
+                        <tr className="bg-slate-800 text-slate-200">
+                          <th className="px-2 py-2.5 text-center w-8 border-r border-slate-700">
+                            <input type="checkbox" className="rounded accent-indigo-500 cursor-pointer"
+                              checked={filtrados.length > 0 && filtrados.every(r => selecionados.has(r.id))}
+                              onChange={e => {
+                                setSelecionados(prev => {
+                                  const next = new Set(prev);
+                                  filtrados.forEach(r => e.target.checked ? next.add(r.id) : next.delete(r.id));
+                                  return next;
+                                });
+                                setResultados(prev => prev.map(r =>
+                                  filtrados.some(f => f.id === r.id)
+                                    ? { ...r, status_avaliacao: e.target.checked ? "aceito" : "pendente" }
+                                    : r
+                                ));
+                              }}
+                            />
+                          </th>
+                          <th className="px-3 py-2.5 text-center w-10 border-r border-slate-700 text-[11px] uppercase tracking-wider">#</th>
+                          <th className="px-3 py-2.5 text-left w-[160px] border-r border-slate-700 text-[11px] uppercase tracking-wider">Nº PNCP</th>
+                          <th className="px-3 py-2.5 text-left w-[180px] border-r border-slate-700 text-[11px] uppercase tracking-wider">Órgão / Unidade</th>
+                          <th className="px-3 py-2.5 text-left border-r border-slate-700 text-[11px] uppercase tracking-wider">Objeto da Contratação</th>
+                          <th className="px-3 py-2.5 text-left w-[110px] border-r border-slate-700 text-[11px] uppercase tracking-wider">Modalidade</th>
+                          <th className="px-3 py-2.5 text-left w-[100px] border-r border-slate-700 text-[11px] uppercase tracking-wider">Local</th>
+                          <th className="px-3 py-2.5 text-left w-[72px] border-r border-slate-700 text-[11px] uppercase tracking-wider">Publicação</th>
+                          <th className="px-3 py-2.5 text-right w-[100px] border-r border-slate-700 text-[11px] uppercase tracking-wider">Vlr. unit. (B)</th>
+                          <th className="px-3 py-2.5 text-right w-[110px] border-r border-slate-700 text-[11px] uppercase tracking-wider">Vlr. total edital (A)</th>
+                          <th className="px-3 py-2.5 text-left w-[110px] border-r border-slate-700 text-[11px] uppercase tracking-wider">Situação</th>
+                          <th className="px-3 py-2.5 text-center w-[70px] text-[11px] uppercase tracking-wider">Edital</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filtrados.map((r, idx) => {
+                          const db      = r.dadosBrutos as any;
+                          const sit     = db?._situacao || db?.situacao_nome || "";
+                          const modal   = db?._modalidade || db?.modalidade_licitacao_nome || "";
+                          const unidade = db?._unidade || db?.unidade_nome || "";
+                          const isAceito  = r.status_avaliacao === "aceito";
+                          const isRejeit  = r.status_avaliacao === "rejeitado";
+                          return (
+                            <tr key={r.id} className={`border-b transition-colors ${
+                              selecionados.has(r.id) ? "bg-indigo-50 border-indigo-100" :
+                              isAceito ? "bg-green-50 border-green-100" :
+                              isRejeit ? "bg-red-50/50 opacity-60 border-red-100" :
+                              idx % 2 === 0 ? "bg-white border-slate-100 hover:bg-indigo-50/20" : "bg-slate-50/60 border-slate-100 hover:bg-indigo-50/20"
+                            }`}>
+                              <td className="px-2 py-2 text-center border-r border-slate-100">
+                                <input type="checkbox" className="rounded accent-indigo-500 cursor-pointer"
+                                  checked={selecionados.has(r.id)}
+                                  onChange={e => {
+                                    setSelecionados(prev => {
+                                      const next = new Set(prev);
+                                      e.target.checked ? next.add(r.id) : next.delete(r.id);
+                                      return next;
+                                    });
+                                    setResultados(prev => prev.map(x =>
+                                      x.id === r.id ? { ...x, status_avaliacao: e.target.checked ? "aceito" : "pendente" } : x
+                                    ));
+                                  }}
+                                />
+                              </td>
+                              <td className="px-3 py-2 text-center text-slate-400 font-bold border-r border-slate-100">{idx + 1}</td>
+                              <td className="px-3 py-2 border-r border-slate-100">
+                                <span className="font-mono text-[10px] text-slate-500 leading-tight break-all">{r.documento_origem || "—"}</span>
+                              </td>
+                              <td className="px-3 py-2 border-r border-slate-100">
+                                <div className="font-semibold text-indigo-700 text-[11px] leading-tight" style={{maxWidth:176}} title={r.orgao}>
+                                  {r.orgao.length > 45 ? r.orgao.slice(0, 45) + "…" : r.orgao}
+                                </div>
+                                {unidade && <div className="text-[10px] text-slate-400 mt-0.5" title={unidade}>{unidade.length > 40 ? unidade.slice(0,40)+"…" : unidade}</div>}
+                              </td>
+                              <td className="px-3 py-2 border-r border-slate-100">
+                                <span className="text-slate-700 leading-snug" title={r.descricao}>
+                                  {r.descricao.length > 150 ? r.descricao.slice(0, 150) + "…" : r.descricao}
+                                </span>
+                                {r.similaridade > 0 && iaFiltroReady && (
+                                  <span className={`ml-1.5 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${r.similaridade >= 70 ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-400"}`}>
+                                    IA {r.similaridade}%
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-3 py-2 border-r border-slate-100 text-slate-500 text-[11px]">
+                                {modal ? (modal.length > 20 ? modal.slice(0,20)+"…" : modal) : "—"}
+                              </td>
+                              <td className="px-3 py-2 border-r border-slate-100 text-slate-500 whitespace-nowrap text-[11px]">{r.localizacao || "—"}</td>
+                              <td className="px-3 py-2 border-r border-slate-100 text-slate-500 whitespace-nowrap text-[11px]">{fmtData(r.data)}</td>
+                              <td className="px-3 py-2 border-r border-slate-100 text-right font-mono font-bold whitespace-nowrap">
+                                {r.valor_unitario != null && r.valor_unitario > 0
+                                  ? <span className="text-green-700">{formatarMoeda(r.valor_unitario)}</span>
+                                  : <span className="text-slate-300 text-[10px]">buscando…</span>}
+                              </td>
+                              <td className="px-3 py-2 border-r border-slate-100 text-right font-mono text-slate-600 whitespace-nowrap text-[11px]">
+                                {r.valor_total != null && r.valor_total > 0 ? formatarMoeda(r.valor_total) : <span className="text-slate-300">—</span>}
+                              </td>
+                              <td className="px-3 py-2 border-r border-slate-100">{sit ? badgeSit(sit) : <span className="text-slate-300">—</span>}</td>
+                              <td className="px-3 py-2 text-center">
+                                {r.link_origem
+                                  ? <a href={r.link_origem} target="_blank" rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold transition-colors shadow-sm">
+                                      <ExternalLink size={9}/> Abrir
+                                    </a>
+                                  : <span className="text-slate-200">—</span>}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Paginação inferior */}
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-t border-slate-200">
+                    <span className="text-[11px] text-slate-500">
+                      Página {pagAtual} de {totalPags} · {totalItem.toLocaleString("pt-BR")} editais no PNCP
+                    </span>
+                    <div className="flex gap-2">
+                      <button disabled={pagAtual <= 1} onClick={() => buscarPaginaItem(itemId, pagAtual - 1)}
+                        className="px-3 py-1 text-xs border rounded font-semibold disabled:opacity-30 hover:bg-white transition-colors">← Anterior</button>
+                      <button disabled={pagAtual >= totalPags} onClick={() => buscarPaginaItem(itemId, pagAtual + 1)}
+                        className="px-3 py-1 text-xs border rounded font-semibold disabled:opacity-30 hover:bg-white transition-colors">Próxima →</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
         };
-        const resultadosFiltrados = itemFiltro === "todos"
-          ? resultados
-          : resultados.filter(r => r.itemId === itemFiltro);
-        const itensFiltro = Array.from(new Set(resultados.map(r => r.itemId).filter(Boolean))) as string[];
+
         return (
-        <div className="flex flex-col h-full">
-          {/* cabeçalho da etapa */}
-          <div className="px-6 pt-5 pb-3 border-b border-slate-100 flex items-center justify-between gap-4 flex-wrap">
-            <div>
-              <h2 className="text-base font-bold text-slate-800">Resultados da pesquisa</h2>
-              <div className="mt-1.5 flex flex-wrap gap-2 text-xs">
-                <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-600 px-3 py-1 rounded-full">
-                  <FileSearch size={11}/> {resultados.length} referências encontradas
-                </span>
-                <span className="inline-flex items-center gap-1.5 bg-green-100 text-green-700 px-3 py-1 rounded-full font-semibold">
-                  <Check size={11}/> {nAceitos} aceitas
-                </span>
-                {nRejeitados > 0 && (
-                  <span className="inline-flex items-center gap-1.5 bg-red-100 text-red-600 px-3 py-1 rounded-full font-semibold">
-                    <X size={11}/> {nRejeitados} rejeitadas
+          <div className="flex flex-col">
+            {/* Barra de filtros sticky */}
+            <div className="sticky top-[54px] z-10 px-6 lg:px-8 pt-3 pb-3 bg-white border-b border-slate-200 shadow-sm">
+              {/* Linha 1: busca inteligente */}
+              <div className="flex items-center gap-2 mb-2.5">
+                <div className="relative flex-1">
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
+                  <input
+                    type="text"
+                    value={textoFiltro}
+                    onChange={e => setTextoFiltro(e.target.value)}
+                    placeholder="Buscar por descrição, órgão, nº PNCP, modalidade, localização…"
+                    className="w-full pl-8 pr-3 py-2 text-sm border-2 border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-colors bg-slate-50 placeholder:text-slate-400"
+                  />
+                  {textoFiltro && (
+                    <button onClick={() => setTextoFiltro("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                      <X size={14}/>
+                    </button>
+                  )}
+                </div>
+                <button onClick={() => pesquisarPNCP()}
+                  title="Refazer pesquisa no PNCP"
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border-2 border-slate-200 text-slate-600 text-xs font-semibold hover:border-slate-300 hover:bg-slate-50 transition-colors">
+                  <RefreshCw size={13}/> Refazer
+                </button>
+              </div>
+
+              {/* Linha 2: pills de situação + badges */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {([
+                  { id: "todos",      label: "Todos",         cor: "slate" },
+                  { id: "abertos",    label: "◉ Abertos",     cor: "green" },
+                  { id: "encerrados", label: "◎ Encerrados",  cor: "gray" },
+                ] as const).map(f => (
+                  <button key={f.id} type="button" onClick={() => setSituFiltro(f.id as any)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors ${
+                      situFiltro === f.id
+                        ? f.cor === "green" ? "bg-green-600 text-white border-green-600"
+                          : f.cor === "gray" ? "bg-slate-500 text-white border-slate-500"
+                          : "bg-slate-700 text-white border-slate-700"
+                        : "bg-white text-slate-600 border-slate-300 hover:border-slate-400"
+                    }`}>
+                    {f.label}
+                  </button>
+                ))}
+                <button type="button" onClick={() => setSituFiltro("ia")}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
+                    situFiltro === "ia"
+                      ? "bg-indigo-600 text-white border-indigo-600"
+                      : iaAnalisando
+                        ? "bg-white text-indigo-400 border-indigo-200 cursor-wait"
+                        : "bg-white text-indigo-600 border-indigo-300 hover:border-indigo-500"
+                  }`}>
+                  {iaAnalisando
+                    ? <><Loader2 size={10} className="animate-spin"/> Analisando…</>
+                    : <><Sparkles size={10}/> Alta relevância (≥70%)</>}
+                </button>
+                {/* Separador + badges de contagem */}
+                <span className="text-slate-300 text-xs">|</span>
+                {totalGeral > 0 && (
+                  <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full text-xs font-semibold">
+                    <FileSearch size={9}/> {totalGeral.toLocaleString("pt-BR")} editais
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1.5 bg-slate-100 text-slate-500 px-3 py-1 rounded-full">
-                  Fonte: PNCP / Dados Abertos
-                </span>
-                <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-600 px-3 py-1 rounded-full">
-                  IN nº 65/2021 · Lei 14.133/2021
-                </span>
+                {selecionados.size > 0 && (
+                  <span className="inline-flex items-center gap-1 bg-green-600 text-white px-2 py-0.5 rounded-full text-xs font-semibold">
+                    <Check size={9}/> {selecionados.size} aceito{selecionados.size !== 1 ? "s" : ""} (usados no cálculo)
+                    <button onClick={() => {
+                      const ids = new Set(selecionados);
+                      setSelecionados(new Set());
+                      setResultados(prev => prev.map(r => ids.has(r.id) ? { ...r, status_avaliacao: "pendente" } : r));
+                    }} className="ml-0.5 hover:opacity-70 transition-opacity"><X size={9}/></button>
+                  </span>
+                )}
+                {nAceitos > 0 && (
+                  <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-semibold">
+                    <Check size={9}/> {nAceitos} aceitas
+                  </span>
+                )}
               </div>
             </div>
-            <p className="text-xs text-slate-400">Clique em ✓ para aceitar ou ✗ para rejeitar cada referência antes de calcular.</p>
-          </div>
 
-          {/* filtro por item — pesquisa segregada */}
-          {itensFiltro.length > 1 && (
-            <div className="px-6 pt-3 pb-1 flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Resultados por item:</span>
-              <select className="inp text-xs w-auto" value={itemFiltro} onChange={e => setItemFiltro(e.target.value)}>
-                <option value="todos">Todos os itens</option>
-                {itensFiltro.map(id => (
-                  <option key={id} value={id}>{rotuloItem(id)}</option>
-                ))}
-              </select>
-              <span className="text-[11px] text-slate-400">
-                Exibindo {resultadosFiltrados.length} de {resultados.length} referências
-              </span>
+            {/* Conteúdo */}
+            <div className="px-6 lg:px-8 py-6">
+              {erroPaginacao && (
+                <div className="flex items-center justify-between gap-3 mb-4 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+                  <span>{erroPaginacao}</span>
+                  <button onClick={() => setErroPaginacao(null)} className="shrink-0 hover:opacity-70 transition-opacity"><X size={13}/></button>
+                </div>
+              )}
+              {pesquisando ? (
+                <div className="flex flex-col items-center justify-center py-24 gap-4">
+                  <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+                  <p className="text-sm text-slate-500">Consultando o PNCP…</p>
+                </div>
+              ) : erroPesquisa ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <AlertCircle className="w-10 h-10 text-amber-500" />
+                  <p className="text-sm text-slate-600">{erroPesquisa}</p>
+                  <Btn primary onClick={pesquisarPNCP} icon={<Search size={14}/>}>Tentar novamente</Btn>
+                </div>
+              ) : resultados.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                  <FileSearch className="w-10 h-10 text-slate-300" />
+                  <p className="text-sm text-slate-400">Nenhum resultado. Clique em "Refazer pesquisa" ou volte para ajustar os termos.</p>
+                </div>
+              ) : (
+                itemIds.map(itemId => <TabelaItem key={itemId} itemId={itemId} />)
+              )}
+
+              {/* Ações */}
+              {resultados.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-200 flex items-center gap-3">
+                  <Btn onClick={() => goToStep(8)}>← Configurações</Btn>
+                  <Btn primary onClick={() => { const r = calcular(); nextStep(); if (r) gerarConteudoIA(r.stats, r.nAceitas); }} icon={<BarChart3 size={14}/>}>
+                    Calcular e analisar
+                  </Btn>
+                </div>
+              )}
             </div>
-          )}
-
-          {/* tabela */}
-          <div className="flex-1 overflow-auto">
-            {resultadosFiltrados.length === 0 ? (
-              <div className="py-16 text-center text-slate-400">
-                <FileSearch size={40} className="mx-auto mb-3 opacity-30" />
-                <p className="text-sm">Nenhum resultado. Volte e refaça a pesquisa.</p>
-              </div>
-            ) : (
-              <table className="w-full text-xs border-collapse" style={{minWidth: 900}}>
-                <thead>
-                  <tr className="bg-slate-700 text-white">
-                    <th className="px-3 py-2.5 text-center font-semibold w-8 border-r border-slate-600">#</th>
-                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600 w-[160px]">Órgão / Unidade</th>
-                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600">Objeto da Contratação</th>
-                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600 whitespace-nowrap w-[120px]">Item / Edital</th>
-                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600 whitespace-nowrap w-[100px]">Modalidade</th>
-                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600 w-[90px]">Local</th>
-                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600 whitespace-nowrap w-[76px]">Publicação</th>
-                    <th className="px-3 py-2.5 text-left font-semibold border-r border-slate-600 w-[90px]">Valor unit.</th>
-                    <th className="px-3 py-2.5 text-center font-semibold border-r border-slate-600 w-[50px]">Sim.</th>
-                    <th className="px-3 py-2.5 text-center font-semibold border-r border-slate-600 w-[70px]">Situação</th>
-                    <th className="px-3 py-2.5 text-center font-semibold border-r border-slate-600 w-[70px]">Edital</th>
-                    <th className="px-3 py-2.5 text-center font-semibold w-[80px]">Avaliação</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resultadosFiltrados.map((r, idx) => {
-                    const sit = (r as any).dadosBrutos?.situacao_nome as string | undefined;
-                    const modal = (r as any).dadosBrutos?.modalidade_licitacao_nome as string | undefined;
-                    const isAceito = r.status_avaliacao === "aceito";
-                    const isRejeit = r.status_avaliacao === "rejeitado";
-                    return (
-                      <React.Fragment key={r.id}>
-                        <tr className={`border-b border-slate-100 transition-colors ${
-                          isAceito ? "bg-green-50 hover:bg-green-100" :
-                          isRejeit ? "bg-red-50 opacity-60 hover:bg-red-100" :
-                          idx % 2 === 0 ? "bg-white hover:bg-slate-50" : "bg-slate-50/60 hover:bg-slate-100"
-                        }`}>
-                          <td className="px-3 py-2.5 text-center text-slate-400 font-bold border-r border-slate-100">{idx + 1}</td>
-                          <td className="px-3 py-2.5 border-r border-slate-100">
-                            <div className="font-semibold text-slate-700 leading-tight" style={{maxWidth:156}} title={r.orgao}>
-                              {r.orgao.length > 40 ? r.orgao.slice(0, 40) + "…" : r.orgao}
-                            </div>
-                            {r.fonte && <div className="text-[10px] text-slate-400 mt-0.5 font-mono">{r.fonte}</div>}
-                          </td>
-                          <td className="px-3 py-2.5 border-r border-slate-100">
-                            <div className="text-slate-700 leading-snug" title={r.descricao} style={{maxWidth: 340}}>
-                              {r.descricao.length > 120 ? r.descricao.slice(0, 120) + "…" : r.descricao}
-                            </div>
-                            {r.documento_origem && (
-                              <div className="text-[10px] font-mono text-slate-400 mt-0.5 truncate" style={{maxWidth:340}}>{r.documento_origem}</div>
-                            )}
-                          </td>
-                          <td className="px-3 py-2.5 border-r border-slate-100">
-                            <div className="flex flex-col gap-0.5">
-                              <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 rounded px-1.5 py-0.5 inline-block w-fit max-w-[110px] truncate" title={rotuloItem(r.itemId)}>
-                                {rotuloItem(r.itemId)}
-                              </span>
-                              {numeroEdital(r.itemId) ? (
-                                <a
-                                  href={`https://pncp.gov.br/app/editais?q=${encodeURIComponent(numeroEdital(r.itemId))}`}
-                                  target="_blank" rel="noopener noreferrer"
-                                  className="text-[10px] font-mono text-slate-500 hover:text-indigo-600 underline underline-offset-2 inline-block w-fit"
-                                  title="Conferir item no PNCP"
-                                >
-                                  Edital: {numeroEdital(r.itemId)} ↗
-                                </a>
-                              ) : r.fonte === "manual" ? (
-                                <span className="text-[10px] font-mono text-amber-600">cotação manual</span>
-                              ) : (
-                                <span className="text-[10px] text-slate-300">—</span>
-                              )}
-                              {r.cnpj && (
-                                <span className="text-[10px] font-mono text-slate-400" title="CNPJ do fornecedor">{r.cnpj}</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-3 py-2.5 border-r border-slate-100 text-slate-500">
-                            {modal ? <span title={modal}>{modal.length > 18 ? modal.slice(0,18)+"…" : modal}</span> : <span className="text-slate-300">—</span>}
-                          </td>
-                          <td className="px-3 py-2.5 border-r border-slate-100 text-slate-500 whitespace-nowrap">{r.localizacao || "—"}</td>
-                          <td className="px-3 py-2.5 border-r border-slate-100 text-slate-500 whitespace-nowrap">{fmtData(r.data)}</td>
-                          <td className="px-3 py-2.5 border-r border-slate-100 font-mono font-semibold text-slate-800 whitespace-nowrap">
-                            {r.valor_unitario != null && r.valor_unitario > 0
-                              ? formatarMoeda(r.valor_unitario)
-                              : r.valor_total != null && r.valor_total > 0
-                                ? <span className="text-slate-500">{formatarMoeda(r.valor_total)} <span className="font-normal text-[10px]">(total)</span></span>
-                                : <span className="text-slate-300">—</span>}
-                          </td>
-                          <td className="px-3 py-2.5 border-r border-slate-100 text-center">
-                            <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                              r.similaridade >= 80 ? "bg-green-100 text-green-700" :
-                              r.similaridade >= 60 ? "bg-amber-100 text-amber-700" :
-                              "bg-slate-100 text-slate-400"
-                            }`}>{r.similaridade}%</span>
-                          </td>
-                          <td className="px-3 py-2.5 border-r border-slate-100 text-center">
-                            {sit ? badgeSit(sit) : <span className="text-slate-300">—</span>}
-                          </td>
-                          <td className="px-3 py-2.5 border-r border-slate-100 text-center">
-                            {r.link_origem
-                              ? <a href={r.link_origem} target="_blank" rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-slate-700 hover:bg-indigo-600 text-white text-[11px] font-bold transition-colors whitespace-nowrap shadow-sm">
-                                  <ExternalLink size={10}/> Abrir
-                                </a>
-                              : <span className="text-slate-300">—</span>}
-                          </td>
-                          <td className="px-3 py-2.5 text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <button type="button" onClick={() => avaliarResultado(r.id, "aceito")} title="Aceitar"
-                                className={`p-1.5 rounded transition-colors ${isAceito ? "bg-green-600 text-white" : "border border-green-400 text-green-600 hover:bg-green-50"}`}>
-                                <Check size={12}/>
-                              </button>
-                              <button type="button" onClick={() => avaliarResultado(r.id, "rejeitado")} title="Rejeitar"
-                                className={`p-1.5 rounded transition-colors ${isRejeit ? "bg-red-600 text-white" : "border border-red-400 text-red-600 hover:bg-red-50"}`}>
-                                <X size={12}/>
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                        {isRejeit && (
-                          <tr className="bg-red-50 border-b border-slate-100">
-                            <td colSpan={11} className="px-4 py-1.5">
-                              <input className="w-full text-xs px-2 py-1 rounded border border-red-200 bg-white text-red-700 placeholder-red-300"
-                                placeholder="Justificativa da rejeição (opcional)..."
-                                value={r.justificativa_rejeicao || ""}
-                                onChange={e => avaliarResultado(r.id, "rejeitado", e.target.value)} />
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
           </div>
-
-          {/* rodapé */}
-          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
-            <Btn onClick={() => goToStep(8)}>← Refazer busca</Btn>
-            <Btn primary onClick={() => { calcular(); setJustificativaIA(null); setValidacaoIA(null); nextStep(); }} icon={<BarChart3 size={14}/>}>
-              Calcular e analisar ({nAceitos} aceitas)
-            </Btn>
-          </div>
-        </div>
-      );}
+        );
+      }
 
       // ── Etapa 11 ────────────────────────────────────────────────────────────
-      case 11: return (
+      case 10: return (
         <StepCard
-          title="Análise da pesquisa (IA)"
-          desc="O agente IA gera a justificativa técnica e valida a robustez estatística da amostra."
+          title="Justificativa técnica (IA) — opcional"
+          desc="Gere uma justificativa técnica automatizada com base nas referências aceitas e nas estatísticas calculadas. Esta etapa é opcional — você pode pular e prosseguir."
           footer={
             <div className="flex items-center gap-3 flex-wrap">
-              <Btn onClick={() => goToStep(10)}>Voltar e revisar referências</Btn>
-              {validacaoIA && !validacaoIA.valido && (
-                <Btn onClick={() => { calcular(); gerarConteudoIA(estatisticas, resultados.filter(r => r.status_avaliacao === "aceito").length); }} icon={<RefreshCw size={14}/>}>
-                  Recalcular após ajuste
-                </Btn>
-              )}
-              <Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Próximo</Btn>
+              <Btn onClick={() => goToStep(9)}>← Revisar referências</Btn>
+              <Btn icon={iaLoading ? <Loader2 size={13} className="animate-spin"/> : <RefreshCw size={13}/>}
+                disabled={iaLoading}
+                onClick={() => {
+                  setJustificativaIA(null);
+                  setValidacaoIA(null);
+                  const r = calcular();
+                  const stats = r?.stats ?? estatisticas;
+                  const nAce  = r?.nAceitas ?? resultados.filter(r => r.status_avaliacao === "aceito").length;
+                  if (!stats) {
+                    setJustificativaIA("⚠️ Nenhuma referência aceita com valor disponível. Na tabela de resultados (etapa anterior), clique em ✓ Aceitar em pelo menos 3 editais que tenham valor na coluna **Vlr. total edital (A)** ou **Vlr. unit. (B)**.");
+                    return;
+                  }
+                  gerarConteudoIA(stats, nAce);
+                }}>
+                {iaLoading ? "Gerando…" : "Gerar justificativa"}
+              </Btn>
+              <Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Próximo →</Btn>
             </div>
           }
         >
           {justificativaIA ? (
-            <div className="rounded-lg bg-slate-50 border border-slate-200 p-4 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Justificativa gerada pela IA</p>
+            <div className="rounded-xl bg-slate-50 border border-slate-200 p-5 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Justificativa gerada pela IA</p>
               {justificativaIA}
             </div>
           ) : (
-            <div className="flex items-center gap-3 text-sm text-slate-500 py-8 px-4 rounded-lg bg-slate-50 border border-dashed border-slate-200">
-              <Loader2 className="w-4 h-4 animate-spin shrink-0" />
-              Gerando justificativa e validação...
+            <div className="py-12 text-center text-slate-400 rounded-xl bg-slate-50 border border-dashed border-slate-200">
+              <Sparkles size={32} className="mx-auto mb-3 opacity-30" />
+              <p className="text-sm font-medium">Justificativa não gerada ainda.</p>
+              <p className="text-xs mt-1">Clique em &quot;Gerar justificativa&quot; para acionar o agente IA, ou pule esta etapa.</p>
             </div>
           )}
           {validacaoIA && (
-            <div className={`mt-4 rounded-lg border p-4 ${validacaoIA.valido ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
-              <div className="flex items-center gap-2 mb-3">
+            <div className={`mt-4 rounded-xl border p-4 ${validacaoIA.valido ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"}`}>
+              <div className="flex items-center gap-2 mb-2">
                 {validacaoIA.valido
                   ? <CheckCircle2 size={16} className="text-green-600" />
                   : <AlertCircle size={16} className="text-amber-600" />}
                 <p className={`text-sm font-semibold ${validacaoIA.valido ? "text-green-800" : "text-amber-800"}`}>
                   {validacaoIA.valido
-                    ? `Validação aprovada — score de confiança: ${validacaoIA.score_confianca}/100`
-                    : `Atenção: score de confiança ${validacaoIA.score_confianca}/100 (abaixo de 70)`}
+                    ? `Validação aprovada — score: ${validacaoIA.score_confianca}/100`
+                    : `Score de confiança: ${validacaoIA.score_confianca}/100`}
                 </p>
               </div>
-              {!validacaoIA.valido && (
-                <p className="text-xs text-amber-700 mb-3 leading-relaxed">
-                  O score baixo <strong>não impede</strong> a conclusão da pesquisa. Significa que a amostra tem
-                  alta dispersão ou poucas referências aceitas. Para melhorar: volte à etapa de resultados e aceite
-                  mais referências (✓), ou prossiga mesmo assim — a pesquisa continua válida.
-                </p>
-              )}
               {(validacaoIA.alertas || []).map((a: any, i: number) => (
                 <div key={i} className={`mt-1.5 text-xs px-3 py-2 rounded-lg ${a.tipo === "erro" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
                   <span className="font-semibold">{a.campo}:</span> {a.mensagem}
@@ -1348,11 +1712,11 @@ export default function NovaPesquisaPage() {
       );
 
       // ── Etapa 12 ────────────────────────────────────────────────────────────
-      case 12: return (
+      case 11: return (
         <StepCard
           title="Análise estatística"
           desc="Estatísticas calculadas com base nas referências aceitas."
-          footer={<><Btn onClick={() => goToStep(10)}>Voltar</Btn><Btn primary onClick={nextStep} icon={<TrendingUp size={14}/>}>Gerar preço estimado</Btn></>}
+          footer={<><Btn onClick={() => goToStep(9)}>Voltar</Btn><Btn primary onClick={nextStep} icon={<TrendingUp size={14}/>}>Gerar preço estimado</Btn></>}
         >
           {estatisticas ? (
             <>
@@ -1394,7 +1758,7 @@ export default function NovaPesquisaPage() {
       );
 
       // ── Etapa 13 ────────────────────────────────────────────────────────────
-      case 13: return (
+      case 12: return (
         <StepCard
           title="Preço estimado"
           desc="Resultado final do cálculo com base nas referências aceitas."
@@ -1445,7 +1809,7 @@ export default function NovaPesquisaPage() {
       );
 
       // ── Etapa 14: Metodologia estatística + ME/EPP ──────────────────────────
-      case 14: return (
+      case 13: return (
         <StepCard
           title="Metodologia do relatório e ME/EPP"
           desc="Escolha a tendência central do cálculo e os parâmetros que constarão no relatório final. A regra de ME/EPP (LC 123/2006) é calculada automaticamente."
@@ -1547,7 +1911,7 @@ export default function NovaPesquisaPage() {
       );
 
       // ── Etapa 15: Decomposição de custos (diferencial competitivo) ──────────
-      case 15: return (
+      case 14: return (
         <StepCard
           title="Decomposição de custos"
           desc="Módulo exclusivo: monte a composição de custos por item (insumos, mão de obra de dedicação exclusiva, encargos e BDI) e compare com o preço estimado de mercado."
@@ -1679,7 +2043,7 @@ export default function NovaPesquisaPage() {
         </StepCard>
       );
       // ── Etapa 16 ────────────────────────────────────────────────────────────
-      case 16: return (
+      case 15: return (
         <StepCard
           title="Documentos e evidências"
           desc="Registros e links das referências utilizadas na pesquisa."
@@ -1736,7 +2100,7 @@ export default function NovaPesquisaPage() {
       );
 
       // ── Etapa 17 ────────────────────────────────────────────────────────────
-      case 17: return (
+      case 16: return (
         <StepCard
           title="Relatório final"
           desc="Exporte o relatório completo com memória de cálculo, fontes e justificativa."
@@ -1841,67 +2205,63 @@ export default function NovaPesquisaPage() {
   };
 
   // ─── Render ────────────────────────────────────────────────────────────────
+  // Quebra o padding do layout pai (-mx -mt) e usa sticky para wizard + footers
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="-mx-4 md:-mx-8 -mt-4 md:-mt-8">
 
-        {/* Cabeçalho */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
-            <span>Pesquisas</span>
-            <ChevronRight size={12} />
-            <span className="text-slate-600 font-medium">Nova pesquisa de preços</span>
-          </div>
-          <h1 className="text-2xl font-semibold text-slate-800">Nova pesquisa de preços</h1>
-          <p className="text-sm text-slate-500 mt-1">Estimativa baseada em dados públicos · Lei 14.133/2021</p>
-        </div>
-
-        {/* Stepper por fases */}
-        <div className="mb-8">
-          <div className="flex items-stretch gap-0 rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm">
-            {FASES.map((fase, fi) => {
-              const isAtual = fi === faseAtual;
-              const isConcluida = fi < faseAtual;
-              const Icon = fase.icon;
-              return (
-                <button
-                  key={fi}
-                  type="button"
-                  onClick={() => goToStep(fase.steps[0])}
-                  className={`flex-1 flex flex-col items-center gap-1.5 px-3 py-3.5 text-xs font-medium transition-colors border-r border-slate-200 last:border-r-0 ${
-                    isAtual
-                      ? "bg-indigo-600 text-white"
-                      : isConcluida
-                      ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
-                      : "bg-white text-slate-400 hover:bg-slate-50"
-                  }`}
-                >
-                  <Icon size={16} />
-                  <span>{fase.nome}</span>
-                  {isConcluida && <span className="text-[10px] opacity-70">✓ Concluído</span>}
-                  {isAtual && <span className="text-[10px] opacity-80">Etapa {step}/{totalSteps}</span>}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Barra de progresso */}
-          <div className="mt-3 flex items-center gap-3">
-            <div className="flex-1 h-1.5 rounded-full bg-slate-200 overflow-hidden">
-              <div
-                className="h-full bg-indigo-500 rounded-full transition-all duration-300"
-                style={{ width: `${((step - 1) / (totalSteps - 1)) * 100}%` }}
-              />
-            </div>
-            <span className="text-xs text-slate-400 whitespace-nowrap shrink-0">
-              {step}/{totalSteps} · {STEP_NAMES[step]}
-            </span>
+      {/* ── Wizard sticky no topo ──────────────────────────────────────────── */}
+      <div className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
+        {/* Fases */}
+        <div className="flex items-stretch border-b border-slate-100">
+          {FASES.map((fase, fi) => {
+            const isAtual = fi === faseAtual;
+            const isConcluida = fi < faseAtual;
+            const Icon = fase.icon;
+            return (
+              <button
+                key={fi}
+                type="button"
+                onClick={() => goToStep(fase.steps[0])}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors border-r border-slate-100 last:border-r-0 ${
+                  isAtual
+                    ? "bg-indigo-600 text-white"
+                    : isConcluida
+                    ? "bg-indigo-50 text-indigo-600 hover:bg-indigo-100"
+                    : "text-slate-400 hover:bg-slate-50"
+                }`}
+              >
+                <Icon size={13} />
+                <span>{fase.nome}</span>
+                {isConcluida && <Check size={10} />}
+                {isAtual && <span className="text-[10px] opacity-75 font-normal">({step}/{totalSteps})</span>}
+              </button>
+            );
+          })}
+          {/* contadores à direita */}
+          <div className="flex items-center gap-2 px-4 border-l border-slate-100 shrink-0">
+            {nAceitos > 0 && (
+              <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <Check size={9}/>{nAceitos}
+              </span>
+            )}
+            {nRejeitados > 0 && (
+              <span className="inline-flex items-center gap-1 bg-red-100 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                <X size={9}/>{nRejeitados}
+              </span>
+            )}
           </div>
         </div>
-
-        {/* Conteúdo do step */}
-        {renderStep()}
+        {/* Barra de progresso */}
+        <div className="h-[3px] bg-slate-100">
+          <div
+            className="h-full bg-indigo-500 transition-all duration-500"
+            style={{ width: `${((step - 1) / (totalSteps - 1)) * 100}%` }}
+          />
+        </div>
       </div>
+
+      {/* ── Conteúdo ───────────────────────────────────────────────────────── */}
+      {renderStep()}
     </div>
   );
 }
@@ -1988,14 +2348,20 @@ function StepCard({
   title: string; desc: string; children: React.ReactNode; footer?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="px-6 py-5 border-b border-slate-100">
-        <h2 className="text-base font-semibold text-slate-800">{title}</h2>
-        {desc && <p className="text-sm text-slate-500 mt-0.5">{desc}</p>}
+    <div className="flex flex-col min-h-[calc(100vh-140px)]">
+      {/* Conteúdo centralizado */}
+      <div className="flex-1 px-6 md:px-10 py-7 max-w-3xl w-full mx-auto">
+        <div className="mb-4">
+          <h2 className="text-lg font-bold text-slate-800">{title}</h2>
+          {desc && <p className="text-sm text-slate-500 mt-1 leading-relaxed">{desc}</p>}
+        </div>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-7 py-6">
+          {children}
+        </div>
       </div>
-      <div className="px-6 py-5">{children}</div>
+      {/* Footer SEMPRE visível — sticky na base da viewport */}
       {footer && (
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between gap-3">
+        <div className="sticky bottom-0 z-10 bg-white border-t border-slate-200 px-6 md:px-10 py-3.5 flex items-center justify-between gap-3 shadow-[0_-2px_12px_rgba(0,0,0,0.07)]">
           {footer}
         </div>
       )}
@@ -2005,8 +2371,8 @@ function StepCard({
 
 function Field({ label, children, title }: { label: string; children: React.ReactNode; title?: string }) {
   return (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-xs font-semibold text-slate-500 uppercase tracking-wide" title={title}>{label}</label>
+    <div className="flex flex-col gap-1">
+      <label className="text-xs font-bold text-slate-600 tracking-wide" title={title}>{label}</label>
       {children}
     </div>
   );
@@ -2017,16 +2383,16 @@ function Grid2({ children, className = "" }: { children: React.ReactNode; classN
 }
 
 function Btn({
-  children, onClick, primary, icon,
+  children, onClick, primary, icon, disabled,
 }: {
-  children: React.ReactNode; onClick?: () => void; primary?: boolean; icon?: React.ReactNode;
+  children: React.ReactNode; onClick?: () => void; primary?: boolean; icon?: React.ReactNode; disabled?: boolean;
 }) {
-  const base = "inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors border";
+  const base = "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border shadow-sm active:scale-[0.98]";
   const style = primary
-    ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
-    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50";
+    ? "bg-indigo-600 text-white border-indigo-700 hover:bg-indigo-700 shadow-indigo-200"
+    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300";
   return (
-    <button type="button" onClick={onClick} className={`${base} ${style}`}>
+    <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${style} disabled:opacity-40 disabled:cursor-not-allowed`}>
       {icon && <span className="shrink-0">{icon}</span>}
       {children}
     </button>
@@ -2035,13 +2401,13 @@ function Btn({
 
 function StatBox({ label, value, badge }: { label: string; value: string; badge?: "ok" | "warn" | "err" }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-center">
-      <span className="block text-lg font-bold tabular-nums text-slate-800">{value}</span>
-      <span className="text-xs text-slate-400">{label}</span>
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4 text-center">
+      <span className="block text-xl font-bold tabular-nums text-slate-800 tracking-tight">{value}</span>
+      <span className="text-xs text-slate-400 mt-0.5 block">{label}</span>
       {badge && (
-        <span className={`block mt-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
-          badge === "ok" ? "bg-green-100 text-green-600" :
-          badge === "warn" ? "bg-amber-100 text-amber-600" :
+        <span className={`inline-block mt-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+          badge === "ok" ? "bg-green-100 text-green-700" :
+          badge === "warn" ? "bg-amber-100 text-amber-700" :
           "bg-red-100 text-red-600"
         }`}>
           {badge === "ok" ? "CV OK" : badge === "warn" ? "CV alto" : "CV crítico"}

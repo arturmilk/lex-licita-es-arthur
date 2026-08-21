@@ -2,6 +2,7 @@ import { buscarPNCP } from "./pncp";
 import { buscarPainelPrecos } from "./painel-precos";
 import { buscarComprasGov } from "./compras-gov";
 import { buscarPrecosAbertos } from "./precos-abertos";
+import { buscarPesquisaPrecosGov } from "./pesquisa-precos-gov";
 import { buscarPNCPBigQuery } from "./pncp-bd";
 import { buscarBPS, ehItemSaude } from "./bps";
 import { buscarSINAPI, ehItemObras } from "./sinapi";
@@ -35,6 +36,13 @@ export const FONTES_CONFIG: FonteConfig[] = [
     id: "precos_abertos",
     nome: "Pesquisa de Preços (Dados Abertos)",
     descricao: "Compras.gov.br - Pesquisa de Preços em Dados Abertos (CATMAT/PDM)",
+    disponivel: true,
+    categorias: ["geral", "bens", "servicos"],
+  },
+  {
+    id: "pesquisa_precos_gov",
+    nome: "Pesquisa de Preços Gov",
+    descricao: "pesquisaprecos.compras.gov.br — cotações reais por descrição do item (CATMAT)",
     disponivel: true,
     categorias: ["geral", "bens", "servicos"],
   },
@@ -74,6 +82,8 @@ export async function buscarFonte(
       return buscarComprasGov(params);
     case "precos_abertos":
       return buscarPrecosAbertos(params);
+    case "pesquisa_precos_gov":
+      return buscarPesquisaPrecosGov(params);
     case "pncp_bd":
       return buscarPNCPBigQuery(params);
     case "bps":
@@ -86,7 +96,7 @@ export async function buscarFonte(
 }
 
 export function sugerirFontes(termo: string): FonteId[] {
-  const fontes: FonteId[] = ["pncp", "pncp_bd", "painel_precos", "precos_abertos", "compras_gov"];
+  const fontes: FonteId[] = ["pncp", "pesquisa_precos_gov", "painel_precos", "precos_abertos", "compras_gov"];
   if (ehItemSaude(termo)) fontes.push("bps");
   if (ehItemObras(termo)) fontes.push("sinapi");
   return fontes;

@@ -22,7 +22,7 @@ export const tipoEvidenciaEnum = pgEnum("tipo_evidencia", ["pdf", "xlsx", "image
 export const tipoRelatorioEnum = pgEnum("tipo_relatorio", ["pdf", "xlsx"]);
 export const metodocalculoEnum = pgEnum("metodo_calculo", ["media_aritmetica", "mediana", "media_ponderada", "menor_preco"]);
 export const statusAgenteEnum = pgEnum("status_agente", ["aguardando", "executando", "concluido", "erro", "cancelado"]);
-export const fonteEnum = pgEnum("fonte", ["pncp", "pncp_bd", "painel_precos", "compras_gov", "precos_abertos", "bps", "sinapi", "sicro", "manual"]);
+export const fonteEnum = pgEnum("fonte", ["pncp", "pncp_bd", "painel_precos", "compras_gov", "precos_abertos", "pesquisa_precos_gov", "bps", "sinapi", "sicro", "manual"]);
 
 export const orgaos = pgTable("orgaos", {
   id: uuid("id").defaultRandom().primaryKey(),

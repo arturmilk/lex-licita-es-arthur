@@ -44,28 +44,43 @@ export async function buscarPNCPSearch(params: BuscaParams): Promise<ResultadoFo
     const raw: any[] = data?.items || [];
 
     const items: ResultadoBruto[] = raw.map((item: any) => {
-      // Link direto: a API retorna item_url com o caminho completo.
-      // Garante que o segmento seja sempre /editais/ (nunca /compras/)
-      const rawUrl = item.item_url ? String(item.item_url).replace(/\/compras\//, "/editais/") : null;
-      const linkEdital = rawUrl ? `https://pncp.gov.br/app${rawUrl}` : null;
+      // Link: construído com orgao_cnpj / ano / numero_sequencial (mais confiável que item_url)
+      const cnpj = item.orgao_cnpj || "";
+      const ano  = item.ano        || "";
+      const nseq = item.numero_sequencial || "";
+      const linkEdital = cnpj && ano && nseq
+        ? `https://pncp.gov.br/app/editais/${cnpj}/${ano}/${nseq}`
+        : item.item_url ? `https://pncp.gov.br/app${String(item.item_url).replace(/\/compras\//, "/editais/")}` : null;
 
       const loc = item.municipio_nome && item.uf
         ? `${item.municipio_nome}/${item.uf}`
         : item.uf || null;
+
+      // dataContrato: só YYYY-MM-DD (10 chars) para caber no VARCHAR(20)
+      const dataContrato = item.data_publicacao_pncp
+        ? String(item.data_publicacao_pncp).slice(0, 10)
+        : null;
 
       return {
         fonte: "pncp" as const,
         orgao: item.orgao_nome || "Órgão público",
         descricao: item.description || item.title || "Sem descrição",
         quantidade: null,
-        dataContrato: item.data_publicacao_pncp || null,
+        dataContrato,
         valorUnitario: null,
         valorTotal: item.valor_total_estimado != null ? Number(item.valor_total_estimado) : null,
         localizacao: loc,
         similaridade: calcSimilaridade(item.description || item.title || "", termos),
         documentoOrigem: item.numero_controle_pncp || null,
         linkEdital,
-        dadosBrutos: item as unknown as Record<string, unknown>,
+        dadosBrutos: {
+          ...item,
+          _situacao: item.situacao_nome || null,
+          _modalidade: item.modalidade_licitacao_nome || null,
+          _unidade: item.unidade_nome || null,
+          _valorTotal: item.valor_total_estimado || null,
+          _cnpjOrgao: cnpj,
+        } as unknown as Record<string, unknown>,
       };
     });
 

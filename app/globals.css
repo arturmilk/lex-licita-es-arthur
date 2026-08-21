@@ -1,3 +1,28 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer components {
+  /* ── Campo de input padrão ─────────────────────────────────────────────── */
+  .inp {
+    @apply w-full rounded-xl border-2 border-slate-200 bg-white px-3.5 py-2.5 text-sm text-slate-800
+           placeholder:text-slate-400
+           focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-100
+           hover:border-slate-300
+           transition-colors duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Select herda o mesmo estilo */
+  select.inp {
+    @apply cursor-pointer appearance-none bg-no-repeat pr-9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-position: right 10px center;
+    background-size: 16px;
+  }
+
+  /* Textarea herda o mesmo estilo */
+  textarea.inp {
+    @apply resize-y;
+  }
+}

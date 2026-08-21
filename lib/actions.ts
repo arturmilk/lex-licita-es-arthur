@@ -69,38 +69,42 @@ export async function listarPesquisas() {
   if (!session) throw new Error("Não autorizado");
   const orgaoId = (session.user as any).orgaoId;
 
-  const result = await db
-    .select({
-      id: pesquisas.id,
-      objeto: pesquisas.objeto,
-      quantidade: pesquisas.quantidade,
-      status: pesquisas.status,
-      precoUnitarioEstimado: pesquisas.precoUnitarioEstimado,
-      precoTotalEstimado: pesquisas.precoTotalEstimado,
-      estatisticas: pesquisas.estatisticas,
-      createdAt: pesquisas.createdAt,
-      processoId: pesquisas.processoId,
-      processoNumero: processos.numero,
-    })
-    .from(pesquisas)
-    .leftJoin(processos, eq(pesquisas.processoId, processos.id))
-    .where(eq(processos.orgaoId, orgaoId))
-    .orderBy(desc(pesquisas.createdAt));
+  try {
+    const result = await db
+      .select({
+        id: pesquisas.id,
+        objeto: pesquisas.objeto,
+        quantidade: pesquisas.quantidade,
+        status: pesquisas.status,
+        precoUnitarioEstimado: pesquisas.precoUnitarioEstimado,
+        precoTotalEstimado: pesquisas.precoTotalEstimado,
+        estatisticas: pesquisas.estatisticas,
+        createdAt: pesquisas.createdAt,
+        processoId: pesquisas.processoId,
+        processoNumero: processos.numero,
+      })
+      .from(pesquisas)
+      .leftJoin(processos, eq(pesquisas.processoId, processos.id))
+      .where(eq(processos.orgaoId, orgaoId))
+      .orderBy(desc(pesquisas.createdAt));
 
-  const ids = result.map((r) => r.id);
-  let contagens: Record<string, number> = {};
-  if (ids.length) {
-    const rows = await db
-      .select({ pesquisaId: resultadosPesquisa.pesquisaId, avaliacao: resultadosPesquisa.avaliacao })
-      .from(resultadosPesquisa)
-      .where(inArray(resultadosPesquisa.pesquisaId, ids));
-    contagens = rows.reduce((acc, r) => {
-      acc[r.pesquisaId] = (acc[r.pesquisaId] || 0) + (r.avaliacao === "aceito" ? 1 : 0);
-      return acc;
-    }, {} as Record<string, number>);
+    const ids = result.map((r) => r.id);
+    let contagens: Record<string, number> = {};
+    if (ids.length) {
+      const rows = await db
+        .select({ pesquisaId: resultadosPesquisa.pesquisaId, avaliacao: resultadosPesquisa.avaliacao })
+        .from(resultadosPesquisa)
+        .where(inArray(resultadosPesquisa.pesquisaId, ids));
+      contagens = rows.reduce((acc, r) => {
+        acc[r.pesquisaId] = (acc[r.pesquisaId] || 0) + (r.avaliacao === "aceito" ? 1 : 0);
+        return acc;
+      }, {} as Record<string, number>);
+    }
+
+    return result.map((r) => ({ ...r, referenciasAceitas: contagens[r.id] || 0 }));
+  } catch (err: any) {
+    throw new Error(err?.message || "Erro ao listar pesquisas");
   }
-
-  return result.map((r) => ({ ...r, referenciasAceitas: contagens[r.id] || 0 }));
 }
 
 export async function salvarResultadosPesquisa(
@@ -126,7 +130,12 @@ export async function salvarResultadosPesquisa(
   }>
 ) {
   if (resultados.length === 0) return [];
-  return db.insert(resultadosPesquisa).values(resultados.map((r) => ({ ...r, pesquisaId } as any))).returning();
+  return db.insert(resultadosPesquisa).values(resultados.map((r) => ({
+    ...r,
+    pesquisaId,
+    // dataContrato é VARCHAR(20) — truncar ISO timestamps longos (ex: "2024-03-15T14:30:00.000Z")
+    dataContrato: r.dataContrato ? String(r.dataContrato).slice(0, 10) : null,
+  } as any))).returning();
 }
 
 // Keep old name as alias
@@ -137,6 +146,7 @@ export async function buscarPesquisa(id: string) {
   if (!session) throw new Error("Não autorizado");
   const orgaoId = (session.user as any).orgaoId;
 
+  try {
   const [pesquisa] = await db
     .select({
       id: pesquisas.id,
@@ -178,6 +188,9 @@ export async function buscarPesquisa(id: string) {
     .orderBy(desc(resultadosPesquisa.createdAt));
 
   return { ...pesquisa, resultados };
+  } catch (err: any) {
+    throw new Error(err?.message || "Erro ao buscar pesquisa");
+  }
 }
 
 export async function avaliarResultado(
@@ -264,6 +277,7 @@ export async function listarDashboard() {
   if (!session) throw new Error("Não autorizado");
   const orgaoId = (session.user as any).orgaoId;
 
+  try {
   const [pesquisasRecentes, totais] = await Promise.all([
     db
       .select({
@@ -298,4 +312,7 @@ export async function listarDashboard() {
   const valorTotal = totais.reduce((acc, p) => acc + (p.precoTotalEstimado ? Number(p.precoTotalEstimado) : 0), 0);
 
   return { pesquisasRecentes, total, concluidas, emAndamento, valorTotal };
+  } catch (err: any) {
+    throw new Error(err?.message || "Erro ao carregar dashboard");
+  }
 }

@@ -72,7 +72,23 @@ export async function buscarPNCP(params: BuscaParams): Promise<ResultadoFonte> {
       const estimado = r?.valorTotalEstimado != null ? Number(r.valorTotalEstimado) : null;
       const homologado = r?.valorTotalHomologado != null ? Number(r.valorTotalHomologado) : null;
       const valor = homologado && homologado > 0 ? homologado : estimado;
-      const id = r?.numeroControlePNCP || `${r?.sequencialCompra || ""}-${r?.anoCompra || ""}`;
+      const id = r?.numeroControlePNCP || "";
+      // Gera link para o edital PNCP no formato:
+      //   https://pncp.gov.br/app/editais/{cnpj14}/{ano}/{sequencial}
+      // Prioridade 1: campos diretos da API (cnpj + sequencialCompra + anoCompra)
+      // Prioridade 2: parsear numeroControlePNCP  → "{cnpj14}-{sequencial}/{ano}"
+      const linkEdital = (() => {
+        const cnpj = (orgao?.cnpj || "").replace(/[^\d]/g, "");
+        const seq = r?.sequencialCompra;
+        const ano = r?.anoCompra;
+        if (cnpj.length === 14 && seq && ano) {
+          return `https://pncp.gov.br/app/editais/${cnpj}/${ano}/${Number(seq)}`;
+        }
+        // formato: "07172424000182-0000008/2026"
+        const m = id.match(/^(\d{14})-(\d+)\/(\d{4})$/);
+        if (m) return `https://pncp.gov.br/app/editais/${m[1]}/${m[3]}/${parseInt(m[2], 10)}`;
+        return null;
+      })();
       return {
         fonte: "pncp" as const,
         orgao: unidade?.nomeUnidade || orgao?.razaoSocial || "Não informado",
@@ -83,11 +99,8 @@ export async function buscarPNCP(params: BuscaParams): Promise<ResultadoFonte> {
         valorTotal: Number.isFinite(valor) ? valor : null,
         localizacao: unidade?.municipioNome ? `${unidade.municipioNome}/${unidade?.ufSigla || ""}` : unidade?.ufSigla || null,
         similaridade: calcSimilaridade(r?.objetoCompra || "", termos),
-        documentoOrigem: id || null,
-        linkEdital: (() => {
-          const match = id.match(/^(\d{14})-\d+-(\d+)\/(\d{4})$/);
-          return match ? `https://pncp.gov.br/app/editais/${match[1]}/${match[3]}/${parseInt(match[2], 10)}` : null;
-        })(),
+        documentoOrigem: id || r?.sequencialCompra || null,
+        linkEdital,
         dadosBrutos: r as unknown as Record<string, unknown>,
       };
     });

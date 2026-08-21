@@ -82,6 +82,8 @@ export const pesquisas = pgTable("pesquisas", {
   usuarioId: uuid("usuario_id").notNull().references(() => usuarios.id, { onDelete: "restrict" }),
   objeto: text("objeto").notNull(),
   especificacoes: jsonb("especificacoes"),
+  itens: jsonb("itens"),
+  pesquisaMercado: jsonb("pesquisa_mercado"),
   quantidade: integer("quantidade").notNull().default(1),
   unidadeMedida: varchar("unidade_medida", { length: 50 }).default("unidade"),
   localEntrega: varchar("local_entrega", { length: 255 }),
@@ -91,6 +93,11 @@ export const pesquisas = pgTable("pesquisas", {
   regiaoPesquisa: varchar("regiao_pesquisa", { length: 50 }).default("brasil"),
   metodoCalculo: metodocalculoEnum("metodo_calculo").default("media_aritmetica"),
   qtdMinReferencias: integer("qtd_min_referencias").default(3),
+  cvLimite: integer("cv_limite").default(20),
+  parametrosRelatorio: jsonb("parametros_relatorio"),
+  meEpp: jsonb("me_epp"),
+  decomposicaoCustos: jsonb("decomposicao_custos"),
+  premissas: jsonb("premissas"),
   precoUnitarioEstimado: numeric("preco_unitario_estimado", { precision: 15, scale: 2 }),
   precoTotalEstimado: numeric("preco_total_estimado", { precision: 15, scale: 2 }),
   estatisticas: jsonb("estatisticas"),
@@ -124,6 +131,9 @@ export const resultadosPesquisa = pgTable("resultados_pesquisa", {
   pesquisaId: uuid("pesquisa_id").notNull().references(() => pesquisas.id, { onDelete: "cascade" }),
   sessaoAgenteId: uuid("sessao_agente_id").references(() => sessoesAgente.id, { onDelete: "set null" }),
   fonte: fonteEnum("fonte").notNull().default("pncp"),
+  itemId: varchar("item_id", { length: 64 }),
+  cnpj: varchar("cnpj", { length: 18 }),
+  fonteDados: varchar("fonte_dados", { length: 120 }),
   orgao: varchar("orgao", { length: 500 }).notNull(),
   descricao: text("descricao").notNull(),
   quantidade: integer("quantidade"),
@@ -169,12 +179,22 @@ export const configuracoes = pgTable("configuracoes", {
   id: uuid("id").defaultRandom().primaryKey(),
   orgaoId: uuid("orgao_id").notNull().unique().references(() => orgaos.id, { onDelete: "cascade" }),
   similaridadeMinima: integer("similaridade_minima").notNull().default(75),
-  cvAlerta: integer("cv_alerta").notNull().default(25),
+  cvAlerta: integer("cv_alerta").notNull().default(20),
   periodoPadrao: varchar("periodo_padrao", { length: 10 }).notNull().default("12_meses"),
   metodoPadrao: metodocalculoEnum("metodo_padrao").notNull().default("media_aritmetica"),
   fontesAtivas: jsonb("fontes_ativas").$type<string[]>().default(["pncp", "painel_precos"]),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const feedbacks = pgTable("feedbacks", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+  orgaoId: uuid("orgao_id").references(() => orgaos.id, { onDelete: "set null" }),
+  mensagem: text("mensagem").notNull(),
+  pagina: varchar("pagina", { length: 255 }),
+  lido: boolean("lido").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("feedbacks_orgao_idx").on(t.orgaoId)]);
 
 // Relations
 export const orgaosRelations = relations(orgaos, ({ many, one }) => ({

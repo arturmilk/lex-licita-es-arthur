@@ -1,4 +1,4 @@
-export type FonteId = "pncp" | "pncp_bd" | "painel_precos" | "compras_gov" | "precos_abertos" | "bps" | "sinapi" | "sicro" | "manual";
+export type FonteId = "pncp" | "pncp_bd" | "painel_precos" | "compras_gov" | "precos_abertos" | "pesquisa_precos_gov" | "bps" | "sinapi" | "sicro" | "manual";
 
 export interface ResultadoBruto {
   fonte: FonteId;
