@@ -25,6 +25,7 @@ export async function GET(req: NextRequest) {
     const res = await fetch(url, {
       headers: { Accept: "application/json", "User-Agent": UA },
       signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
     });
 
     if (!res.ok) {

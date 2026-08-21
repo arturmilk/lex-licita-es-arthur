@@ -34,6 +34,7 @@ export async function buscarPNCPSearch(params: BuscaParams): Promise<ResultadoFo
     const res = await fetch(url.toString(), {
       headers: { Accept: "application/json", "User-Agent": UA },
       signal: AbortSignal.timeout(30_000),
+      cache: "no-store",
     });
 
     if (!res.ok) {

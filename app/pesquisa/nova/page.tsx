@@ -394,8 +394,16 @@ export default function NovaPesquisaPage() {
         });
       }
 
+      // Coleta erros retornados pela API (ex: PNCP HTTP 403, timeout)
+      const errosApi = respostas
+        .filter(r => r.status === "fulfilled" && r.value?.data?.erro)
+        .map(r => (r as any).value.data.erro as string);
+
       if (novosResultados.length === 0) {
-        setErroPesquisa("Nenhum edital encontrado. Tente termos mais genéricos.");
+        const msgErro = errosApi.length
+          ? `Erro ao consultar o PNCP: ${errosApi[0]}. Verifique a conectividade do servidor.`
+          : "Nenhum edital encontrado. Tente termos mais genéricos.";
+        setErroPesquisa(msgErro);
       } else {
         setResultados(novosResultados);
         setTotalPorItem(novoTotal);
