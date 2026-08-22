@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { MessageCircle, X, Send, CheckCircle2, Loader2 } from "lucide-react";
-import { enviarFeedback } from "@/app/lib/admin-actions";
+import { enviarFeedback } from "@/lib/admin-actions";
 import { usePathname } from "next/navigation";
 
 export default function FeedbackButton() {

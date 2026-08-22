@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { Users, Settings, Save, Activity, Copy, RefreshCw, CheckCircle2, Loader2, ShieldAlert, UserPlus, MessageCircle, Eye, EyeOff } from "lucide-react";
-import { listarUsuarios, criarUsuario, ativarDesativarUsuario, listarFeedbacks, marcarFeedbackLido } from "@/app/lib/admin-actions";
+import { listarUsuarios, criarUsuario, ativarDesativarUsuario, listarFeedbacks, marcarFeedbackLido } from "@/lib/admin-actions";
 
 interface MonitorData {
   logs: string;
