@@ -186,6 +186,16 @@ export const configuracoes = pgTable("configuracoes", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const logsSistema = pgTable("logs_sistema", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  ts: timestamp("ts").defaultNow().notNull(),
+  evento: varchar("evento", { length: 100 }).notNull(),
+  dados: jsonb("dados").$type<Record<string, unknown>>(),
+}, (t) => [
+  index("logs_sistema_ts_idx").on(t.ts),
+  index("logs_sistema_evento_idx").on(t.evento),
+]);
+
 export const feedbacks = pgTable("feedbacks", {
   id: uuid("id").defaultRandom().primaryKey(),
   usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),

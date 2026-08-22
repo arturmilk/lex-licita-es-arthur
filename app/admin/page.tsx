@@ -4,11 +4,21 @@ import { Users, Settings, Save, Activity, Copy, RefreshCw, CheckCircle2, Loader2
 import { listarUsuarios, criarUsuario, ativarDesativarUsuario, listarFeedbacks, marcarFeedbackLido } from "@/lib/admin-actions";
 
 interface MonitorData {
-  logs: string;
+  logs: { id: string; ts: string; evento: string; dados: Record<string, unknown> }[];
+  logsArquivo?: string;
   pesquisas: any[];
   sessoes: any[];
   usuarios: any[];
   horario: string;
+  stats: {
+    totalPesquisas: number;
+    totalSessoes: number;
+    totalErros: number;
+    pesquisasPorDia: { dia: string; total: number }[];
+    sessoesPorStatus: { status: string; total: number }[];
+    fontesUsadas: { fonte: string; total: number }[];
+    errosPorDia: { dia: string; total: number }[];
+  };
 }
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -35,6 +45,54 @@ function StatBox({ label, value, cls = "" }: { label: string; value: React.React
     </div>
   );
 }
+
+function BarChart({ data, cor = "bg-indigo-500", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
+  const max = Math.max(1, ...data.map((d) => d.total));
+  return (
+    <div className="flex items-end gap-2 h-28">
+      {data.length === 0 ? (
+        <p className="text-xs text-slate-400 self-center">Sem dados</p>
+      ) : data.map((d, i) => (
+        <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+          <span className="text-[10px] font-semibold text-slate-600 tabular-nums">{d.total}</span>
+          <div
+            className={`w-full rounded-t ${cor} transition-all`}
+            style={{ height: `${Math.max(4, Math.round((d.total / max) * 80))}px`, opacity: d.total === 0 ? 0.15 : 1 }}
+            title={`${d.rotulo}: ${d.total}`}
+          />
+          <span className="text-[9px] text-slate-500 truncate w-full text-center" title={d.rotulo}>{d.rotulo}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BarrasHorizontais({ data, cor = "bg-indigo-500", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
+  const max = Math.max(1, ...data.map((d) => d.total));
+  return (
+    <div className="space-y-1.5">
+      {data.length === 0 ? (
+        <p className="text-xs text-slate-400">Sem dados</p>
+      ) : data.map((d, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="text-[11px] text-slate-600 w-28 truncate text-right" title={d.rotulo}>{d.rotulo}</span>
+          <div className="flex-1 bg-slate-100 rounded h-4 overflow-hidden">
+            <div className={`h-full rounded ${cor}`} style={{ width: `${Math.max(4, Math.round((d.total / max) * 100))}%` }} />
+          </div>
+          <span className="text-[11px] font-semibold text-slate-600 w-6 tabular-nums">{d.total}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const STATUS_COR: Record<string, string> = {
+  concluido: "bg-green-100 text-green-700",
+  erro: "bg-red-100 text-red-700",
+  executando: "bg-amber-100 text-amber-700",
+  aguardando: "bg-slate-100 text-slate-600",
+  cancelado: "bg-slate-100 text-slate-500",
+};
 
 function Inp({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
@@ -84,6 +142,7 @@ export default function AdminPage() {
   const [monitor, setMonitor] = useState<MonitorData | null>(null);
   const [monitorErro, setMonitorErro] = useState<string | null>(null);
   const [copiado, setCopiado] = useState(false);
+  const [filtroLogs, setFiltroLogs] = useState("");
   const [salvandoConfig, setSalvandoConfig] = useState(false);
   const [configSalva, setConfigSalva] = useState<boolean | null>(null);
   const [configErro, setConfigErro] = useState<string | null>(null);
@@ -181,10 +240,20 @@ export default function AdminPage() {
 
   useEffect(() => { carregarMonitor(); carregarConfig(); carregarUsuarios(); carregarFeedbacks(); }, []);
 
+  // Auto-refresh do monitoramento a cada 30s
+  useEffect(() => {
+    const t = setInterval(carregarMonitor, 30_000);
+    return () => clearInterval(t);
+  }, []);
+
   const copiarLogs = async () => {
-    if (!monitor?.logs) return;
+    if (!monitor) return;
+    const texto = monitor.logs.length > 0
+      ? monitor.logs.map((l) => `${l.ts} ${l.evento} ${JSON.stringify(l.dados)}`).join("\n")
+      : monitor.logsArquivo || "";
+    if (!texto) return;
     try {
-      await navigator.clipboard.writeText(monitor.logs);
+      await navigator.clipboard.writeText(texto);
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } catch { alert("Selecione e copie manualmente (Ctrl+C)."); }
@@ -192,7 +261,14 @@ export default function AdminPage() {
 
   const fmtMoeda = (v: string | null) => v == null ? "—" : `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
   const fmtData = (d: string) => new Date(d).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
-  const linhasErro = (monitor?.logs || "").split("\n").filter(l => l.includes('"ok":false') || l.includes("erro")).length;
+  const fmtHora = (d: string) => new Date(d).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const linhasErro = monitor?.stats?.totalErros ?? 0;
+  const logsFiltrados = (monitor?.logs || []).filter((l) => {
+    if (!filtroLogs.trim()) return true;
+    const q = filtroLogs.toLowerCase();
+    return l.evento.toLowerCase().includes(q) || JSON.stringify(l.dados).toLowerCase().includes(q);
+  });
+  const ehErroLog = (l: { dados: Record<string, unknown> }) => (l.dados?.erro != null && l.dados.erro !== "") || l.dados?.ok === false;
 
   return (
     <div className="space-y-6">
@@ -232,14 +308,52 @@ export default function AdminPage() {
           ) : monitor && (
             <div className="space-y-5">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatBox label="Pesquisas" value={monitor.pesquisas.length} />
-                <StatBox label="Sessões de agentes" value={monitor.sessoes.length} />
+                <StatBox label="Pesquisas" value={monitor.stats?.totalPesquisas ?? monitor.pesquisas.length} />
+                <StatBox label="Sessões de agentes" value={monitor.stats?.totalSessoes ?? monitor.sessoes.length} />
                 <StatBox label="Usuários" value={monitor.usuarios.length} />
                 <StatBox
-                  label="Erros nos logs"
+                  label="Erros"
                   value={linhasErro}
                   cls={linhasErro > 0 ? "text-red-600" : "text-green-600"}
                 />
+              </div>
+
+              {/* Gráficos */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="rounded-lg border border-slate-200 p-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Pesquisas por dia (7 dias)</p>
+                  <BarChart
+                    rotulo="pesquisas"
+                    data={(monitor.stats?.pesquisasPorDia || []).map((d) => ({ rotulo: d.dia.slice(5), total: d.total }))}
+                  />
+                </div>
+                <div className="rounded-lg border border-slate-200 p-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Erros por dia (7 dias)</p>
+                  <BarChart
+                    rotulo="erros"
+                    cor="bg-red-400"
+                    data={(monitor.stats?.errosPorDia || []).map((d) => ({ rotulo: d.dia.slice(5), total: d.total }))}
+                  />
+                </div>
+                <div className="rounded-lg border border-slate-200 p-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Sessões por status</p>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {(monitor.stats?.sessoesPorStatus || []).map((s) => (
+                      <span key={s.status} className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded ${STATUS_COR[s.status] || "bg-slate-100 text-slate-600"}`}>
+                        {s.status} <b className="tabular-nums">{s.total}</b>
+                      </span>
+                    ))}
+                    {(monitor.stats?.sessoesPorStatus || []).length === 0 && <span className="text-xs text-slate-400">Sem sessões</span>}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 p-4">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Fontes mais usadas</p>
+                  <BarrasHorizontais
+                    rotulo="fontes"
+                    cor="bg-emerald-400"
+                    data={(monitor.stats?.fontesUsadas || []).map((f) => ({ rotulo: f.fonte, total: f.total }))}
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -281,24 +395,31 @@ export default function AdminPage() {
                   <table className="w-full text-sm">
                     <thead className="border-b border-slate-100">
                       <tr>
-                        {["Agente", "Fonte", "Status", "Total"].map(h => (
+                        {["Agente", "Fonte", "Status", "Total", "Erro"].map(h => (
                           <th key={h} className="text-left py-2 px-3 text-xs font-medium text-slate-500">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50">
                       {monitor.sessoes.length === 0 ? (
-                        <tr><td colSpan={4} className="py-6 text-center text-xs text-slate-400">Sem sessões</td></tr>
+                        <tr><td colSpan={5} className="py-6 text-center text-xs text-slate-400">Sem sessões</td></tr>
                       ) : monitor.sessoes.map((s) => (
                         <tr key={s.id} className="hover:bg-slate-50">
                           <td className="py-2 px-3 text-xs">{s.nomeAgente}</td>
                           <td className="py-2 px-3 text-xs text-slate-500">{s.fonte}</td>
                           <td className="py-2 px-3">
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${s.status === "concluido" ? "bg-green-100 text-green-700" : s.status === "erro" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COR[s.status] || "bg-slate-100 text-slate-600"}`}>
                               {s.status}
                             </span>
                           </td>
-                          <td className="py-2 px-3 text-xs">{s.totalEncontrado ?? "—"}</td>
+                          <td className="py-2 px-3 text-xs tabular-nums">{s.totalEncontrado ?? "—"}</td>
+                          <td className="py-2 px-3">
+                            {s.erro ? (
+                              <span className="text-[11px] text-red-600 max-w-[160px] truncate block" title={s.erro}>{s.erro}</span>
+                            ) : (
+                              <span className="text-[11px] text-slate-400">{s.concluidoEm ? fmtHora(s.concluidoEm) : "—"}</span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -308,15 +429,47 @@ export default function AdminPage() {
 
               {/* Logs */}
               <div className="rounded-lg border border-slate-200 overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Logs do sistema</p>
-                  <button onClick={copiarLogs} className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
-                    <Copy className="w-3.5 h-3.5" /> {copiado ? "Copiado!" : "Copiar"}
-                  </button>
+                <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Logs do sistema ({monitor.logs.length})</p>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={filtroLogs}
+                      onChange={(e) => setFiltroLogs(e.target.value)}
+                      placeholder="Filtrar logs..."
+                      className="text-xs px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 w-40"
+                    />
+                    <button onClick={copiarLogs} className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
+                      <Copy className="w-3.5 h-3.5" /> {copiado ? "Copiado!" : "Copiar"}
+                    </button>
+                  </div>
                 </div>
-                <pre className="text-[11px] leading-relaxed font-mono text-slate-700 bg-slate-50 p-4 max-h-64 overflow-auto whitespace-pre-wrap">
-                  {monitor.logs || "(sem logs ainda — execute uma pesquisa para gerar atividade)"}
-                </pre>
+                <div className="max-h-64 overflow-auto bg-slate-50">
+                  {logsFiltrados.length === 0 ? (
+                    <pre className="text-[11px] leading-relaxed font-mono text-slate-700 p-4 whitespace-pre-wrap">
+                      {monitor.logsArquivo
+                        ? monitor.logsArquivo
+                        : "(sem logs ainda — execute uma pesquisa para gerar atividade)"}
+                    </pre>
+                  ) : (
+                    <table className="w-full text-[11px] font-mono">
+                      <tbody className="divide-y divide-slate-100">
+                        {logsFiltrados.slice(0, 100).map((l) => (
+                          <tr key={l.id} className={ehErroLog(l) ? "bg-red-50/70" : "hover:bg-slate-100"}>
+                            <td className="py-1 px-3 whitespace-nowrap text-slate-400">{fmtData(l.ts)}</td>
+                            <td className="py-1 px-2 whitespace-nowrap">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${ehErroLog(l) ? "bg-red-100 text-red-700" : "bg-indigo-100 text-indigo-700"}`}>
+                                {l.evento}
+                              </span>
+                            </td>
+                            <td className={`py-1 px-2 truncate max-w-[420px] ${ehErroLog(l) ? "text-red-700" : "text-slate-600"}`} title={JSON.stringify(l.dados)}>
+                              {JSON.stringify(l.dados)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
               </div>
             </div>
           )}
