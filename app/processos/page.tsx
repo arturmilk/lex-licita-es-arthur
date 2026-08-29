@@ -69,38 +69,62 @@ export default function ProcessosPage() {
             </Link>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
-                <tr>
-                  {["Número", "Objeto", "Unidade", "Status", "Atualizado", "Ação"].map(h => (
-                    <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rows.map((r) => {
-                  const st = STATUS_CFG[r.status] || { label: r.status, cls: "bg-slate-100 text-slate-600 border-slate-200" };
-                  return (
-                    <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2.5 px-4 font-mono text-xs text-slate-600 font-medium">{r.numero}</td>
-                      <td className="py-2.5 px-4 max-w-[360px] truncate text-slate-800" title={r.objeto}>{r.objeto}</td>
-                      <td className="py-2.5 px-4 text-slate-500 text-xs">{r.unidade || "—"}</td>
-                      <td className="py-2.5 px-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium ${st.cls}`}>{st.label}</span>
-                      </td>
-                      <td className="py-2.5 px-4 text-slate-500 text-xs">{new Date(r.updatedAt).toLocaleDateString("pt-BR")}</td>
-                      <td className="py-2.5 px-4">
-                        <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
-                          Guiar <ChevronRight size={12} />
-                        </Link>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          <>
+            {/* Versão mobile: cartões empilhados */}
+            <div className="md:hidden divide-y divide-slate-100">
+              {rows.map((r) => {
+                const st = STATUS_CFG[r.status] || { label: r.status, cls: "bg-slate-100 text-slate-600 border-slate-200" };
+                return (
+                  <div key={r.id} className="px-4 py-3">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="font-mono text-xs text-slate-600 font-medium">{r.numero}</span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded border text-[10px] font-medium shrink-0 ${st.cls}`}>{st.label}</span>
+                    </div>
+                    <p className="text-sm text-slate-800 mb-1" title={r.objeto}>{r.objeto}</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs text-slate-500">{r.unidade || "—"} · {new Date(r.updatedAt).toLocaleDateString("pt-BR")}</span>
+                      <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 shrink-0">
+                        Guiar <ChevronRight size={12} />
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Versão desktop: tabela */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    {["Número", "Objeto", "Unidade", "Status", "Atualizado", "Ação"].map(h => (
+                      <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {rows.map((r) => {
+                    const st = STATUS_CFG[r.status] || { label: r.status, cls: "bg-slate-100 text-slate-600 border-slate-200" };
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-2.5 px-4 font-mono text-xs text-slate-600 font-medium">{r.numero}</td>
+                        <td className="py-2.5 px-4 max-w-[360px] truncate text-slate-800" title={r.objeto}>{r.objeto}</td>
+                        <td className="py-2.5 px-4 text-slate-500 text-xs">{r.unidade || "—"}</td>
+                        <td className="py-2.5 px-4">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium ${st.cls}`}>{st.label}</span>
+                        </td>
+                        <td className="py-2.5 px-4 text-slate-500 text-xs">{new Date(r.updatedAt).toLocaleDateString("pt-BR")}</td>
+                        <td className="py-2.5 px-4">
+                          <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                            Guiar <ChevronRight size={12} />
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </div>
