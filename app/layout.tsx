@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { auth } from "@/auth";
 import Sidebar from "@/components/Sidebar";
@@ -8,7 +8,12 @@ import MeAjuda from "@/components/MeAjuda";
 export const metadata: Metadata = {
   title: "Estima.IA - Pesquisa de Preços",
   description: "Sistema de pesquisa de preços para licitações públicas",
-  viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -28,7 +33,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="pt-BR">
       <body className="bg-slate-50">
-        <div className="flex h-screen overflow-hidden">
+        <div className="flex flex-col md:flex-row h-screen overflow-hidden">
           <Sidebar user={user} />
           <div className="flex-1 flex flex-col overflow-hidden">
             {/* Top header */}

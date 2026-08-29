@@ -92,7 +92,7 @@ export default function Sidebar({ user }: { user: any }) {
   return (
     <>
       {/* Topbar mobile */}
-      <header className="md:hidden sticky top-0 z-40 bg-neutral-900 px-4 py-3 flex items-center gap-3">
+      <header className="md:hidden shrink-0 sticky top-0 z-40 bg-neutral-900 px-4 py-3 flex items-center gap-3 w-full">
         <button onClick={() => setAberto(true)} className="text-neutral-300" aria-label="Abrir menu">
           <Menu className="w-5 h-5" />
         </button>
