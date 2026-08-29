@@ -360,11 +360,12 @@ export default function NovaPesquisaPage() {
     for (const a of alvos) novosTermos[a.itemId] = a.termo;
     setTermoPorItem(novosTermos);
 
-    // Busca multi-fonte — PNCP principal (rápido) + Compras.gov como reserva.
-    // NOTA: precos_abertos leva ~30s (excluído); painel_precos exige auth (403).
-    // Se o PNCP falhar, o fallback Firecrawl entra automaticamente (pncp-search.ts).
+    // Busca multi-fonte — PNCP principal (rápido) + Compras.gov + Contratos.gov.br
+    // (preços REAIS pagos). NOTA: precos_abertos leva ~30s (excluído);
+    // painel_precos exige auth (403). Se o PNCP falhar, o fallback Firecrawl
+    // entra automaticamente (pncp-search.ts).
     const TAM = 50;
-    const fontesMulti = "pncp,compras_gov";
+    const fontesMulti = "pncp,compras_gov,contratos_govbr";
     const buscas = alvos.map(alvo =>
       fetch(`/api/pncp?termo=${encodeURIComponent(alvo.termo)}&fontes=${fontesMulti}&tamanhoPagina=${TAM}`, { signal: AbortSignal.timeout(40_000) })
         .then(async r => ({ alvo, data: await r.json().catch(() => null) }))
@@ -398,14 +399,14 @@ export default function NovaPesquisaPage() {
           }
           novosResultados.push({
             id: `${alvo.itemId}-${idx}`,
-            fonte: "pncp",
+            fonte: it.fonte || "pncp",
             itemId: alvo.itemId,
             orgao: it.orgao || "Órgão público",
             descricao: it.descricao || "",
-            quantidade: null,
+            quantidade: it.quantidade ?? null,
             data: it.dataContrato || "",
-            valor_unitario: null,           // PNCP search não retorna preço unitário (Opção B preenche depois)
-            valor_total: it.valorTotal ?? null, // valor_total_estimado do edital (Opção A)
+            valor_unitario: it.valorUnitario ?? null,  // contratos_govbr traz preço real pago
+            valor_total: it.valorTotal ?? null,        // valor_total_estimado do edital (Opção A)
             localizacao: it.localizacao || "",
             similaridade: it.similaridade ?? 0,
             documento_origem: it.documentoOrigem || "",

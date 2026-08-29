@@ -6,6 +6,7 @@ import { buscarPrecosAbertos } from "./precos-abertos";
 import { buscarPNCPBigQuery } from "./pncp-bd";
 import { buscarBPS, ehItemSaude } from "./bps";
 import { buscarSINAPI, ehItemObras } from "./sinapi";
+import { buscarContratosGovBr } from "./contratos-govbr";
 import type { BuscaParams, ResultadoFonte, FonteConfig, FonteId } from "./types";
 
 export type { FonteId, ResultadoBruto, ResultadoFonte, BuscaParams, FonteConfig } from "./types";
@@ -60,6 +61,13 @@ export const FONTES_CONFIG: FonteConfig[] = [
     disponivel: true,
     categorias: ["obras", "construcao", "infraestrutura"],
   },
+  {
+    id: "contratos_govbr",
+    nome: "Contratos.gov.br (preços pagos)",
+    descricao: "Preços unitários REAIS pagos em contratos federais — a referência mais defensável em pesquisa de preços",
+    disponivel: true,
+    categorias: ["geral", "bens", "servicos", "obras"],
+  },
 ];
 
 export async function buscarFonte(
@@ -81,6 +89,8 @@ export async function buscarFonte(
       return buscarBPS(params);
     case "sinapi":
       return buscarSINAPI(params);
+    case "contratos_govbr":
+      return buscarContratosGovBr(params);
     default:
       return { fonte, items: [], total: 0, erro: "Fonte não implementada" };
   }
