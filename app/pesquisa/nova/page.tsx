@@ -6,15 +6,15 @@ import {
   FileSearch, ChevronRight, ChevronDown, Sparkles, BarChart3, FileText,
   ClipboardList, Settings, Search, CheckCircle2, TrendingUp, RefreshCw,
 } from "lucide-react";
-import { calcularEstatisticas, calcularPrecoEstimado, formatarMoeda } from "@/lib/math";
+import { calcularEstatisticas, calcularPrecoEstimado, formatarMoeda, calcularComRegraCv } from "@/lib/math";
+import { analisarReferencias, type ResultadoAnaliseCritica } from "@/lib/analise-critica";
 import { gerarXLSX, downloadXLSX } from "@/lib/xlsx-generator";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { RelatorioPDFDocument } from "@/lib/pdf-generator";
-import { criarProcesso, criarPesquisa, salvarResultadosPesquisa, atualizarPesquisa } from "@/lib/actions";
-import { calcularComRegraCv } from "@/lib/math";
+import { criarProcesso, criarPesquisa, salvarResultadosPesquisa, atualizarPesquisa, historicoOrgao } from "@/lib/actions";
 
 type MetodoCalculo = "media_aritmetica" | "mediana" | "media_ponderada" | "menor_preco";
-type PeriodoPesquisa = "6_meses" | "12_meses" | "24_meses";
+type PeriodoPesquisa = "90_dias" | "6_meses" | "12_meses" | "24_meses";
 type RegiaoPesquisa = "brasil" | "centro_oeste" | "sudeste" | "sul" | "nordeste" | "norte";
 type StatusAvaliacao = "pendente" | "aceito" | "rejeitado";
 type FormaParcelamento = "item" | "lote" | "global";
@@ -156,6 +156,8 @@ export default function NovaPesquisaPage() {
   const [metodoEfetivo, setMetodoEfetivo] = useState<MetodoCalculo | null>(null);
   const [justificativaIA, setJustificativaIA] = useState<string | null>(null);
   const [validacaoIA, setValidacaoIA] = useState<any | null>(null);
+  const [analiseCritica, setAnaliseCritica] = useState<ResultadoAnaliseCritica | null>(null);
+  const [historicoOrgaoRows, setHistoricoOrgaoRows] = useState<any[] | null>(null);
   const [itemFiltro, setItemFiltro] = useState<string>("todos");
   const [situFiltro, setSituFiltro] = useState<"todos" | "abertos" | "encerrados" | "ia">("todos");
   const [paginaPorItem, setPaginaPorItem] = useState<Record<string, number>>({});
@@ -165,6 +167,17 @@ export default function NovaPesquisaPage() {
   const [iaAnalisando, setIaAnalisando] = useState(false);
   const [iaFiltroReady, setIaFiltroReady] = useState(false);
   const [textoFiltro, setTextoFiltro] = useState("");
+  const [regiaoFiltro, setRegiaoFiltro] = useState("todas");
+  const [ordenacao, setOrdenacao] = useState<"relevancia" | "valor_asc" | "valor_desc" | "data_desc">("relevancia");
+
+  // Período → dias (usado tanto na 1ª busca quanto na paginação)
+  const PERIODO_DIAS: Record<string, number> = {
+    "90_dias": 90,
+    "6_meses": 180,
+    "12_meses": 365,
+    "24_meses": 730,
+  };
+  const limiteDias = PERIODO_DIAS[config.periodo] ?? 365;
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
   const [erroPaginacao, setErroPaginacao] = useState<string | null>(null);
   const [erroStep1, setErroStep1] = useState<string | null>(null);
@@ -374,6 +387,12 @@ export default function NovaPesquisaPage() {
         novoPagAtual[alvo.itemId] = 1;
 
         items.forEach((it, idx) => {
+          // Filtro de recência: descarta referências fora do período configurado.
+          const dataRef = it.dataContrato ? String(it.dataContrato).slice(0, 10) : "";
+          if (dataRef) {
+            const ts = new Date(dataRef + "T00:00:00").getTime();
+            if (!isNaN(ts) && Date.now() - ts > limiteDias * 86400_000) return;
+          }
           novosResultados.push({
             id: `${alvo.itemId}-${idx}`,
             fonte: "pncp",
@@ -430,7 +449,12 @@ export default function NovaPesquisaPage() {
     try {
       const resp = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fonte=pncp&tamanhoPagina=${TAM}&pagina=${pagina}`, { signal: AbortSignal.timeout(30_000) });
       const data = await resp.json();
-      const items: any[] = data.items || [];
+      const items: any[] = (data.items || []).filter((it: any) => {
+        const dataRef = it.dataContrato ? String(it.dataContrato).slice(0, 10) : "";
+        if (!dataRef) return true;
+        const ts = new Date(dataRef + "T00:00:00").getTime();
+        return isNaN(ts) || Date.now() - ts <= limiteDias * 86400_000;
+      });
       const novos: ResultadoPNCP[] = items.map((it, idx) => ({
         id: `${itemId}-p${pagina}-${idx}`,
         fonte: "pncp",
@@ -581,7 +605,7 @@ export default function NovaPesquisaPage() {
     // Usa valor_unitario quando disponível; cai para valor_total como fallback (Opção A)
     const aceitosRaw = resultados.filter(r => r.status_avaliacao === "aceito" && (r.valor_unitario != null || r.valor_total != null));
     const aceitos = aceitosRaw.map(r => (r.valor_unitario ?? r.valor_total) as number);
-    if (aceitos.length === 0) { setEstatisticas(null); setAlertaCv(null); setPrecoEstimado(null); return null; }
+    if (aceitos.length === 0) { setEstatisticas(null); setAlertaCv(null); setPrecoEstimado(null); setAnaliseCritica(null); return null; }
     const pesos = aceitosRaw.map(r => r.quantidade ?? 1);
     // Regra da reunião: CV > limite (20%) → alerta + menor preço automaticamente
     const { estatisticas: stats, alertaCv, cvExcedido, metodoEfetivo, preco } = calcularComRegraCv(
@@ -591,6 +615,27 @@ export default function NovaPesquisaPage() {
     setAlertaCv(alertaCv ? { cv: cvExcedido as number, limite: config.cvLimite, metodoEfetivo } : null);
     setMetodoEfetivo(metodoEfetivo);
     setPrecoEstimado(preco);
+
+    // Análise crítica comparativa (melhoria): compara as contratações e aponta
+    // outliers, diferenças de quantidade/unidade/região — sem inventar motivos.
+    const analise = analisarReferencias(aceitosRaw.map(r => ({
+      id: r.id,
+      orgao: r.orgao,
+      descricao: r.descricao,
+      quantidade: r.quantidade,
+      unidadeMedida: (r as any).unidade_medida ?? (r as any).unidade,
+      dataContrato: r.data,
+      valorUnitario: r.valor_unitario,
+      valorTotal: r.valor_total,
+      localizacao: r.localizacao,
+      similaridade: r.similaridade,
+      itemId: r.itemId,
+    })));
+    setAnaliseCritica(analise);
+
+    // Histórico do próprio órgão (melhoria): valores já pagos em pesquisas anteriores
+    historicoOrgao(objetoDesc).then(setHistoricoOrgaoRows).catch(() => setHistoricoOrgaoRows([]));
+
     return { stats, nAceitas: aceitosRaw.length };
   };
 
@@ -1235,8 +1280,9 @@ export default function NovaPesquisaPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Field label="Período">
               <select className="inp" value={config.periodo} onChange={e => setConfig({ ...config, periodo: e.target.value as PeriodoPesquisa })}>
-                <option value="12_meses">Últimos 12 meses</option>
-                <option value="6_meses">Últimos 6 meses</option>
+                <option value="90_dias">Últimos 90 dias (3 meses)</option>
+                <option value="6_meses">Últimos 180 dias (6 meses)</option>
+                <option value="12_meses">Último ano (365 dias)</option>
                 <option value="24_meses">Últimos 24 meses</option>
               </select>
             </Field>
@@ -1354,15 +1400,40 @@ export default function NovaPesquisaPage() {
             ].map(norm).join(" ");
             if (!campos.includes(q)) return false;
           }
+          // Filtro por região (melhoria): inferida da localização (UF)
+          if (regiaoFiltro !== "todas") {
+            const loc = norm(r.localizacao || "");
+            const regioes: Record<string, string[]> = {
+              norte: ["ac", "am", "ap", "pa", "ro", "rr", "to"],
+              nordeste: ["al", "ba", "ce", "ma", "pb", "pe", "pi", "rn", "se"],
+              centro_oeste: ["df", "go", "mt", "ms"],
+              sudeste: ["es", "mg", "rj", "sp"],
+              sul: ["pr", "rs", "sc"],
+            };
+            const ufs = regioes[regiaoFiltro] || [];
+            if (!ufs.some(uf => loc.includes(uf))) return false;
+          }
           return true;
         });
+
+        // Ordenação (melhoria): por relevância, valor (crescente/decrescente) ou data
+        const ordenar = (res: ResultadoPNCP[]) => {
+          const lista = [...res];
+          const valorDe = (r: ResultadoPNCP) => r.valor_unitario ?? r.valor_total ?? Infinity;
+          switch (ordenacao) {
+            case "valor_asc": return lista.sort((a, b) => valorDe(a) - valorDe(b));
+            case "valor_desc": return lista.sort((a, b) => valorDe(b) - valorDe(a));
+            case "data_desc": return lista.sort((a, b) => new Date(b.data || 0).getTime() - new Date(a.data || 0).getTime());
+            default: return lista.sort((a, b) => b.similaridade - a.similaridade);
+          }
+        };
 
         const totalGeral = Object.values(totalPorItem).reduce((a, b) => a + b, 0);
 
         // Tabela de resultados de um item específico
         const TabelaItem = ({ itemId }: { itemId: string }) => {
           const todosDoItem = resultados.filter(r => (r.itemId || "global") === itemId);
-          const filtrados   = aplicarFiltro(todosDoItem);
+          const filtrados   = ordenar(aplicarFiltro(todosDoItem));
           const pagAtual    = paginaPorItem[itemId] || 1;
           const totalItem   = totalPorItem[itemId] || todosDoItem.length;
           const totalPags   = totalPagsPorItem[itemId] || 1;
@@ -1589,6 +1660,32 @@ export default function NovaPesquisaPage() {
                     ? <><Loader2 size={10} className="animate-spin"/> Analisando…</>
                     : <><Sparkles size={10}/> Alta relevância (≥70%)</>}
                 </button>
+                {/* Filtro por região (melhoria) */}
+                <select
+                  value={regiaoFiltro}
+                  onChange={e => setRegiaoFiltro(e.target.value)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 focus:outline-none focus:border-indigo-400 cursor-pointer"
+                  title="Filtrar por região (inferida da localização do edital)"
+                >
+                  <option value="todas">🌎 Todas as regiões</option>
+                  <option value="norte">Norte</option>
+                  <option value="nordeste">Nordeste</option>
+                  <option value="centro_oeste">Centro-Oeste</option>
+                  <option value="sudeste">Sudeste</option>
+                  <option value="sul">Sul</option>
+                </select>
+                {/* Ordenação (melhoria) */}
+                <select
+                  value={ordenacao}
+                  onChange={e => setOrdenacao(e.target.value as any)}
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 focus:outline-none focus:border-indigo-400 cursor-pointer"
+                  title="Ordenar resultados"
+                >
+                  <option value="relevancia">Relevância</option>
+                  <option value="valor_asc">Menor valor ↑</option>
+                  <option value="valor_desc">Maior valor ↓</option>
+                  <option value="data_desc">Mais recentes</option>
+                </select>
                 {/* Separador + badges de contagem */}
                 <span className="text-slate-300 text-xs">|</span>
                 {totalGeral > 0 && (
@@ -1714,6 +1811,83 @@ export default function NovaPesquisaPage() {
                   {a.sugestao && <span className="block mt-0.5 opacity-80">→ {a.sugestao}</span>}
                 </div>
               ))}
+            </div>
+          )}
+
+          {analiseCritica && (
+            <div className="mt-6 rounded-xl border border-indigo-100 bg-indigo-50/50 p-5">
+              <div className="flex items-center gap-2 mb-1">
+                <BarChart3 size={16} className="text-indigo-600" />
+                <p className="text-sm font-semibold text-indigo-900">Análise crítica das referências</p>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                  analiseCritica.forcaDispersao === "baixa" ? "bg-green-100 text-green-700"
+                  : analiseCritica.forcaDispersao === "media" ? "bg-amber-100 text-amber-700"
+                  : "bg-red-100 text-red-700"}`}>
+                  dispersão {analiseCritica.forcaDispersao}
+                </span>
+              </div>
+              <p className="text-xs text-indigo-700/80 mb-3">{analiseCritica.resumo}</p>
+              <div className="space-y-2">
+                {analiseCritica.pontos.map((p, i) => (
+                  <div key={i} className={`rounded-lg border px-3 py-2 text-xs ${
+                    p.severidade === "alerta" ? "border-red-200 bg-red-50 text-red-800"
+                    : p.severidade === "atencao" ? "border-amber-200 bg-amber-50 text-amber-800"
+                    : "border-slate-200 bg-white text-slate-700"}`}>
+                    <p className="font-semibold">
+                      {p.severidade === "alerta" ? "⚠️ " : p.severidade === "atencao" ? "• " : "ℹ️ "}{p.titulo}
+                    </p>
+                    <p className="mt-0.5 opacity-90">{p.detalhe}</p>
+                  </div>
+                ))}
+              </div>
+              {analiseCritica.sugestaoJustificativa && (
+                <div className="mt-3 rounded-lg bg-white border border-indigo-200 p-3">
+                  <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide mb-1">Sugestão para a justificativa</p>
+                  <p className="text-xs text-slate-700 leading-relaxed">{analiseCritica.sugestaoJustificativa}</p>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(analiseCritica.sugestaoJustificativa); alert("Sugestão copiada para a área de transferência."); }}
+                    className="mt-2 inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
+                  >
+                    <ClipboardList size={12} /> Copiar sugestão
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {historicoOrgaoRows && historicoOrgaoRows.length > 0 && (
+            <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <FileText size={16} className="text-slate-600" />
+                <p className="text-sm font-semibold text-slate-800">Histórico do seu órgão (referência defensável)</p>
+              </div>
+              <p className="text-xs text-slate-500 mb-3">
+                Valores já estimados pelo seu órgão em pesquisas anteriores para objetos semelhantes — a comparação mais valorizada em auditoria.
+              </p>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200">
+                      {["Processo", "Objeto", "Unit.", "Total", "Qtd", "Data", "Método"].map(h => (
+                        <th key={h} className="text-left py-2 px-3 font-medium text-slate-500 text-xs uppercase">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {historicoOrgaoRows.map((h) => (
+                      <tr key={h.id} className="border-b border-slate-100">
+                        <td className="py-2 px-3 text-xs font-mono text-slate-500">{h.processoNumero || "—"}</td>
+                        <td className="py-2 px-3 max-w-[240px] truncate" title={h.objeto}>{h.objeto}</td>
+                        <td className="py-2 px-3">{h.precoUnitario != null ? `R$ ${h.precoUnitario.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</td>
+                        <td className="py-2 px-3">{h.precoTotal != null ? `R$ ${h.precoTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}` : "—"}</td>
+                        <td className="py-2 px-3">{h.quantidade ?? "—"} {h.unidadeMedida || ""}</td>
+                        <td className="py-2 px-3 text-xs text-slate-500">{h.data ? new Date(h.data).toLocaleDateString("pt-BR") : "—"}</td>
+                        <td className="py-2 px-3 text-xs text-slate-500">{String(h.metodo || "").replace("_", " ")}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </StepCard>

@@ -334,3 +334,63 @@ export async function listarDashboard() {
     throw new Error(err?.message || "Erro ao carregar dashboard");
   }
 }
+
+/**
+ * Histórico do próprio órgão (melhoria): valores já pagos pelo órgão em
+ * pesquisas anteriores para objetos semelhantes. Para o funcionário que
+ * realiza a licitação, o histórico do próprio órgão é a referência mais
+ * defensável — o TCU valoriza a comparação com contratações do mesmo órgão.
+ */
+export async function historicoOrgao(termo: string) {
+  const session = await auth();
+  if (!session) throw new Error("Não autorizado");
+  const orgaoId = (session.user as any).orgaoId;
+  if (!orgaoId) return [];
+
+  const termoNorm = (termo || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  if (termoNorm.length < 4) return [];
+
+  try {
+    const rows = await db
+      .select({
+        id: pesquisas.id,
+        objeto: pesquisas.objeto,
+        status: pesquisas.status,
+        precoUnitarioEstimado: pesquisas.precoUnitarioEstimado,
+        precoTotalEstimado: pesquisas.precoTotalEstimado,
+        quantidade: pesquisas.quantidade,
+        unidadeMedida: pesquisas.unidadeMedida,
+        metodoCalculo: pesquisas.metodoCalculo,
+        createdAt: pesquisas.createdAt,
+        processoNumero: processos.numero,
+      })
+      .from(pesquisas)
+      .leftJoin(processos, eq(pesquisas.processoId, processos.id))
+      .where(eq(processos.orgaoId, orgaoId))
+      .orderBy(desc(pesquisas.createdAt))
+      .limit(200);
+
+    // Filtra por semelhança textual simples (objeto contém termos do termo pesquisado)
+    const termos = termoNorm.split(/\s+/).filter(w => w.length > 3);
+    const relevantes = rows
+      .filter(p => {
+        const obj = (p.objeto || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        return termos.some(t => obj.includes(t));
+      })
+      .slice(0, 15);
+
+    return relevantes.map(p => ({
+      id: p.id,
+      objeto: p.objeto,
+      processoNumero: p.processoNumero,
+      precoUnitario: p.precoUnitarioEstimado ? Number(p.precoUnitarioEstimado) : null,
+      precoTotal: p.precoTotalEstimado ? Number(p.precoTotalEstimado) : null,
+      quantidade: p.quantidade,
+      unidadeMedida: p.unidadeMedida,
+      metodo: p.metodoCalculo,
+      data: p.createdAt ? p.createdAt.toISOString().slice(0, 10) : null,
+    }));
+  } catch {
+    return [];
+  }
+}
