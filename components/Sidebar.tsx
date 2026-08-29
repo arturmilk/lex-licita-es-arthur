@@ -1,17 +1,19 @@
 "use client";
 import React, { useState } from "react";
-import { Layers, LayoutDashboard, Plus, FileText, Search, BarChart3, Paperclip, Settings, LogOut, Menu, X } from "lucide-react";
+import { Layers, LayoutDashboard, Plus, FileText, Search, BarChart3, Paperclip, Settings, LogOut, Menu, X, Home, Users, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { sair } from "@/lib/auth-actions";
 
 const navItems = [
+  { href: "/painel", icon: Home, label: "Painel de trabalho", roles: ["pesquisador", "gestor", "administrador"], destaque: true },
   { href: "/pesquisa/nova", icon: Plus, label: "Nova pesquisa", roles: ["pesquisador", "gestor", "administrador"] },
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["pesquisador", "gestor", "administrador"] },
   { href: "/processos", icon: FileText, label: "Processos", roles: ["pesquisador", "gestor", "administrador"] },
   { href: "/pesquisas", icon: Search, label: "Pesquisas", roles: ["pesquisador", "gestor", "administrador"] },
   { href: "/relatorios", icon: BarChart3, label: "Relatórios", roles: ["pesquisador", "gestor", "administrador"] },
   { href: "/evidencias", icon: Paperclip, label: "Evidências", roles: ["pesquisador", "gestor", "administrador"] },
+  { href: "/gestor", icon: Users, label: "Visão do gestor", roles: ["gestor", "administrador"] },
   { href: "/admin", icon: Settings, label: "Administração", roles: ["administrador"] },
 ];
 

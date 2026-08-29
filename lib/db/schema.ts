@@ -206,6 +206,104 @@ export const feedbacks = pgTable("feedbacks", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [index("feedbacks_orgao_idx").on(t.orgaoId)]);
 
+/* ================= SISTEMA ORIENTADO À INTENÇÃO ================= */
+
+/** Tipos de processo com checklist automático (documentos, etapas, validações). */
+export const tiposProcesso = pgTable("tipos_processo", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgaoId: uuid("orgao_id").references(() => orgaos.id, { onDelete: "cascade" }),
+  nome: varchar("nome", { length: 255 }).notNull(),
+  descricao: text("descricao"),
+  ativo: boolean("ativo").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("tipos_processo_orgao_idx").on(t.orgaoId)]);
+
+/** Etapas guiadas de cada tipo de processo (checklist automático). */
+export const etapasProcesso = pgTable("etapas_processo", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  tipoProcessoId: uuid("tipo_processo_id").notNull().references(() => tiposProcesso.id, { onDelete: "cascade" }),
+  ordem: integer("ordem").notNull().default(1),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  instrucao: text("instrucao"),
+  // Documentos necessários nesta etapa (array de nomes)
+  documentosNecessarios: jsonb("documentos_necessarios").$type<string[]>().default([]),
+  // Campos obrigatórios a preencher nesta etapa
+  camposObrigatorios: jsonb("campos_obrigatorios").$type<string[]>().default([]),
+  // Validações automáticas: [{tipo: "documento"|"campo"|"assinatura"|"data", alvo: "...", mensagem: "..."}]
+  validacoes: jsonb("validacoes").$type<Record<string, unknown>[]>().default([]),
+  responsavel: varchar("responsavel", { length: 100 }).default("servidor"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("etapas_tipo_idx").on(t.tipoProcessoId)]);
+
+/** Tarefas do servidor (painel de trabalho). */
+export const tarefas = pgTable("tarefas", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgaoId: uuid("orgao_id").notNull().references(() => orgaos.id, { onDelete: "cascade" }),
+  processoId: uuid("processo_id").references(() => processos.id, { onDelete: "set null" }),
+  tipoProcessoId: uuid("tipo_processo_id").references(() => tiposProcesso.id, { onDelete: "set null" }),
+  responsavelId: uuid("responsavel_id").references(() => usuarios.id, { onDelete: "set null" }),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  descricao: text("descricao"),
+  etapa: varchar("etapa", { length: 255 }),
+  status: varchar("status", { length: 30 }).notNull().default("pendente"), // pendente | em_andamento | concluida | aguardando_outro | atrasada
+  prioridade: varchar("prioridade", { length: 20 }).notNull().default("media"), // alta | media | baixa
+  prazo: timestamp("prazo"),
+  dependenteDe: varchar("dependente_de", { length: 255 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  concluidaEm: timestamp("concluida_em"),
+}, (t) => [index("tarefas_responsavel_idx").on(t.responsavelId), index("tarefas_status_idx").on(t.status), index("tarefas_prazo_idx").on(t.prazo)]);
+
+/** Alertas inteligentes (prazos, documentos faltantes, etapas paradas). */
+export const alertas = pgTable("alertas", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgaoId: uuid("orgao_id").notNull().references(() => orgaos.id, { onDelete: "cascade" }),
+  processoId: uuid("processo_id").references(() => processos.id, { onDelete: "cascade" }),
+  tarefaId: uuid("tarefa_id").references(() => tarefas.id, { onDelete: "cascade" }),
+  tipo: varchar("tipo", { length: 50 }).notNull().default("prazo"), // prazo | documento | assinatura | parado | inconsistencia | aviso
+  mensagem: text("mensagem").notNull(),
+  severidade: varchar("severidade", { length: 20 }).notNull().default("media"), // alta | media | baixa
+  lido: boolean("lido").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("alertas_orgao_idx").on(t.orgaoId), index("alertas_lido_idx").on(t.lido)]);
+
+/** Histórico completo e auditável das ações. */
+export const historicoProcesso = pgTable("historico_processo", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  processoId: uuid("processo_id").notNull().references(() => processos.id, { onDelete: "cascade" }),
+  usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+  acao: varchar("acao", { length: 100 }).notNull(),
+  descricao: text("descricao"),
+  etapa: varchar("etapa", { length: 255 }),
+  documento: varchar("documento", { length: 255 }),
+  dados: jsonb("dados").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("historico_processo_idx").on(t.processoId), index("historico_usuario_idx").on(t.usuarioId)]);
+
+/** Minutas de documentos administrativos (despacho, parecer, ofício...). */
+export const minutas = pgTable("minutas", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgaoId: uuid("orgao_id").notNull().references(() => orgaos.id, { onDelete: "cascade" }),
+  processoId: uuid("processo_id").references(() => processos.id, { onDelete: "set null" }),
+  usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+  tipo: varchar("tipo", { length: 50 }).notNull().default("despacho"), // despacho | parecer | memorando | oficio | justificativa | relatorio
+  titulo: varchar("titulo", { length: 255 }),
+  conteudo: text("conteudo").notNull(),
+  status: varchar("status", { length: 30 }).notNull().default("rascunho"), // rascunho | revisado | assinado
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("minutas_orgao_idx").on(t.orgaoId), index("minutas_processo_idx").on(t.processoId)]);
+
+/** Base de conhecimento (normas, procedimentos, regras internas). */
+export const baseConhecimento = pgTable("base_conhecimento", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgaoId: uuid("orgao_id").references(() => orgaos.id, { onDelete: "cascade" }),
+  titulo: varchar("titulo", { length: 255 }).notNull(),
+  categoria: varchar("categoria", { length: 100 }).default("norma"), // norma | procedimento | modelo | regra_interna | dicionario
+  conteudo: text("conteudo").notNull(),
+  fonte: varchar("fonte", { length: 255 }),
+  tags: jsonb("tags").$type<string[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("base_conhecimento_orgao_idx").on(t.orgaoId)]);
+
 // Relations
 export const orgaosRelations = relations(orgaos, ({ many, one }) => ({
   usuarios: many(usuarios),

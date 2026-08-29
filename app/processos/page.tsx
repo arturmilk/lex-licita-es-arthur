@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Loader2, FileText, Plus } from "lucide-react";
+import { Loader2, FileText, Plus, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { listarProcessos } from "@/lib/actions";
 
@@ -73,7 +73,7 @@ export default function ProcessosPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  {["Número", "Objeto", "Unidade", "Status", "Atualizado"].map(h => (
+                  {["Número", "Objeto", "Unidade", "Status", "Atualizado", "Ação"].map(h => (
                     <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
@@ -90,6 +90,11 @@ export default function ProcessosPage() {
                         <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium ${st.cls}`}>{st.label}</span>
                       </td>
                       <td className="py-2.5 px-4 text-slate-500 text-xs">{new Date(r.updatedAt).toLocaleDateString("pt-BR")}</td>
+                      <td className="py-2.5 px-4">
+                        <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                          Guiar <ChevronRight size={12} />
+                        </Link>
+                      </td>
                     </tr>
                   );
                 })}
