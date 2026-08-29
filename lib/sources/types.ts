@@ -20,6 +20,7 @@ export interface ResultadoFonte {
   total: number;
   fonte: FonteId;
   erro?: string;
+  aviso?: string;
 }
 
 export interface FonteConfig {

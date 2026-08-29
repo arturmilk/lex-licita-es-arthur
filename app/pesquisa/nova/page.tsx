@@ -360,10 +360,13 @@ export default function NovaPesquisaPage() {
     for (const a of alvos) novosTermos[a.itemId] = a.termo;
     setTermoPorItem(novosTermos);
 
-    // Busca PNCP pura (sem IA, sem filtro) — tam=50 para trazer o máximo possível
+    // Busca multi-fonte — PNCP principal (rápido) + Compras.gov como reserva.
+    // NOTA: precos_abertos leva ~30s (excluído); painel_precos exige auth (403).
+    // Se o PNCP falhar, o fallback Firecrawl entra automaticamente (pncp-search.ts).
     const TAM = 50;
+    const fontesMulti = "pncp,compras_gov";
     const buscas = alvos.map(alvo =>
-      fetch(`/api/pncp?termo=${encodeURIComponent(alvo.termo)}&fonte=pncp&tamanhoPagina=${TAM}`, { signal: AbortSignal.timeout(30_000) })
+      fetch(`/api/pncp?termo=${encodeURIComponent(alvo.termo)}&fontes=${fontesMulti}&tamanhoPagina=${TAM}`, { signal: AbortSignal.timeout(40_000) })
         .then(async r => ({ alvo, data: await r.json().catch(() => null) }))
         .catch(() => ({ alvo, data: null }))
     );
@@ -447,7 +450,7 @@ export default function NovaPesquisaPage() {
     if (!termo) return;
     const TAM = 50;
     try {
-      const resp = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fonte=pncp&tamanhoPagina=${TAM}&pagina=${pagina}`, { signal: AbortSignal.timeout(30_000) });
+      const resp = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fontes=pncp,compras_gov&tamanhoPagina=${TAM}&pagina=${pagina}`, { signal: AbortSignal.timeout(30_000) });
       const data = await resp.json();
       const items: any[] = (data.items || []).filter((it: any) => {
         const dataRef = it.dataContrato ? String(it.dataContrato).slice(0, 10) : "";

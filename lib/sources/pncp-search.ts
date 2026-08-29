@@ -93,6 +93,46 @@ export async function buscarPNCPSearch(params: BuscaParams): Promise<ResultadoFo
       total: data?.total ?? items.length,
     };
   } catch (err: any) {
+    // ── FALLBACK: Firecrawl (quando o PNCP bloqueia com hCaptcha/403/timeout) ──
+    // Se FIRECRAWL_API_KEY estiver configurada, renderiza a busca do PNCP via
+    // Firecrawl (que contorna o bloqueio) e extrai os resultados do markdown.
+    const firecrawlKey = process.env.FIRECRAWL_API_KEY;
+    if (firecrawlKey) {
+      try {
+        const urlBusca = `https://pncp.gov.br/app/search?q=${encodeURIComponent(termo)}`;
+        const fcRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${firecrawlKey}` },
+          body: JSON.stringify({ url: urlBusca, formats: ["markdown"], waitFor: 8000 }),
+          signal: AbortSignal.timeout(40_000),
+        });
+        if (fcRes.ok) {
+          const fcData = await fcRes.json();
+          const markdown = fcData?.data?.markdown || "";
+          // Extrai linhas que parecem resultados (nº PNCP ou valores monetários)
+          const linhas = markdown.split("\n").filter((l: string) => /\\d{6,}/.test(l) || /R\\$/.test(l));
+          if (linhas.length > 0) {
+            const items: ResultadoBruto[] = linhas.slice(0, 20).map((l: string, i: number) => ({
+              fonte: "pncp",
+              orgao: "PNCP (via Firecrawl)",
+              descricao: l.replace(/[|\\-–]+/g, " ").replace(/\\s+/g, " ").trim().slice(0, 200),
+              quantidade: null,
+              valor_total: null,
+              data: null,
+              localizacao: null,
+              similaridade: 50,
+              documentoOrigem: null,
+              linkEdital: urlBusca,
+              status_avaliacao: "pendente",
+              dadosBrutos: { _fonteFallback: "firecrawl" },
+            }));
+            return { fonte: "pncp", items, total: items.length, aviso: "PNCP bloqueou — resultados via Firecrawl" };
+          }
+        }
+      } catch {
+        /* Firecrawl também falhou — retorna o erro original */
+      }
+    }
     return {
       fonte: "pncp",
       items: [],
