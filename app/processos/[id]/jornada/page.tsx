@@ -2,10 +2,11 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Circle, Loader2, FileText, History, ShieldAlert, Wand2, ChevronRight, CheckSquare, Sparkles, FileUp } from "lucide-react";
-import { obterTarefasDoProcesso, avancarEtapa, obterHistorico, gerarMinuta, listarMinutas, escreverComIA } from "@/lib/actions-intencao";
+import { obterTarefasDoProcesso, avancarEtapa, obterHistorico, gerarMinuta, listarMinutas, escreverComIA, obterJornada } from "@/lib/actions-intencao";
 
 export default function JornadaPage({ params }: { params: { id: string } }) {
   const [tarefas, setTarefas] = useState<any[] | null>(null);
+  const [etapasModelo, setEtapasModelo] = useState<any[]>([]);
   const [historico, setHistorico] = useState<any[]>([]);
   const [minutas, setMinutas] = useState<any[]>([]);
   const [erro, setErro] = useState<string | null>(null);
@@ -20,6 +21,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
   const [lendoDoc, setLendoDoc] = useState(false);
   const [resumoDoc, setResumoDoc] = useState<any | null>(null);
   const [erroDoc, setErroDoc] = useState<string | null>(null);
+  const [camposEtapa, setCamposEtapa] = useState<Record<string, string>>({});
 
   const carregar = async () => {
     const ts = await obterTarefasDoProcesso(params.id);
@@ -27,6 +29,14 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
     setAtual(ts.find((t: any) => t.status === "em_andamento") || ts.find((t: any) => t.status === "pendente") || null);
     setHistorico(await obterHistorico(params.id));
     setMinutas(await listarMinutas(params.id));
+    // Carrega o modelo de etapas (documentos/validações vivem em etapas_processo,
+    // NÃO nas tarefas) para casar com a etapa atual
+    const tipoId = ts[0]?.tipoProcessoId;
+    if (tipoId) {
+      try {
+        setEtapasModelo(await obterJornada(tipoId));
+      } catch { /* modelo indisponível */ }
+    }
   };
 
   useEffect(() => {
@@ -37,10 +47,20 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
     if (!atual) return;
     setAvancando(true);
     try {
+      // Valida campos obrigatórios da etapa (ex: dataAbertura, modalidade)
+      const camposObrig = (etapaModelo as any)?.camposObrigatorios || [];
+      const faltando = camposObrig.filter((c: string) => !(camposEtapa[c] || "").trim());
+      if (faltando.length > 0) {
+        setErro(`Campos obrigatórios em falta: ${faltando.map((c: string) => c).join(", ")}. Preencha antes de avançar.`);
+        setTimeout(() => setErro(null), 6000);
+        setAvancando(false);
+        return;
+      }
       const r = await avancarEtapa(atual.id, docsMarcados, assinado);
       if (r.ok) {
         setDocsMarcados([]);
         setAssinado(false);
+        setCamposEtapa({});
         await carregar();
       } else {
         setErro(r.mensagem);
@@ -101,8 +121,11 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
     }
   }
 
-  const docsNecessarios = (atual as any)?.documentosNecessarios || [];
-  const precisaAssinatura = (atual as any)?.validacoes?.some((v: any) => v.tipo === "assinatura");
+  // Documentos e validações vêm do MODELO de etapas (etapas_processo),
+  // casados pelo título da etapa atual — a tarefa em si não tem esses campos.
+  const etapaModelo = etapasModelo.find((e: any) => e.titulo === (atual as any)?.etapa);
+  const docsNecessarios = (etapaModelo as any)?.documentosNecessarios || [];
+  const precisaAssinatura = (etapaModelo as any)?.validacoes?.some((v: any) => v.tipo === "assinatura");
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
@@ -176,6 +199,53 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
               <span className="text-sm text-purple-800">Confirmo que o documento foi assinado pela autoridade competente</span>
               <ShieldAlert size={14} className="ml-auto text-purple-500" />
             </label>
+          )}
+
+          {/* Campos obrigatórios da etapa (ex: data de abertura, modalidade) */}
+          {((etapaModelo as any)?.camposObrigatorios || []).length > 0 && (
+            <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {((etapaModelo as any)?.camposObrigatorios || []).map((campo: string) => (
+                <div key={campo}>
+                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                    {campo === "dataAbertura" ? "Data de abertura das propostas" :
+                     campo === "modalidade" ? "Modalidade" :
+                     campo === "objeto" ? "Objeto" :
+                     campo === "quantidade" ? "Quantidade" :
+                     campo === "unidade" ? "Unidade" :
+                     campo === "justificativa" ? "Justificativa" :
+                     campo === "metodoCalculo" ? "Método de cálculo" :
+                     campo === "valorEstimado" ? "Valor estimado" :
+                     campo === "dotacaoOrcamentaria" ? "Dotação orçamentária" :
+                     campo === "especificacoes" ? "Especificações técnicas" :
+                     campo === "condicoesPagamento" ? "Condições de pagamento" :
+                     campo === "destino" ? "Destino" :
+                     campo === "dataInicio" ? "Data de início" :
+                     campo === "dataFim" ? "Data de fim" :
+                     campo === "motivo" ? "Motivo" :
+                     campo === "valorDiarias" ? "Valor das diárias" :
+                     campo === "tipoLicenca" ? "Tipo de licença" :
+                     campo === "fundamentacaoLegal" ? "Fundamentação legal" :
+                     campo}
+                  </label>
+                  {campo.toLowerCase().includes("data") ? (
+                    <input
+                      type="date"
+                      value={camposEtapa[campo] || ""}
+                      onChange={(e) => setCamposEtapa({ ...camposEtapa, [campo]: e.target.value })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={camposEtapa[campo] || ""}
+                      onChange={(e) => setCamposEtapa({ ...camposEtapa, [campo]: e.target.value })}
+                      placeholder={`Informe ${campo === "dataAbertura" ? "a data" : "o valor"}`}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
           )}
 
           {/* Validação antes de avançar */}
