@@ -220,3 +220,53 @@ export async function obterPainelGestor() {
   const { orgaoId } = await sessaoContexto();
   return painelGestor(orgaoId);
 }
+
+/** 14. Escrita assistida por IA: transforma um pedido em minuta administrativa. */
+export async function escreverComIA(opts: { tipo: string; pedido: string; processoId?: string }) {
+  const { userId, orgaoId, nome } = await sessaoContexto();
+  const { escreverDocumento } = await import("@/lib/ia");
+
+  let numero = "";
+  let objeto = "";
+  if (opts.processoId) {
+    const [proc] = await db.select().from(processos).where(eq(processos.id, opts.processoId)).limit(1);
+    numero = proc?.numero ?? "";
+    objeto = proc?.objeto ?? "";
+  }
+
+  const conteudo = await escreverDocumento({
+    tipo: opts.tipo,
+    pedido: opts.pedido,
+    contexto: { numeroProcesso: numero, objeto, servidor: nome, data: new Date().toLocaleDateString("pt-BR") },
+  });
+
+  const [minuta] = await db
+    .insert(minutas)
+    .values({
+      orgaoId,
+      processoId: opts.processoId ?? null,
+      usuarioId: userId,
+      tipo: opts.tipo,
+      titulo: `${opts.tipo} — ${numero || "sem processo"}`,
+      conteudo,
+      status: "rascunho",
+    })
+    .returning();
+
+  if (opts.processoId) {
+    await db.insert(historicoProcesso).values({
+      processoId: opts.processoId,
+      usuarioId: userId,
+      acao: "minuta_ia",
+      descricao: `Minuta de ${opts.tipo} gerada por IA: "${opts.pedido.slice(0, 80)}"`,
+    });
+  }
+
+  return minuta;
+}
+
+/** 15. Assistente contextual "Me ajuda". */
+export async function meAjudaIA(opts: { pergunta: string; contextoPagina: string; dadosAdicionais?: string }) {
+  const { meAjuda } = await import("@/lib/ia");
+  return meAjuda(opts);
+}

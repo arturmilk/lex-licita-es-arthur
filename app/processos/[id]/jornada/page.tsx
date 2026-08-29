@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Circle, Loader2, FileText, History, ShieldAlert, Wand2, ChevronRight, CheckSquare } from "lucide-react";
-import { obterTarefasDoProcesso, avancarEtapa, obterHistorico, gerarMinuta, listarMinutas } from "@/lib/actions-intencao";
+import { ArrowLeft, CheckCircle2, Circle, Loader2, FileText, History, ShieldAlert, Wand2, ChevronRight, CheckSquare, Sparkles, FileUp } from "lucide-react";
+import { obterTarefasDoProcesso, avancarEtapa, obterHistorico, gerarMinuta, listarMinutas, escreverComIA } from "@/lib/actions-intencao";
 
 export default function JornadaPage({ params }: { params: { id: string } }) {
   const [tarefas, setTarefas] = useState<any[] | null>(null);
@@ -14,8 +14,12 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
   const [assinado, setAssinado] = useState(false);
   const [avancando, setAvancando] = useState(false);
   const [gerandoMinuta, setGerandoMinuta] = useState(false);
+  const [gerandoMinIA, setGerandoMinIA] = useState(false);
   const [minutaContexto, setMinutaContexto] = useState("");
   const [tipoMinuta, setTipoMinuta] = useState("despacho");
+  const [lendoDoc, setLendoDoc] = useState(false);
+  const [resumoDoc, setResumoDoc] = useState<any | null>(null);
+  const [erroDoc, setErroDoc] = useState<string | null>(null);
 
   const carregar = async () => {
     const ts = await obterTarefasDoProcesso(params.id);
@@ -59,6 +63,41 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
       setErro(String(e?.message || e));
     } finally {
       setGerandoMinuta(false);
+    }
+  }
+
+  async function gerarMinIA() {
+    setGerandoMinIA(true);
+    try {
+      const minuta = await escreverComIA({ tipo: tipoMinuta, pedido: minutaContexto, processoId: params.id });
+      setMinutaContexto("");
+      setMinutas(await listarMinutas(params.id));
+      window.alert(`Minuta de ${minuta.tipo} gerada pela IA!`);
+    } catch (e: any) {
+      setErro(String(e?.message || e));
+    } finally {
+      setGerandoMinIA(false);
+    }
+  }
+
+  async function enviarDoc(e: React.ChangeEvent<HTMLInputElement>) {
+    const arquivo = e.target.files?.[0];
+    if (!arquivo) return;
+    setLendoDoc(true);
+    setResumoDoc(null);
+    setErroDoc(null);
+    try {
+      const form = new FormData();
+      form.append("arquivo", arquivo);
+      const resp = await fetch("/api/ia/documento", { method: "POST", body: form });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.erro || "Falha ao ler documento");
+      setResumoDoc(data);
+    } catch (err: any) {
+      setErroDoc(String(err?.message || err));
+    } finally {
+      setLendoDoc(false);
+      e.target.value = "";
     }
   }
 
@@ -183,25 +222,80 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           placeholder="O que deve constar no documento? Ex.: justificar por que o prazo foi prorrogado..."
           className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm min-h-[70px]"
         />
-        <button
-          onClick={gerarMin}
-          disabled={gerandoMinuta}
-          className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-100 text-indigo-700 text-sm font-semibold hover:bg-indigo-200 disabled:opacity-50 cursor-pointer"
-        >
-          {gerandoMinuta ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
-          Gerar minuta
-        </button>
+        <div className="flex flex-wrap items-center gap-2 mt-2">
+          <button
+            onClick={gerarMin}
+            disabled={gerandoMinuta}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-100 text-indigo-700 text-sm font-semibold hover:bg-indigo-200 disabled:opacity-50 cursor-pointer"
+          >
+            {gerandoMinuta ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
+            Gerar minuta (modelo)
+          </button>
+          <button
+            onClick={gerarMinIA}
+            disabled={gerandoMinIA}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
+          >
+            {gerandoMinIA ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+            Escrever com IA
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] text-slate-400">
+          Escrever com IA: descreva em linguagem normal o que o documento deve dizer (ex.: "justificar por que o prazo foi prorrogado").
+        </p>
 
         {minutas.length > 0 && (
           <div className="mt-4 space-y-2">
             {minutas.map((m) => (
               <div key={m.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{m.tipo} · {m.status}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{m.tipo} · {m.status}</p>
+                  {m.acao === "minuta_ia" && <Sparkles size={12} className="text-purple-500" />}
+                </div>
                 <p className="text-sm text-slate-700 whitespace-pre-wrap mt-1">{m.conteudo}</p>
               </div>
             ))}
           </div>
         )}
+      </div>
+
+      {/* Leitura e resumo de documentos */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
+        <div className="flex items-center gap-2 mb-3">
+          <FileUp size={16} className="text-emerald-600" />
+          <h3 className="font-semibold text-slate-800 text-sm">Ler e resumir documento (PDF/TXT)</h3>
+        </div>
+        <p className="text-xs text-slate-500 mb-3">
+          Envie um PDF, processo ou anexo e a IA devolve: o que aconteceu, o que importa, o que falta, prazos e a ação necessária.
+        </p>
+        <input
+          type="file"
+          accept=".pdf,.txt,.md"
+          onChange={enviarDoc}
+          disabled={lendoDoc}
+          className="block w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-emerald-50 file:text-emerald-700 file:text-sm file:font-semibold hover:file:bg-emerald-100 cursor-pointer"
+        />
+        {lendoDoc && (
+          <p className="mt-3 flex items-center gap-2 text-sm text-slate-500">
+            <Loader2 size={14} className="animate-spin text-emerald-600" /> Lendo documento e consultando a IA…
+          </p>
+        )}
+        {resumoDoc && (
+          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
+            <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-2">Resumo inteligente — {resumoDoc.nome}</p>
+            <div className="space-y-2 text-sm text-slate-700">
+              <p><span className="font-semibold text-slate-900">📌 O que aconteceu:</span> {resumoDoc.resumo.aconteceu}</p>
+              <p><span className="font-semibold text-slate-900">⭐ O que importa:</span> {resumoDoc.resumo.importa}</p>
+              <p><span className="font-semibold text-slate-900">⚠️ O que falta:</span> {resumoDoc.resumo.falta}</p>
+              <p><span className="font-semibold text-slate-900">🗓️ Prazos:</span> {resumoDoc.resumo.prazos}</p>
+              <p><span className="font-semibold text-slate-900">👉 Ação necessária:</span> {resumoDoc.resumo.acao}</p>
+              {resumoDoc.resumo.resumoCompleto && (
+                <p className="mt-2 text-xs text-slate-500 italic">{resumoDoc.resumo.resumoCompleto.slice(0, 300)}…</p>
+              )}
+            </div>
+          </div>
+        )}
+        {erroDoc && <p className="mt-2 text-xs text-red-600">{erroDoc}</p>}
       </div>
 
       {/* Histórico */}
