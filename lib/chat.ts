@@ -22,7 +22,7 @@ export interface MensagemChat {
 }
 
 export interface EstadoChat {
-  etapa: string;                       // intencao | ug | documentos | pesquisa | dotacao | minuta | juridico | finalizado | edital | edital_catmat | edital_pronto
+  etapa: string;                       // intencao | ug | documentos | coleta_doc | pesquisa | dotacao | minuta | juridico | finalizado | edital | edital_catmat | edital_pronto
   objeto?: string;
   tipoProcesso?: string;
   ug?: string;
@@ -32,7 +32,29 @@ export interface EstadoChat {
   perguntaAtual?: string;
   catmat?: string;                     // código(s) CATMAT/CATSER provável(eis)
   minuta?: string;                     // minuta gerada (para baixar/editar)
+  docColeta?: {                        // coleta guiada de campos do documento
+    docChave: string;                  // qual documento (pc | etp)
+    campos: Record<string, string>;    // respostas coletadas por campo
+    ordem: string[];                   // ordem dos campos restantes
+    campoAtual?: string;               // campo sendo perguntado agora
+  };
 }
+
+/** Campos guiados por documento — pergunta, explicação e opções sugeridas. */
+export const CAMPOS_DOCUMENTO: Record<string, { chave: string; pergunta: string; explicacao: string; opcoes?: string[] }[]> = {
+  pc: [
+    { chave: "quantidade", pergunta: "Qual a **quantidade** necessária?", explicacao: "Ex.: 1 profissional, 500 resmas, 10 licenças. Baseia-se na demanda do setor requisitante.", opcoes: ["1 unidade", "Mês (serviço continuado)"] },
+    { chave: "unidade", pergunta: "Qual a **unidade de medida**?", explicacao: "unidade, mês, resma, kg, m², hora…", opcoes: ["unidade", "mês", "resma", "kg"] },
+    { chave: "valorEstimado", pergunta: "Tem um **valor estimado** ou deixa a pesquisa de preços definir?", explicacao: "Se não souber, sem problema — a pesquisa de preços (PNCP) define o valor estimado depois." },
+    { chave: "prazo", pergunta: "Qual o **prazo** desejado?", explicacao: "Ex.: 30 dias para entrega, 12 meses de vigência para serviço continuado.", opcoes: ["30 dias", "12 meses (serviço continuado)"] },
+    { chave: "localEntrega", pergunta: "Onde será a **entrega/execução**?", explicacao: "Ex.: Almoxarifado Central, Unidade Básica de Saúde X, endereço do órgão." },
+  ],
+  etp: [
+    { chave: "necessidade", pergunta: "Qual a **necessidade** que a contratação atende?", explicacao: "Descreva o problema/necessidade que motiva a contratação (ex.: falta de atendimento médico na UBS)." },
+    { chave: "alternativas", pergunta: "Que **alternativas** foram consideradas?", explicacao: "Ex.: contratação direta, aditivo de contrato existente, quadro próprio, terceirização.", opcoes: ["Contratação de terceiros", "Aditivo de contrato existente", "Quadro próprio de servidores"] },
+    { chave: "riscos", pergunta: "Quer que eu **sugira os riscos** típicos (atraso, superfaturamento, descumprimento)?", explicacao: "O ETP exige análise de riscos com medidas de mitigação.", opcoes: ["Sim, sugira os riscos", "Vou informar os riscos"] },
+  ],
+};
 
 // Fluxo de documentos por tipo de processo (PC → ETP → depois etapas do chat)
 // Observação: pesquisa/dotação/minuta/jurídico têm ETAPAS PRÓPRIAS no chat —
@@ -241,41 +263,22 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         return { mensagens: msg, estado };
       }
 
-      // BOTÃO "📄 Criar com modelo AGU": gera o documento com o modelo + IA
+      // BOTÃO "📄 Criar com modelo AGU": inicia a COLETA GUIADA de campos
       if (t.includes("criar com modelo agu") || t.includes("criar com o modelo") || t.includes("gerar modelo")) {
-        estado.documentos[doc.chave] = { status: "ok", anexadoEm: new Date().toISOString() };
-        const nomeArquivo = doc.chave === "pc" ? "PEDIDO DE COMPRA" : "ESTUDO TÉCNICO PRELIMINAR (ETP)";
-        try {
-          const { chat } = await import("@/lib/ia");
-          const conteudo = await chat([
-            { role: "system", content: `Você é um especialista em licitações públicas (Lei 14.133/2021). Escreva o documento oficial completo "${nomeArquivo}" em português, com linguagem formal administrativa, baseado no modelo AGU. Estrutura: cabeçalho, objeto, justificativa, quantitativos, dotação, encaminhamento/riscos, data.` },
-            { role: "user", content: `Objeto: ${estado.objeto || "não informado"}\nUG: ${estado.ug || "não informada"}\nÓrgão: ${memorias.orgao_nome || "não informado"}\nModalidade preferida: ${memorias.modalidade_preferida || "pregão eletrônico"}` },
-          ], 0.4);
-          msg.push({
-            id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
-            conteudo: `📄 **${doc.nome} GERADO com modelo AGU:**\n\n${conteudo.slice(0, 1800)}${conteudo.length > 1800 ? "…" : ""}\n\n⬇️ **Baixe** com o botão abaixo ou **edite** se precisar ajustar.`,
-            criadaEm: new Date().toISOString(),
-          });
-        } catch {
-          msg.push({
-            id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
-            conteudo: `📄 **${doc.nome}** gerado! (IA indisponível — use o modelo AGU na jornada do processo para preencher.)`,
-            criadaEm: new Date().toISOString(),
-          });
-        }
-        // Avança para o próximo documento
-        const proximoDoc = FLUXO_DOCUMENTOS[FLUXO_DOCUMENTOS.indexOf(doc) + 1];
-        if (proximoDoc) {
-          estado.documentoAtual = proximoDoc.chave;
-          msg.push({
-            id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-            conteudo: `📄 **${proximoDoc.nome}** — você já tem? Se não, posso **criar com o modelo AGU** também!`,
-            opcoes: ["✅ Já tenho", "❌ Ainda não", "📄 Criar com modelo AGU", "📎 Anexar arquivo"],
-            criadaEm: new Date().toISOString(),
-          });
-        } else {
-          estado.documentoAtual = undefined;
-        }
+        const camposDef = CAMPOS_DOCUMENTO[doc.chave] || [];
+        estado.docColeta = {
+          docChave: doc.chave,
+          campos: {},
+          ordem: camposDef.map(c => c.chave),
+        };
+        estado.etapa = "coleta_doc";
+        const primeiro = camposDef[0];
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "card", etapa: "coleta_doc",
+          conteudo: `📄 **${doc.nome}** — vamos montar com o modelo AGU, **campo por campo** para ficar completo!\n\n🟡 **Pergunta 1/${camposDef.length}:** ${primeiro.pergunta}\n\n💡 ${primeiro.explicacao}\n\n*(pode digitar a resposta, escolher uma opção ou pular — eu completo com o padrão)*`,
+          opcoes: [...(primeiro.opcoes || []), "⏭️ Pular (usar padrão)"],
+          criadaEm: new Date().toISOString(),
+        });
         return { mensagens: msg, estado };
       }
 
@@ -384,6 +387,86 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
         criadaEm: new Date().toISOString(),
       });
+      return { mensagens: msg, estado };
+    }
+
+    // ── 3.5 COLETA GUIADA DE CAMPOS (PC/ETP completos) ──────────
+    case "coleta_doc": {
+      const coleta = estado.docColeta;
+      if (!coleta) { estado.etapa = "documentos"; return { mensagens: msg, estado }; }
+      const camposDef = CAMPOS_DOCUMENTO[coleta.docChave] || [];
+      const campoAtual = coleta.campoAtual || coleta.ordem[0];
+      const campoDef = camposDef.find(c => c.chave === campoAtual);
+
+      // 1. Guarda a resposta do campo atual (se houver)
+      const resposta = (texto || "").trim();
+      if (campoAtual && !coleta.campos[campoAtual]) {
+        if (/pular|padrão|padrao/i.test(resposta)) {
+          coleta.campos[campoAtual] = ""; // padrão
+        } else if (campoAtual === "riscos" && /sim|sugira/i.test(resposta)) {
+          coleta.campos[campoAtual] = "Riscos típicos: atraso na execução (mitigação: cronograma e sanções), superfaturamento (mitigação: pesquisa com 3+ referências), descumprimento contratual (mitigação: garantia e penalidades), interrupção do serviço (mitigação: cláusula de continuidade).";
+        } else if (campoAtual === "alternativas" && /não sei|nao sei|duvida/i.test(resposta)) {
+          coleta.campos[campoAtual] = "Considerou-se a contratação de terceiros como alternativa mais adequada, frente às alternativas de quadro próprio (inviável) e aditivo contratual (inexistente).";
+        } else if (campoAtual === "valorEstimado" && /não sei|nao sei|pesquisa|deixa/i.test(resposta)) {
+          coleta.campos[campoAtual] = "A definir pela pesquisa de preços (PNCP/Painel) com mínimo de 3 referências.";
+        } else {
+          coleta.campos[campoAtual] = resposta;
+        }
+      }
+
+      // 2. Próximo campo ou gera o documento
+      const idxAtual = coleta.ordem.indexOf(campoAtual);
+      const proximoCampo = coleta.ordem[idxAtual + 1];
+      if (proximoCampo) {
+        coleta.campoAtual = proximoCampo;
+        const proxDef = camposDef.find(c => c.chave === proximoCampo);
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "pergunta", etapa: "coleta_doc",
+          conteudo: `✅ Anotado! (${resposta.slice(0, 80) || "padrão"})\n\n🟡 **Pergunta ${idxAtual + 2}/${camposDef.length}:** ${proxDef?.pergunta}\n\n💡 ${proxDef?.explicacao}`,
+          opcoes: [...(proxDef?.opcoes || []), "⏭️ Pular (usar padrão)"],
+          criadaEm: new Date().toISOString(),
+        });
+        return { mensagens: msg, estado };
+      }
+
+      // 3. TODOS os campos coletados → gera o documento completo com IA
+      estado.etapa = "documentos";
+      estado.documentos[coleta.docChave] = { status: "ok", anexadoEm: new Date().toISOString() };
+      const doc = FLUXO_DOCUMENTOS.find(d => d.chave === coleta.docChave);
+      const nomeArquivo = coleta.docChave === "pc" ? "PEDIDO DE COMPRA" : "ESTUDO TÉCNICO PRELIMINAR (ETP)";
+      const camposTexto = Object.entries(coleta.campos)
+        .map(([k, v]) => `${k}: ${v || "(padrão — a definir)"}`).join("\n");
+      try {
+        const { chat } = await import("@/lib/ia");
+        const conteudo = await chat([
+          { role: "system", content: `Você é um especialista em licitações públicas (Lei 14.133/2021). Escreva o documento oficial "${nomeArquivo}" COMPLETO em português, com linguagem formal administrativa, seguindo o modelo AGU. NÃO deixe campos em branco — complete com dados coerentes quando não informados. Estrutura: cabeçalho (órgão, UG, processo), objeto, justificativa, quantitativos (quantidade+unidade), valor estimado, prazo, local de entrega/execução, encaminhamento/riscos e data.` },
+          { role: "user", content: `Objeto: ${estado.objeto || "não informado"}\nUG: ${estado.ug || "não informada"}\nÓrgão: ${memorias.orgao_nome || "não informado"}\nDados coletados:\n${camposTexto}` },
+        ], 0.4);
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
+          conteudo: `📄 **${doc?.nome} GERADO completo (modelo AGU):**\n\n${conteudo.slice(0, 2000)}${conteudo.length > 2000 ? "…" : ""}\n\n⬇️ **Baixe** com o botão abaixo ou **edite** se precisar ajustar.`,
+          criadaEm: new Date().toISOString(),
+        });
+      } catch {
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
+          conteudo: `📄 **${doc?.nome}** gerado! (IA indisponível — use o modelo AGU na jornada do processo.)`,
+          criadaEm: new Date().toISOString(),
+        });
+      }
+      // Avança para o próximo documento
+      const proximoDoc = FLUXO_DOCUMENTOS[FLUXO_DOCUMENTOS.indexOf(doc!) + 1];
+      if (proximoDoc) {
+        estado.documentoAtual = proximoDoc.chave;
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
+          conteudo: `📄 **${proximoDoc.nome}** — você já tem? Se não, posso **criar com o modelo AGU** também (campo por campo)!`,
+          opcoes: ["✅ Já tenho", "❌ Ainda não", "📄 Criar com modelo AGU", "📎 Anexar arquivo"],
+          criadaEm: new Date().toISOString(),
+        });
+      } else {
+        estado.documentoAtual = undefined;
+      }
       return { mensagens: msg, estado };
     }
 

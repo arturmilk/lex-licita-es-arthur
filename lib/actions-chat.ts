@@ -102,6 +102,9 @@ export async function enviarMensagemChat(conversaId: string, texto: string) {
     documentoAtual: estadoSalvo.documentoAtual,
     documentos: estadoSalvo.documentos || {},
     perguntaAtual: estadoSalvo.perguntaAtual,
+    docColeta: estadoSalvo.docColeta,   // coleta guiada (PC/ETP campo a campo)
+    catmat: estadoSalvo.catmat,
+    minuta: estadoSalvo.minuta,
   };
 
   // Mensagem do servidor
