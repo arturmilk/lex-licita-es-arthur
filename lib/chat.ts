@@ -205,7 +205,34 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         });
         return { mensagens: msg, estado };
       }
-      estado.ug = texto.trim();
+
+      // ── VALIDAÇÃO DA UG: entende e verifica a resposta antes de aceitar ──
+      const respostaUG = texto.trim();
+      // Detecta se o usuário respondeu fora do contexto (colou o objeto/documento)
+      const pareceDocumento = /pedido de compra|etp|estudo técnico|termo de referência|edital|contrata|preciso|quero contratar/i.test(respostaUG);
+      const pareceNumero = /^\d{5,6}$/.test(respostaUG.replace(/\D/g, "")) && /\d/.test(respostaUG);
+      const pareceCnpj = /\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/.test(respostaUG);
+
+      if (!pareceNumero && !pareceCnpj) {
+        // Resposta não parece UG → pergunta de novo, entendendo o que ela digitou
+        let aviso = "";
+        if (pareceDocumento) {
+          aviso = `🤔 **Percebi que você colou outro conteúdo** (parece um documento ou o objeto da contratação).\n\nIsso aqui é o campo da **UG** — só o **código numérico** da Unidade Gestora (6 dígitos, ex.: **120001** ou 12.345.678/0001-90).\n\nO documento que você colou, guardo **mais adiante**, quando pedir os documentos do processo. 👍`;
+        } else if (respostaUG.length > 20) {
+          aviso = `🤔 Essa resposta parece **longa demais** para o campo da UG.\n\nA **UG** é só o **código numérico** da Unidade Gestora (ex.: **120001** ou o CNPJ do órgão).`;
+        } else {
+          aviso = `🤔 **"${respostaUG.slice(0, 50)}"** não parece um código de UG.\n\nA **UG (Unidade Gestora)** é identificada por um **número de 6 dígitos** (ex.: **120001**) ou pelo **CNPJ** do órgão (ex.: 12.345.678/0001-90).\n\nPode conferir no SEI/processo ou perguntar ao setor financeiro.`;
+        }
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "texto", etapa: "ug",
+          conteudo: `${aviso}\n\n🔄 Qual a **UG** correta?`,
+          opcoes: ["▶️ Seguir sem UG por enquanto", "Não sei o que é UG"],
+          criadaEm: new Date().toISOString(),
+        });
+        return { mensagens: msg, estado };
+      }
+
+      estado.ug = respostaUG;
       estado.etapa = "documentos";
       estado.documentoAtual = FLUXO_DOCUMENTOS[0].chave;
       estado.documentos.pc = { status: "falta" };
@@ -399,9 +426,21 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       const campoAtual = coleta.campoAtual || coleta.ordem[0];
       const campoDef = camposDef.find(c => c.chave === campoAtual);
 
-      // 1. Guarda a resposta do campo atual (se houver)
+      // 1. Guarda a resposta do campo atual (se houver) — com VALIDAÇÃO por campo
       const resposta = (texto || "").trim();
+
+      // ── Valida a resposta conforme o campo (entende e corrige antes de aceitar) ──
       if (campoAtual && !coleta.campos[campoAtual]) {
+        const invalida = validarCampoColeta(campoAtual, resposta);
+        if (invalida) {
+          msg.push({
+            id: ID(), papel: "sistema", tipo: "texto", etapa: "coleta_doc",
+            conteudo: `${invalida}\n\n🔄 **${campoDef?.pergunta}**\n\n💡 ${campoDef?.explicacao}`,
+            opcoes: [...(campoDef?.opcoes || []), "⏭️ Pular (usar padrão)"],
+            criadaEm: new Date().toISOString(),
+          });
+          return { mensagens: msg, estado };
+        }
         if (/pular|padrão|padrao/i.test(resposta)) {
           coleta.campos[campoAtual] = ""; // padrão
         } else if (campoAtual === "riscos" && /sim|sugira/i.test(resposta)) {
@@ -725,4 +764,42 @@ function explicarDocumento(chave: string): string {
     juridico: "A **análise jurídica** é o parecer da Assessoria Jurídica validando a legalidade do processo (art. 53 da Lei 14.133).",
   };
   return expl[chave] || "Documento necessário para a contratação pública.";
+}
+
+/**
+ * Valida a resposta de um campo da coleta guiada.
+ * Retorna mensagem de aviso amigável se inválida, ou null se OK.
+ */
+function validarCampoColeta(campo: string, resposta: string): string | null {
+  const t = (resposta || "").trim().toLowerCase();
+  if (/pular|padrão|padrao|não sei|nao sei|deixa|sugira|sim$/.test(t)) return null; // aceita escolhas padrão
+
+  switch (campo) {
+    case "quantidade":
+      if (!/\d/.test(resposta)) {
+        return `🤔 **"${resposta.slice(0, 50)}"** não tem um número.\n\nA **quantidade** precisa de um número (ex.: **2** profissionais, **500** resmas, **10** licenças).`;
+      }
+      if (/pedido de compra|etp|edital|contrato|termo de referência|preciso|quero/i.test(t)) {
+        return `🤔 Isso parece um **documento**, não uma quantidade.\n\nAqui quero saber **quantos/quantas** do objeto (ex.: **2** profissionais, **500** resmas).`;
+      }
+      return null;
+    case "unidade":
+      const unidades = ["unidade", "un", "mês", "mes", "resma", "kg", "m²", "m2", "hora", "h", "dia", "serviço", "servico", "pacote", "caixa", "cx", "par", "lote"];
+      if (resposta.length > 20 && !unidades.some(u => t.includes(u))) {
+        return `🤔 **"${resposta.slice(0, 50)}"** não parece uma **unidade de medida**.\n\nUnidades comuns: **unidade, mês, resma, kg, m², hora, caixa**...`;
+      }
+      return null;
+    case "prazo":
+      if (!/\d/.test(resposta) && !/dias|meses|mês|ano|semana|semanal/i.test(t)) {
+        return `🤔 **"${resposta.slice(0, 50)}"** não parece um **prazo**.\n\nPrazo precisa de número + período (ex.: **30 dias**, **12 meses**).`;
+      }
+      return null;
+    case "valorEstimado":
+      if (resposta.length > 0 && !/\d/.test(resposta) && !/pesquisa|pncp|definir|não sei|nao sei/i.test(t)) {
+        return `🤔 **"${resposta.slice(0, 50)}"** não parece um **valor**.\n\nPode digitar um valor (ex.: **45.000,00**) ou responder **"deixa a pesquisa definir"**.`;
+      }
+      return null;
+    default:
+      return null;
+  }
 }
