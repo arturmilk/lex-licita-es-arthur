@@ -234,10 +234,48 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       if (t.includes("quero resolver agora") || t.includes("resolver agora")) {
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-          conteudo: `Perfeito! Vamos resolver o **${doc.nome}** agora.\n\nClique em **📎 Anexar arquivo** para enviar o documento, ou me diga se prefere que eu gere um modelo.`,
-          opcoes: ["📎 Anexar arquivo", "📄 Gerar modelo", "▶️ Seguir mesmo assim"],
+          conteudo: `Perfeito! Vamos resolver o **${doc.nome}** agora.\n\nClique em **📎 Anexar arquivo** para enviar o documento, ou **📄 crie com o modelo AGU** — eu preencho com os dados do processo.`,
+          opcoes: ["📎 Anexar arquivo", "📄 Criar com modelo AGU", "▶️ Seguir mesmo assim"],
           criadaEm: new Date().toISOString(),
         });
+        return { mensagens: msg, estado };
+      }
+
+      // BOTÃO "📄 Criar com modelo AGU": gera o documento com o modelo + IA
+      if (t.includes("criar com modelo agu") || t.includes("criar com o modelo") || t.includes("gerar modelo")) {
+        estado.documentos[doc.chave] = { status: "ok", anexadoEm: new Date().toISOString() };
+        const nomeArquivo = doc.chave === "pc" ? "PEDIDO DE COMPRA" : "ESTUDO TÉCNICO PRELIMINAR (ETP)";
+        try {
+          const { chat } = await import("@/lib/ia");
+          const conteudo = await chat([
+            { role: "system", content: `Você é um especialista em licitações públicas (Lei 14.133/2021). Escreva o documento oficial completo "${nomeArquivo}" em português, com linguagem formal administrativa, baseado no modelo AGU. Estrutura: cabeçalho, objeto, justificativa, quantitativos, dotação, encaminhamento/riscos, data.` },
+            { role: "user", content: `Objeto: ${estado.objeto || "não informado"}\nUG: ${estado.ug || "não informada"}\nÓrgão: ${memorias.orgao_nome || "não informado"}\nModalidade preferida: ${memorias.modalidade_preferida || "pregão eletrônico"}` },
+          ], 0.4);
+          msg.push({
+            id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
+            conteudo: `📄 **${doc.nome} GERADO com modelo AGU:**\n\n${conteudo.slice(0, 1800)}${conteudo.length > 1800 ? "…" : ""}\n\n⬇️ **Baixe** com o botão abaixo ou **edite** se precisar ajustar.`,
+            criadaEm: new Date().toISOString(),
+          });
+        } catch {
+          msg.push({
+            id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
+            conteudo: `📄 **${doc.nome}** gerado! (IA indisponível — use o modelo AGU na jornada do processo para preencher.)`,
+            criadaEm: new Date().toISOString(),
+          });
+        }
+        // Avança para o próximo documento
+        const proximoDoc = FLUXO_DOCUMENTOS[FLUXO_DOCUMENTOS.indexOf(doc) + 1];
+        if (proximoDoc) {
+          estado.documentoAtual = proximoDoc.chave;
+          msg.push({
+            id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
+            conteudo: `📄 **${proximoDoc.nome}** — você já tem? Se não, posso **criar com o modelo AGU** também!`,
+            opcoes: ["✅ Já tenho", "❌ Ainda não", "📄 Criar com modelo AGU", "📎 Anexar arquivo"],
+            criadaEm: new Date().toISOString(),
+          });
+        } else {
+          estado.documentoAtual = undefined;
+        }
         return { mensagens: msg, estado };
       }
 
@@ -269,23 +307,11 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.documentos[doc.chave] = { status: "falta", implicacao: doc.implicacao };
         msg.push({
           id: ID(), papel: "sistema", tipo: "alerta", etapa: "documentos",
-          conteudo: `⚠️ **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\n**Não vou travar** — escolha uma opção para continuar:`,
-          opcoes: ["▶️ Seguir mesmo assim", "🔄 Quero resolver agora", "📎 Anexar arquivo"],
+          conteudo: `⚠️ **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\n**Não vou travar** — escolha uma opção para continuar:\n\n📄 **${doc.nome}** — o que fazer?`,
+          opcoes: ["📄 Criar com modelo AGU", "📎 Anexar arquivo", "▶️ Seguir mesmo assim", "🔄 Quero resolver agora"],
           criadaEm: new Date().toISOString(),
         });
-        // Avança para o próximo documento
-        const proximo = FLUXO_DOCUMENTOS[FLUXO_DOCUMENTOS.indexOf(doc) + 1];
-        if (proximo) {
-          estado.documentoAtual = proximo.chave;
-          msg.push({
-            id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-            conteudo: `📄 **${proximo.nome}** — você já tem?`,
-            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
-            criadaEm: new Date().toISOString(),
-          });
-        } else {
-          estado.documentoAtual = undefined;
-        }
+        // NÃO avança — espera a escolha do servidor (criar/anexar/pular)
         return { mensagens: msg, estado };
       }
 

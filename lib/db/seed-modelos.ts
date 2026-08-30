@@ -12,6 +12,73 @@ import { eq } from "drizzle-orm";
 
 const MODELOS = [
   {
+    nome: "Pedido de Compra (AGU 14.133)",
+    categoria: "pedido_compra",
+    origem: "agu",
+    descricao: "Modelo de Pedido de Compra conforme AGU — Lei 14.133/2021 (Documento de Formalização de Demanda)",
+    campos: ["objeto", "numeroProcesso", "justificativa", "quantidade", "unidade", "data"],
+    conteudoTemplate: `PEDIDO DE COMPRA Nº ____/2026
+PROCESSO ADMINISTRATIVO Nº {{numeroProcesso}}
+
+1. SOLICITANTE
+1.1. Órgão/Unidade: {{orgao}}
+1.2. Unidade Gestora: {{ug}}
+
+2. DO OBJETO DO PEDIDO
+2.1. {{objeto}}
+2.2. Quantidade: {{quantidade}} {{unidade}}
+
+3. DA JUSTIFICATIVA
+3.1. {{justificativa}}
+
+4. DA DISPONIBILIDADE ORÇAMENTÁRIA
+4.1. Dotação orçamentária: {{dotacao}}
+
+5. DO ENCAMINHAMENTO
+5.1. O presente pedido segue para análise e autorização da autoridade competente.
+
+{{data}}`,
+  },
+  {
+    nome: "Estudo Técnico Preliminar — ETP (AGU 14.133)",
+    categoria: "etp",
+    origem: "agu",
+    descricao: "Modelo de Estudo Técnico Preliminar conforme AGU — Lei 14.133/2021 (art. 18)",
+    campos: ["objeto", "numeroProcesso", "justificativa", "julgados", "data"],
+    conteudoTemplate: `ESTUDO TÉCNICO PRELIMINAR (ETP)
+PROCESSO ADMINISTRATIVO Nº {{numeroProcesso}}
+
+1. DESCRIÇÃO DA NECESSIDADE
+1.1. A presente contratação atende à necessidade de: {{objeto}}.
+
+2. REQUISITOS DA CONTRATAÇÃO
+2.1. Os requisitos necessários ao atendimento da necessidade são: qualidade, regularidade e conformidade com as especificações, conforme detalhado no Termo de Referência.
+
+3. ESTIMATIVA DAS QUANTIDADES
+3.1. As quantidades estimadas baseiam-se no histórico de consumo da unidade e na demanda informada pelo setor requisitante.
+
+4. LEVANTAMENTO DE MERCADO
+4.1. Realizada pesquisa de preços com fontes oficiais (PNCP, Painel de Preços, contratações similares), conforme documentação anexa.
+
+5. JUSTIFICATIVA DA ESCOLHA DA SOLUÇÃO
+5.1. {{justificativa}}
+5.2. A solução escolhida apresenta melhor relação custo-benefício e adequação à necessidade, conforme análise de alternativas no processo.
+
+6. ANÁLISE DE RISCOS
+6.1. Os principais riscos identificados e as medidas de mitigação:
+- Risco de atraso na entrega/execução → cláusulas de sanções e cronograma no edital;
+- Risco de superfaturamento → pesquisa de preços com mínimo de 3 referências;
+- Risco de descumprimento contratual → garantia e penalidades previstas em edital.
+
+7. RESULTADOS ESPERADOS
+7.1. Espera-se a continuidade e qualidade do serviço/bem, com preço justo e aderência à legislação.
+
+8. JULGADOS DE APOIO (parâmetro de fundamentação)
+8.1. {{julgados}}
+
+{{data}}`,
+  },
+  {
     nome: "Edital de Pregão Eletrônico (AGU 14.133)",
     categoria: "edital",
     origem: "agu",
@@ -161,16 +228,14 @@ Data: {{data}}`,
 
 async function main() {
   const existentes = await db.select().from(modelosDocumento).where(eq(modelosDocumento.origem, "agu"));
-  if (existentes.length >= MODELOS.length) {
-    console.log(`Modelos AGU já existentes (${existentes.length}). Nada a fazer.`);
-    return;
-  }
+  let criados = 0;
   for (const m of MODELOS) {
     const jaExiste = existentes.some((e) => e.nome === m.nome);
     if (jaExiste) continue;
     await db.insert(modelosDocumento).values({ ...m, ativo: true });
+    criados++;
   }
-  console.log(`Modelos AGU criados: ${MODELOS.length}`);
+  console.log(`Modelos AGU: ${criados > 0 ? criados + " criados" : "nenhum novo"} (total ${MODELOS.length})`);
 }
 
 main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });

@@ -13,12 +13,24 @@ async function sessao() {
   return { userId: user.id as string, orgaoId: user.orgaoId as string, nome: user.nome as string };
 }
 
-/** Lê as preferências aprendidas do órgão (memória). */
+/** Lê as preferências aprendidas do órgão (memória) + dados do cadastro. */
 export async function lerMemoriaOrgao() {
   const { orgaoId } = await sessao();
   const rows = await db.select().from(memoriaOrgao).where(eq(memoriaOrgao.orgaoId, orgaoId));
   const mapa: Record<string, string> = {};
   for (const r of rows) mapa[r.chave] = r.valor;
+  // Auto-preenchimento: dados do cadastro do órgão já entram na memória
+  try {
+    const { orgaos, usuarios } = await import("@/lib/db/schema");
+    const { auth } = await import("@/auth");
+    const session = await auth();
+    const user = session?.user as any;
+    if (user?.orgaoId) {
+      const [orgao] = await db.select({ nome: orgaos.nome }).from(orgaos).where(eq(orgaos.id, user.orgaoId)).limit(1);
+      if (orgao?.nome) mapa.orgao_nome = orgao.nome;
+      if (user.ug) mapa.ug_preferida = user.ug;
+    }
+  } catch { /* cadastro indisponível — segue sem */ }
   return mapa;
 }
 

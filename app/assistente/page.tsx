@@ -391,8 +391,8 @@ export default function ChatGuiadoPage() {
                     </span>
                   </div>
                   <div className="text-sm whitespace-pre-wrap leading-relaxed"><Rich text={m.conteudo} /></div>
-                  {/* Botões Baixar/Editar para documentos (minuta/edital) */}
-                  {m.tipo === "documento" && (m.conteudo.includes("Minuta") || m.conteudo.includes("EDITAL") || m.conteudo.includes("Contrato")) && (
+                  {/* Botões Baixar/Editar para documentos (minuta/edital/PC/ETP) */}
+                  {m.tipo === "documento" && (m.conteudo.includes("Minuta") || m.conteudo.includes("EDITAL") || m.conteudo.includes("Contrato") || m.conteudo.includes("PEDIDO DE COMPRA") || m.conteudo.includes("ESTUDO TÉCNICO")) && (
                     <div className="flex flex-wrap gap-1.5 mt-2.5">
                       <button
                         onClick={() => baixarDocumento(m)}
