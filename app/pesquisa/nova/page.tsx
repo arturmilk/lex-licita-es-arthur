@@ -168,7 +168,8 @@ export default function NovaPesquisaPage() {
   const [iaFiltroReady, setIaFiltroReady] = useState(false);
   const [textoFiltro, setTextoFiltro] = useState("");
   const [regiaoFiltro, setRegiaoFiltro] = useState("todas");
-  const [parametrosBusca, setParametrosBusca] = useState<{ rotulo: string; termo: string; parametros: string }[] | null>(null);
+  const [parametrosBusca, setParametrosBusca] = useState<{ rotulo: string; termo: string; filtros: string; parametros: string }[] | null>(null);
+  const [filtrosPorItem, setFiltrosPorItem] = useState<Record<string, string>>({});
   const [ordenacao, setOrdenacao] = useState<"relevancia" | "valor_asc" | "valor_desc" | "data_desc">("relevancia");
 
   // Período → dias (usado tanto na 1ª busca quanto na paginação)
@@ -344,38 +345,46 @@ export default function NovaPesquisaPage() {
 
     const objetoLimpo = limparTermo(objetoDesc);
 
-    // ── TERMO PARAMETRIZADO: objeto + especificação + quantidade + unidade + local ──
-    // O agente junta TODAS as informações disponíveis para a busca no PNCP.
-    // Quantidade/unidade entram para ajudar a achar itens com porte compatível
-    // (ex: "resma 500 folhas"), e o local/região de entrega orienta relevância.
-    function montarTermo(item?: any): string {
+    // ── TERMO PARAMETRIZADO (2 camadas) ──
+    // CAMADA 1 — TERMO DE BUSCA (o que vai ao PNCP): objeto + especificação apenas.
+    //   Quantidade/unidade/local NÃO entram na string de busca: o PNCP faz busca
+    //   textual — juntar "500 resma Porto Velho/RO" num termo só retorna quase nada
+    //   (ex: "clínico geral" → 1 resultado). O termo essencial garante amplitude.
+    // CAMADA 2 — PRIORIZAÇÃO: quantidade/unidade/local são aplicados DEPOIS, como
+    //   boost de similaridade/ordenação nos resultados (resultados da mesma região
+    //   ou com unidade compatível sobem no ranking).
+    function montarTermoBusca(item?: any): string {
       const partes: string[] = [];
       if (item?.descricao) partes.push(limparTermo(item.descricao));
       if (item?.especificacao) partes.push(limparTermo(item.especificacao));
-      if (item?.quantidade && item.quantidade > 0) partes.push(String(item.quantidade));
-      if (item?.unidadeMedida) partes.push(limparTermo(item.unidadeMedida));
       if (!item && objetoLimpo) partes.unshift(objetoLimpo);
-      // Local/região de entrega: ajuda a priorizar referências da mesma região
-      if (localEntrega) partes.push(limparTermo(localEntrega));
       const termo = partes.filter(Boolean).join(" ").trim();
       return termo || objetoDesc;
     }
+    // Metadados da priorização (não entram na busca — entram no re-ranking)
+    function montarFiltros(item?: any): string {
+      const extras: string[] = [];
+      if (item?.quantidade && item.quantidade > 0 && item.unidadeMedida) extras.push(`${item.quantidade} ${item.unidadeMedida}`);
+      else if (item?.unidadeMedida) extras.push(item.unidadeMedida);
+      if (localEntrega) extras.push(`local=${localEntrega}`);
+      return extras.join(" | ");
+    }
 
     // Um alvo por item (busca separada para cada item/lote)
-    const alvos: { itemId: string; rotulo: string; termo: string; parametros: string }[] = [];
+    const alvos: { itemId: string; rotulo: string; termo: string; filtros: string; parametros: string }[] = [];
     if (formaParcelamento === "global" || itens.length === 0) {
-      const termo = montarTermo();
       alvos.push({
         itemId: "global", rotulo: objetoDesc.slice(0, 60) || "Objeto",
-        termo,
+        termo: montarTermoBusca(),
+        filtros: montarFiltros(),
         parametros: `objeto=${objetoDesc.slice(0, 60)}${localEntrega ? ` | local=${localEntrega}` : ""}`,
       });
     } else {
       const base = itens.filter(i => (i.descricao || "").trim().length > 0);
       for (const item of (base.length ? base : itens)) {
-        const termo = montarTermo(item);
         alvos.push({
-          itemId: item.id, rotulo: item.descricao.slice(0, 60), termo,
+          itemId: item.id, rotulo: item.descricao.slice(0, 60), termo: montarTermoBusca(item),
+          filtros: montarFiltros(item),
           parametros: `${item.descricao.slice(0, 60)}${item.unidadeMedida ? ` | ${item.quantidade || ""} ${item.unidadeMedida}` : ""}${localEntrega ? ` | local=${localEntrega}` : ""}`,
         });
       }
@@ -387,7 +396,10 @@ export default function NovaPesquisaPage() {
     setTermoPorItem(novosTermos);
 
     // Mostra ao servidor quais parâmetros o agente juntou na busca
-    setParametrosBusca(alvos.map(a => ({ rotulo: a.rotulo, termo: a.termo, parametros: a.parametros })));
+    setParametrosBusca(alvos.map(a => ({ rotulo: a.rotulo, termo: a.termo, filtros: a.filtros, parametros: a.parametros })));
+    const mapFiltros: Record<string, string> = {};
+    for (const a of alvos) mapFiltros[a.itemId] = a.filtros;
+    setFiltrosPorItem(mapFiltros);
 
     // Busca multi-fonte — PNCP principal (rápido) + Compras.gov + Contratos.gov.br
     // (preços REAIS pagos). NOTA: precos_abertos leva ~30s (excluído);
@@ -1496,6 +1508,31 @@ export default function NovaPesquisaPage() {
         });
 
         // Ordenação (melhoria): por relevância, valor (crescente/decrescente) ou data
+        // PRIORIZAÇÃO (camada 2): quantidade/unidade/local entram como boost de
+        // relevância — resultados da mesma região ou com unidade compatível sobem.
+        const normTxt = (s: string) => (s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const boostPrioridade = (r: ResultadoPNCP, itemIdAtual: string): number => {
+          let b = 0;
+          const filtros = filtrosPorItem[itemIdAtual] || "";
+          const local = normTxt(localEntrega);
+          const localRes = normTxt(r.localizacao || "");
+          if (local && localRes) {
+            const cidadeLocal = local.split("/")[0].trim();
+            const cidadeRes = localRes.split("/")[0].trim();
+            const ufLocal = local.split("/")[1]?.trim() || "";
+            const ufRes = localRes.split("/")[1]?.trim() || "";
+            if (ufLocal && ufRes && ufLocal === ufRes) b += 30;
+            else if (cidadeLocal && cidadeRes && cidadeLocal === cidadeRes) b += 25;
+          }
+          // Boost +10 se a unidade/quantidade do resultado coincide com a pedida
+          const unidPedida = filtros.match(/(\d+\s+)?(resma|unidade|un|kg|m[²2]|caixa|pct|pacote|lote|serviço|servico|mês|mes|diária|diaria)/i);
+          if (unidPedida) {
+            const un = normTxt(unidPedida[0]);
+            const unRes = normTxt(String(r.dadosBrutos?.unidade_medida || r.dadosBrutos?.unidade || ""));
+            if (unRes && (unRes.includes(un) || un.includes(unRes))) b += 10;
+          }
+          return b;
+        };
         const ordenar = (res: ResultadoPNCP[]) => {
           const lista = [...res];
           const valorDe = (r: ResultadoPNCP) => r.valor_unitario ?? r.valor_total ?? Infinity;
@@ -1503,7 +1540,7 @@ export default function NovaPesquisaPage() {
             case "valor_asc": return lista.sort((a, b) => valorDe(a) - valorDe(b));
             case "valor_desc": return lista.sort((a, b) => valorDe(b) - valorDe(a));
             case "data_desc": return lista.sort((a, b) => new Date(b.data || 0).getTime() - new Date(a.data || 0).getTime());
-            default: return lista.sort((a, b) => b.similaridade - a.similaridade);
+            default: return lista.sort((a, b) => (b.similaridade + boostPrioridade(b, a.itemId || "global")) - (a.similaridade + boostPrioridade(a, a.itemId || "global")));
           }
         };
 
@@ -1796,14 +1833,15 @@ export default function NovaPesquisaPage() {
               {parametrosBusca && parametrosBusca.length > 0 && (
                 <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/40 px-4 py-3">
                   <p className="text-[11px] font-bold text-indigo-700 uppercase tracking-wide mb-1.5">
-                    🔍 Como o agente buscou (objeto + especificação + quantidade + unidade + local)
+                    🔍 Como o agente buscou
                   </p>
                   <div className="space-y-1">
                     {parametrosBusca.map((p, i) => (
                       <div key={i} className="text-[11px] text-slate-600">
                         <span className="font-semibold text-slate-700">{p.rotulo}:</span>{" "}
                         <span className="font-mono text-indigo-800">{p.termo}</span>
-                        {p.parametros && <span className="text-slate-400"> — {p.parametros}</span>}
+                        {p.filtros && <span className="text-slate-400"> · priorizando: {p.filtros}</span>}
+                        {p.parametros && <span className="text-slate-300"> — {p.parametros}</span>}
                       </div>
                     ))}
                   </div>
