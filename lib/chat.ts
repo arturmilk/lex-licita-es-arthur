@@ -15,6 +15,7 @@ export interface MensagemChat {
   papel: "servidor" | "sistema";
   tipo: "texto" | "pergunta" | "documento" | "alerta" | "card";
   conteudo: string;
+  completo?: string;        // documento COMPLETO (para download) — o conteudo é a prévia
   opcoes?: string[];        // botões de resposta rápida
   anexo?: { nome: string; tipo: string };
   etapa?: string;
@@ -445,6 +446,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         msg.push({
           id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
           conteudo: `📄 **${doc?.nome} GERADO completo (modelo AGU):**\n\n${conteudo.slice(0, 2000)}${conteudo.length > 2000 ? "…" : ""}\n\n⬇️ **Baixe** com o botão abaixo ou **edite** se precisar ajustar.`,
+          completo: conteudo,   // documento INTEIRO (download usa este campo)
           criadaEm: new Date().toISOString(),
         });
       } catch {
@@ -607,6 +609,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         msg.push({
           id: ID(), papel: "sistema", tipo: "documento", etapa: "finalizado",
           conteudo: `📝 **Minuta pronta (gerada com IA):**\n\n${minuta.slice(0, 1800)}${minuta.length > 1800 ? "…" : ""}`,
+          completo: minuta,   // minuta INTEIRA (download usa este campo)
           criadaEm: new Date().toISOString(),
         });
       } catch { /* IA indisponível — o resumo já foi entregue */ }
@@ -683,6 +686,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       msg.push({
         id: ID(), papel: "sistema", tipo: "documento", etapa: "edital_pronto",
         conteudo: `📄 **EDITAL ELABORADO**\n\n**CATMAT/CATSER:** ${codigo}\n\n${edital ? edital.slice(0, 2000) + (edital.length > 2000 ? "…" : "") : "Não consegui gerar o edital agora. Use os modelos AGU na jornada do processo."}`,
+        completo: `EDITAL DE LICITAÇÃO\nCATMAT/CATSER: ${codigo}\n\n${edital || ""}`,   // edital INTEIRO
         opcoes: ["⬇️ Baixar edital", "✏️ Editar edital", "📋 Ver painel"],
         criadaEm: new Date().toISOString(),
       });

@@ -31,6 +31,7 @@ interface Mensagem {
   papel: "servidor" | "sistema";
   tipo: "texto" | "pergunta" | "documento" | "alerta" | "card";
   conteudo: string;
+  completo?: string;   // documento completo (para download/edição)
   opcoes?: string[];
   criadaEm: string;
 }
@@ -244,10 +245,10 @@ export default function ChatGuiadoPage() {
     }
   };
 
-  // ── Baixar documento (minuta/edital) ─────────────────────────
+  // ── Baixar documento (usa o texto COMPLETO, não a prévia truncada) ──
   const baixarDocumento = (m: Mensagem) => {
-    const texto = (m.conteudo || "").replace(/\*\*/g, "");
-    const nome = m.conteudo.includes("EDITAL") ? "edital" : "minuta";
+    const texto = (m.completo || m.conteudo || "").replace(/\*\*/g, "");
+    const nome = m.conteudo.includes("EDITAL") ? "edital" : m.conteudo.includes("PEDIDO DE COMPRA") ? "pedido_de_compra" : m.conteudo.includes("ESTUDO TÉCNICO") ? "etp" : "documento";
     const blob = new Blob([texto], { type: "text/plain;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -272,6 +273,7 @@ export default function ChatGuiadoPage() {
         mensagens: [...(prev.mensagens || []), {
           id: "edit-" + Date.now(), papel: "sistema", tipo: "documento",
           conteudo: `✏️ **Documento editado (versão final):**\n\n${editando.texto.slice(0, 1800)}${editando.texto.length > 1800 ? "…" : ""}`,
+          completo: editando.texto,   // versão completa editada
           criadaEm: new Date().toISOString(),
         }, ...r.mensagens],
         etapaAtual: r.estado.etapa,
@@ -401,7 +403,7 @@ export default function ChatGuiadoPage() {
                         ⬇️ Baixar {m.conteudo.includes("EDITAL") ? "edital" : "documento"}
                       </button>
                       <button
-                        onClick={() => setEditando({ m, texto: (m.conteudo || "").replace(/\*\*/g, "") })}
+                        onClick={() => setEditando({ m, texto: (m.completo || m.conteudo || "").replace(/\*\*/g, "") })}
                         className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-white border border-emerald-300 hover:bg-emerald-50 px-3 py-1.5 rounded-full cursor-pointer"
                       >
                         ✏️ Editar
