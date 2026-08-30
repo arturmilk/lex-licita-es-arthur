@@ -52,18 +52,9 @@ export default function PainelPage() {
 
   async function detectar() {
     if (intencao.trim().length < 5) return;
-    setAnalisando(true);
-    setSugestoes(null);
-    setNovoProcesso(null);
-    try {
-      const r = await entenderIntencao(intencao);
-      setSugestoes(r.sugestoes);
-      setTipos(r.tipos);
-    } catch (e: any) {
-      setErro(String(e?.message || e));
-    } finally {
-      setAnalisando(false);
-    }
+    // Agora o fluxo vai para o CHAT GUIADO (assistente conversacional) —
+    // o servidor conversa com o sistema em vez de escolher numa lista.
+    window.location.href = `/assistente?intencao=${encodeURIComponent(intencao.trim())}`;
   }
 
   async function criar(tipoId: string) {

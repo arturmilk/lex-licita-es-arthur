@@ -48,6 +48,28 @@ export default function ChatGuiadoPage() {
 
   useEffect(() => {
     listarConversasChat().then(setHistorico).catch(() => {});
+    // Se veio do painel com ?intencao=, inicia a conversa já com a intenção
+    const qs = new URLSearchParams(window.location.search);
+    const intencao = qs.get("intencao");
+    if (intencao) {
+      (async () => {
+        try {
+          const r = await novaConversaChat();
+          setConversa(r.conversa as Conversa);
+          const resp = await enviarMensagemChat(r.conversa.id, intencao);
+          setConversa(prev => prev ? {
+            ...prev,
+            mensagens: [...(prev.mensagens || []), ...resp.mensagens],
+            etapaAtual: resp.estado.etapa,
+          } : prev);
+          setHistorico(await listarConversasChat());
+          // limpa a URL (não repetir ao recarregar)
+          window.history.replaceState({}, "", "/assistente");
+        } catch (e: any) {
+          setErro(String(e?.message || e));
+        }
+      })();
+    }
   }, []);
 
   useEffect(() => {
