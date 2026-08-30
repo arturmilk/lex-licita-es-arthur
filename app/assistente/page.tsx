@@ -239,32 +239,37 @@ export default function ChatGuiadoPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="max-w-3xl mx-auto h-[calc(100vh-120px)] flex flex-col">
       {/* Cabeçalho */}
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">💬 O que vou contratar hoje?</h1>
-          <p className="text-sm text-slate-500">Eu conduzo sua contratação do início ao fim — digite, fale ou anexe um documento.</p>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-sm">
+            <Bot size={18} className="text-white" />
+          </div>
+          <div>
+            <h1 className="text-base font-bold text-slate-800 leading-tight">Estima.IA Assistente</h1>
+            <p className="text-[11px] text-slate-400">Conduzo sua contratação do início ao fim</p>
+          </div>
         </div>
         <div className="flex gap-2">
           <button
             onClick={() => setMostrarHistorico(!mostrarHistorico)}
-            className="text-xs font-semibold text-slate-600 bg-white border border-slate-200 px-3 py-2 rounded-lg hover:bg-slate-50 cursor-pointer"
+            className="text-xs font-semibold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-full hover:bg-slate-50 cursor-pointer"
           >
             🕘 Conversas ({historico.length})
           </button>
           <button
             onClick={iniciarNova}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-2 rounded-lg cursor-pointer"
+            className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-full cursor-pointer"
           >
-            <Plus size={13} /> Nova contratação
+            <Plus size={13} /> Nova conversa
           </button>
         </div>
       </div>
 
       {/* Histórico de conversas */}
       {mostrarHistorico && (
-        <div className="mb-4 rounded-xl border border-slate-200 bg-white p-3 space-y-1.5">
+        <div className="mb-3 rounded-xl border border-slate-200 bg-white p-3 space-y-1.5 max-h-48 overflow-y-auto">
           {historico.length === 0 && <p className="text-xs text-slate-400 px-2 py-1">Nenhuma conversa ainda.</p>}
           {historico.map((c) => (
             <button
@@ -285,16 +290,27 @@ export default function ChatGuiadoPage() {
         <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{erro}</div>
       )}
 
-      {/* Chat */}
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/50 shadow-sm overflow-hidden">
+      {/* Chat — estilo ChatGPT: sem card, altura total, fundo limpo */}
+      <div className="flex-1 min-h-0 flex flex-col">
         {/* Mensagens */}
-        <div className="h-[52vh] overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto space-y-4 pb-4">
           {!conversa ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-              <Bot size={36} className="text-indigo-300" />
-              <p className="text-sm text-slate-400 max-w-xs">
-                Clique em <strong>Nova contratação</strong> para começar. Eu pergunto o necessário, explico cada documento e conduzo você até a publicação.
+            <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg">
+                <Bot size={28} className="text-white" />
+              </div>
+              <p className="text-base font-semibold text-slate-700">Como posso ajudar hoje?</p>
+              <p className="text-sm text-slate-400 max-w-sm">
+                Diga o que você precisa contratar — eu pergunto o necessário, explico cada documento e conduzo você até a publicação.
               </p>
+              <div className="flex flex-wrap gap-2 justify-center mt-2">
+                <button onClick={iniciarNova} className="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-full cursor-pointer">
+                  ✨ Nova contratação
+                </button>
+                <button onClick={() => setMostrarHistorico(true)} className="text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-full cursor-pointer">
+                  🕘 Ver conversas anteriores
+                </button>
+              </div>
             </div>
           ) : (conversa.mensagens?.length || 0) === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
@@ -304,14 +320,14 @@ export default function ChatGuiadoPage() {
           ) : (
             conversa.mensagens?.map((m) => (
               <div key={m.id} className={`flex ${m.papel === "servidor" ? "justify-end" : "justify-start"}`}>
-                <div className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${estiloBalao(m)}`}>
+                <div className={`max-w-[88%] rounded-3xl px-4 py-3 ${estiloBalao(m)}`}>
                   <div className="flex items-center gap-1.5 mb-1">
                     {iconeBalao(m)}
                     <span className="text-[9px] font-bold uppercase tracking-wide opacity-60">
                       {m.papel === "servidor" ? "Você" : m.tipo === "alerta" ? "Alerta" : m.tipo === "documento" ? "Documento" : "Assistente"}
                     </span>
                   </div>
-                  <div className="text-sm whitespace-pre-wrap"><Rich text={m.conteudo} /></div>
+                  <div className="text-sm whitespace-pre-wrap leading-relaxed"><Rich text={m.conteudo} /></div>
                   {m.opcoes && m.opcoes.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2.5">
                       {m.opcoes.map((op) => (
@@ -348,9 +364,9 @@ export default function ChatGuiadoPage() {
           <div ref={fimRef} />
         </div>
 
-        {/* Input */}
-        <div className="border-t border-slate-200 bg-white p-3">
-          <div className="flex items-end gap-2">
+        {/* Input — estilo ChatGPT: container arredondado com sombra */}
+        <div className="pb-2">
+          <div className="flex items-end gap-2 rounded-3xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm focus-within:border-indigo-400 transition-colors">
             <input
               type="file"
               accept=".pdf,.txt,.md,.docx"
@@ -362,30 +378,30 @@ export default function ChatGuiadoPage() {
               onClick={() => document.getElementById("anexo-chat")?.click()}
               disabled={!conversa || enviando}
               title="Anexar documento (responde à pergunta atual)"
-              className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 text-xs font-semibold cursor-pointer disabled:opacity-40"
+              className="p-2 rounded-full text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 cursor-pointer disabled:opacity-40 shrink-0"
             >
-              <Paperclip size={15} /> Anexar
+              <Paperclip size={18} />
             </button>
             <button
               onClick={gravando ? pararGravacao : iniciarGravacao}
               disabled={!conversa || enviando}
               title={gravando ? "Parar gravação" : "Falar"}
-              className={`p-2.5 rounded-xl border cursor-pointer disabled:opacity-40 ${gravando ? "bg-red-500 border-red-500 text-white animate-pulse" : "border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-300"}`}
+              className={`p-2 rounded-full cursor-pointer disabled:opacity-40 shrink-0 ${gravando ? "bg-red-500 text-white animate-pulse" : "text-slate-400 hover:text-red-600 hover:bg-red-50"}`}
             >
-              <Mic size={16} />
+              <Mic size={18} />
             </button>
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") enviar(input); }}
-              placeholder={conversa ? "Digite sua resposta…" : "Clique em Nova contratação para começar"}
+              placeholder={conversa ? "Digite sua resposta…" : "Clique em Nova conversa para começar"}
               disabled={!conversa || enviando}
-              className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm disabled:bg-slate-50"
+              className="flex-1 bg-transparent px-1 py-1.5 focus:outline-none text-sm disabled:opacity-50"
             />
             <button
               onClick={() => enviar(input)}
               disabled={!conversa || !input.trim() || enviando}
-              className="p-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer disabled:opacity-40"
+              className="p-2 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer disabled:opacity-40 shrink-0"
             >
               <Send size={16} />
             </button>
@@ -398,7 +414,7 @@ export default function ChatGuiadoPage() {
         </div>
       </div>
 
-      <p className="mt-3 text-[11px] text-slate-400 text-center">
+      <p className="mt-1 text-[11px] text-slate-400 text-center">
         O assistente nunca trava: se faltar um documento, ele alerta e explica a implicação — mas segue conduzindo. 🤝
       </p>
     </div>
