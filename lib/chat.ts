@@ -119,8 +119,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       estado.documentos.pc = { status: "falta" };
       msg.push({
         id: ID(), papel: "sistema", tipo: "card", etapa: "documentos",
-        conteudo: `UG anotada ✅\n\nAgora vamos aos **documentos**, um de cada vez. Começando:\n\n📄 **${FLUXO_DOCUMENTOS[0].nome}**\n\nVocê já tem?`,
-        opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?"],
+        conteudo: `UG anotada ✅\n\nAgora vamos aos **documentos**, um de cada vez. Começando:\n\n📄 **${FLUXO_DOCUMENTOS[0].nome}**\n\nVocê já tem? Se tiver o arquivo, **anexe aqui** 📎 que eu identifico e sigo.`,
+        opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -141,11 +141,12 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         return { mensagens: msg, estado };
       }
 
-      if (t.includes("sim") || t.includes("já tenho") || t.includes("tenho") || t.includes("anexar")) {
+      if (t.includes("anexei") || t.includes("anexei o documento") || t.includes("sim") || t.includes("já tenho") || t.includes("tenho") || t.includes("anexar")) {
         estado.documentos[doc.chave] = { status: "ok", anexadoEm: new Date().toISOString() };
         msg.push({
           id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
           conteudo: `✅ **${doc.nome}** recebido! Pode anexar o arquivo aqui 📎 se quiser.`,
+          opcoes: ["📎 Anexar arquivo", "▶️ Seguir"],
           criadaEm: new Date().toISOString(),
         });
         // Avança automaticamente para o próximo documento
@@ -155,7 +156,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
           msg.push({
             id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
             conteudo: `📄 **${proximo.nome}** — você já tem?`,
-            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?"],
+            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
             criadaEm: new Date().toISOString(),
           });
         } else {
@@ -178,7 +179,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
           msg.push({
             id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
             conteudo: `📄 **${proximo.nome}** — você já tem?`,
-            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?"],
+            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
             criadaEm: new Date().toISOString(),
           });
         } else {
@@ -201,7 +202,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       msg.push({
         id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
         conteudo: `📄 **${doc.nome}** — você já tem?`,
-        opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?"],
+        opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };

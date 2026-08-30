@@ -186,7 +186,9 @@ export default function ChatGuiadoPage() {
       const data = await resp.json();
       const resumo = data.resumo;
       const textoIdentificado = resumo?.aconteceu || `Anexei o documento ${file.name}`;
-      // informa ao chat o que foi identificado
+      // O anexo RESPONDE à pergunta atual do chat — o motor reconhece "anexei"
+      // e marca o documento da etapa como recebido. Se o documento não for o
+      // esperado, o chat pergunta de novo.
       const r = await enviarMensagemChat(conversa.id, `Anexei o documento ${file.name}. ${textoIdentificado.slice(0, 200)}`);
       setConversa(prev => prev ? {
         ...prev,
@@ -315,7 +317,14 @@ export default function ChatGuiadoPage() {
                       {m.opcoes.map((op) => (
                         <button
                           key={op}
-                          onClick={() => enviar(op)}
+                          onClick={() => {
+                            // "Anexar arquivo" abre o seletor em vez de enviar texto
+                            if (op.includes("Anexar arquivo")) {
+                              document.getElementById("anexo-chat")?.click();
+                            } else {
+                              enviar(op);
+                            }
+                          }}
                           disabled={enviando}
                           className="text-[11px] font-semibold bg-white border border-slate-300 text-slate-700 hover:border-indigo-400 hover:text-indigo-700 px-2.5 py-1.5 rounded-full cursor-pointer disabled:opacity-50"
                         >
@@ -352,10 +361,10 @@ export default function ChatGuiadoPage() {
             <button
               onClick={() => document.getElementById("anexo-chat")?.click()}
               disabled={!conversa || enviando}
-              title="Anexar documento"
-              className="p-2.5 rounded-xl border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 cursor-pointer disabled:opacity-40"
+              title="Anexar documento (responde à pergunta atual)"
+              className="inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 hover:border-emerald-300 text-xs font-semibold cursor-pointer disabled:opacity-40"
             >
-              <Paperclip size={16} />
+              <Paperclip size={15} /> Anexar
             </button>
             <button
               onClick={gravando ? pararGravacao : iniciarGravacao}
