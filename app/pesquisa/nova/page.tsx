@@ -346,19 +346,19 @@ export default function NovaPesquisaPage() {
     const objetoLimpo = limparTermo(objetoDesc);
 
     // ── TERMO PARAMETRIZADO (2 camadas) ──
-    // CAMADA 1 — TERMO DE BUSCA (o que vai ao PNCP): objeto + especificação apenas.
-    //   Quantidade/unidade/local NÃO entram na string de busca: o PNCP faz busca
-    //   textual — juntar "500 resma Porto Velho/RO" num termo só retorna quase nada
-    //   (ex: "clínico geral" → 1 resultado). O termo essencial garante amplitude.
-    // CAMADA 2 — PRIORIZAÇÃO: quantidade/unidade/local são aplicados DEPOIS, como
-    //   boost de similaridade/ordenação nos resultados (resultados da mesma região
-    //   ou com unidade compatível sobem no ranking).
+    // CAMADA 1 — TERMO DE BUSCA (o que vai ao PNCP): APENAS o núcleo da descrição
+    //   do item (limpo de códigos/ruído). NUNCA entram especificação completa,
+    //   quantidade, unidade ou local — o PNCP faz busca textual de TODAS as
+    //   palavras juntas, e qualquer excesso derruba o resultado (ex: especificação
+    //   longa de clínico geral → 1). Termo curto = amplitude máxima.
+    // CAMADA 2 — PRIORIZAÇÃO: especificação/quantidade/unidade/local aplicados
+    //   DEPOIS, como boost de similaridade/ordenação nos resultados.
     function montarTermoBusca(item?: any): string {
       const partes: string[] = [];
       if (item?.descricao) partes.push(limparTermo(item.descricao));
-      if (item?.especificacao) partes.push(limparTermo(item.especificacao));
-      if (!item && objetoLimpo) partes.unshift(objetoLimpo);
+      if (!item && objetoLimpo) partes.push(objetoLimpo);
       const termo = partes.filter(Boolean).join(" ").trim();
+      // Garante no mínimo o núcleo do objeto
       return termo || objetoDesc;
     }
     // Metadados da priorização (não entram na busca — entram no re-ranking)
@@ -367,6 +367,7 @@ export default function NovaPesquisaPage() {
       if (item?.quantidade && item.quantidade > 0 && item.unidadeMedida) extras.push(`${item.quantidade} ${item.unidadeMedida}`);
       else if (item?.unidadeMedida) extras.push(item.unidadeMedida);
       if (localEntrega) extras.push(`local=${localEntrega}`);
+      if (item?.especificacao) extras.push(`espec=${limparTermo(item.especificacao).slice(0, 80)}`);
       return extras.join(" | ");
     }
 
