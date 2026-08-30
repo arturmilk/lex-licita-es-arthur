@@ -3,6 +3,29 @@ import React, { useEffect, useRef, useState } from "react";
 import { Send, Mic, Paperclip, Loader2, Bot, User, AlertTriangle, CheckCircle2, FileText, Sparkles, Plus } from "lucide-react";
 import { novaConversaChat, enviarMensagemChat, listarConversasChat, criarProcessoDaConversa, carregarConversaChat } from "@/lib/actions-chat";
 
+/** ErrorBoundary — nunca deixa o chat em tela branca: mostra fallback com recarregar. */
+class ChatErrorBoundary extends React.Component<{ children: React.ReactNode }, { erro: boolean }> {
+  state = { erro: false };
+  static getDerivedStateFromError() { return { erro: true }; }
+  componentDidCatch(err: any) { console.error("ChatErrorBoundary:", err); }
+  render() {
+    if (this.state.erro) {
+      return (
+        <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
+          <p className="text-sm text-slate-600">Algo deu errado ao exibir esta conversa 😕</p>
+          <button
+            onClick={() => { this.setState({ erro: false }); window.location.reload(); }}
+            className="text-xs font-semibold text-white bg-indigo-600 px-4 py-2 rounded-full cursor-pointer"
+          >
+            Recarregar conversa
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 interface Mensagem {
   id: string;
   papel: "servidor" | "sistema";
@@ -21,13 +44,14 @@ interface Conversa {
   finalizada: boolean;
 }
 
-/** Renderiza conteúdo com **negrito** simples. */
+/** Renderiza conteúdo com **negrito** simples (protegido contra ** desbalanceados). */
 function Rich({ text }: { text: string }) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  const seguro = (text || "").replace(/\*\*/g, "**");
+  const parts = seguro.split(/(\*\*[^*]+\*\*)/g);
   return (
     <>
       {parts.map((p, i) =>
-        p.startsWith("**") && p.endsWith("**") ? <strong key={i}>{p.slice(2, -2)}</strong> : <span key={i}>{p}</span>
+        p.startsWith("**") && p.endsWith("**") && p.length > 4 ? <strong key={i}>{p.slice(2, -2)}</strong> : <span key={i}>{p}</span>
       )}
     </>
   );
@@ -318,8 +342,9 @@ export default function ChatGuiadoPage() {
               <p className="text-sm text-slate-400">Carregando…</p>
             </div>
           ) : (
-            conversa.mensagens?.map((m) => (
-              <div key={m.id} className={`flex ${m.papel === "servidor" ? "justify-end" : "justify-start"}`}>
+            <ChatErrorBoundary>
+              {conversa.mensagens?.map((m) => (
+                <div key={m.id} className={`flex ${m.papel === "servidor" ? "justify-end" : "justify-start"}`}>
                 <div className={`max-w-[88%] rounded-3xl px-4 py-3 ${estiloBalao(m)}`}>
                   <div className="flex items-center gap-1.5 mb-1">
                     {iconeBalao(m)}
@@ -351,7 +376,8 @@ export default function ChatGuiadoPage() {
                   )}
                 </div>
               </div>
-            ))
+              ))}
+            </ChatErrorBoundary>
           )}
           {enviando && (
             <div className="flex justify-start">
