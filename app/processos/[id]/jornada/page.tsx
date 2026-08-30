@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Circle, Loader2, FileText, History, ShieldAlert, Wand2, ChevronRight, CheckSquare, Sparkles, FileUp } from "lucide-react";
-import { obterTarefasDoProcesso, avancarEtapa, obterHistorico, gerarMinuta, listarMinutas, escreverComIA, obterJornada } from "@/lib/actions-intencao";
+import { obterTarefasDoProcesso, avancarEtapa, obterHistorico, gerarMinuta, listarMinutas, escreverComIA, obterJornada, sugerirDotacaoOrcamentaria } from "@/lib/actions-intencao";
 
 export default function JornadaPage({ params }: { params: { id: string } }) {
   const [tarefas, setTarefas] = useState<any[] | null>(null);
@@ -22,6 +22,8 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
   const [resumoDoc, setResumoDoc] = useState<any | null>(null);
   const [erroDoc, setErroDoc] = useState<string | null>(null);
   const [camposEtapa, setCamposEtapa] = useState<Record<string, string>>({});
+  const [sugestoesDotacao, setSugestoesDotacao] = useState<any[] | null>(null);
+  const [carregandoDotacao, setCarregandoDotacao] = useState(false);
 
   const carregar = async () => {
     const ts = await obterTarefasDoProcesso(params.id);
@@ -70,6 +72,18 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
       setErro(String(e?.message || e));
     } finally {
       setAvancando(false);
+    }
+  }
+
+  async function carregarSugestoesDotacao() {
+    setCarregandoDotacao(true);
+    setSugestoesDotacao(null);
+    try {
+      setSugestoesDotacao(await sugerirDotacaoOrcamentaria(params.id));
+    } catch (e: any) {
+      setErro(String(e?.message || e));
+    } finally {
+      setCarregandoDotacao(false);
     }
   }
 
@@ -243,30 +257,68 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                       </p>
                     </div>
                   ) : (
-                    <input
-                      type="text"
-                      value={camposEtapa[campo] || ""}
-                      onChange={(e) => setCamposEtapa({ ...camposEtapa, [campo]: e.target.value })}
-                      placeholder={
-                        campo === "modalidade" ? "Ex.: Pregão Eletrônico, Concorrência, Dispensa..." :
-                        campo === "objeto" ? "Ex.: Aquisição de papel A4 para uso administrativo" :
-                        campo === "quantidade" ? "Ex.: 500" :
-                        campo === "unidade" ? "Ex.: resma, unidade, kg, m²..." :
-                        campo === "justificativa" ? "Ex.: necessidade de reposição do estoque para o exercício" :
-                        campo === "metodoCalculo" ? "Ex.: média aritmética, mediana, menor preço..." :
-                        campo === "valorEstimado" ? "Ex.: 45.000,00" :
-                        campo === "dotacaoOrcamentaria" ? "Ex.: 2026.11.122.0002.2001 (natureza 339030)" :
-                        campo === "especificacoes" ? "Ex.: 75g/m², branco, 500 folhas, formato A4" :
-                        campo === "condicoesPagamento" ? "Ex.: pagamento em 30 dias após entrega, via nota de empenho" :
-                        campo === "destino" ? "Ex.: Brasília/DF — Almoxarifado Central" :
-                        campo === "motivo" ? "Ex.: participação em reunião de trabalho na sede do órgão" :
-                        campo === "valorDiarias" ? "Ex.: 350,00 (conforme tabela vigente)" :
-                        campo === "tipoLicenca" ? "Ex.: licença para tratamento de saúde, licença-maternidade..." :
-                        campo === "fundamentacaoLegal" ? "Ex.: art. 75, II da Lei 14.133/2021" :
-                        `Informe ${campo}`
-                      }
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
-                    />
+                    <div>
+                      <input
+                        type="text"
+                        value={camposEtapa[campo] || ""}
+                        onChange={(e) => setCamposEtapa({ ...camposEtapa, [campo]: e.target.value })}
+                        placeholder={
+                          campo === "modalidade" ? "Ex.: Pregão Eletrônico, Concorrência, Dispensa..." :
+                          campo === "objeto" ? "Ex.: Aquisição de papel A4 para uso administrativo" :
+                          campo === "quantidade" ? "Ex.: 500" :
+                          campo === "unidade" ? "Ex.: resma, unidade, kg, m²..." :
+                          campo === "justificativa" ? "Ex.: necessidade de reposição do estoque para o exercício" :
+                          campo === "metodoCalculo" ? "Ex.: média aritmética, mediana, menor preço..." :
+                          campo === "valorEstimado" ? "Ex.: 45.000,00" :
+                          campo === "dotacaoOrcamentaria" ? "Ex.: 2026.04.122.2001.0001.3.3.90.30" :
+                          campo === "especificacoes" ? "Ex.: 75g/m², branco, 500 folhas, formato A4" :
+                          campo === "condicoesPagamento" ? "Ex.: pagamento em 30 dias após entrega, via nota de empenho" :
+                          campo === "destino" ? "Ex.: Brasília/DF — Almoxarifado Central" :
+                          campo === "motivo" ? "Ex.: participação em reunião de trabalho na sede do órgão" :
+                          campo === "valorDiarias" ? "Ex.: 350,00 (conforme tabela vigente)" :
+                          campo === "tipoLicenca" ? "Ex.: licença para tratamento de saúde, licença-maternidade..." :
+                          campo === "fundamentacaoLegal" ? "Ex.: art. 75, II da Lei 14.133/2021" :
+                          `Informe ${campo}`
+                        }
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
+                      />
+                      {campo === "dotacaoOrcamentaria" && (
+                        <div className="mt-1.5">
+                          <button
+                            type="button"
+                            onClick={carregarSugestoesDotacao}
+                            disabled={carregandoDotacao}
+                            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg cursor-pointer"
+                          >
+                            {carregandoDotacao ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                            Sugerir com base no objeto
+                          </button>
+
+                          {sugestoesDotacao && sugestoesDotacao.length > 0 && (
+                            <div className="mt-2 space-y-1.5">
+                              <p className="text-[10px] text-slate-400">Sugestões (valide com a unidade de orçamento antes de usar):</p>
+                              {sugestoesDotacao.map((s, i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => setCamposEtapa({ ...camposEtapa, dotacaoOrcamentaria: s.classificacao })}
+                                  className="w-full text-left rounded-lg border border-indigo-100 hover:border-indigo-300 bg-indigo-50/40 hover:bg-indigo-50 px-2.5 py-1.5 cursor-pointer transition-colors"
+                                >
+                                  <span className="flex items-center justify-between gap-2">
+                                    <span className="font-mono text-[11px] font-semibold text-indigo-700">{s.classificacao}</span>
+                                    <span className="text-[10px] font-bold text-indigo-400">{s.compatibilidade}%</span>
+                                  </span>
+                                  <span className="block text-[10px] text-slate-500">{s.descricao}</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          {sugestoesDotacao && sugestoesDotacao.length === 0 && (
+                            <p className="mt-1 text-[10px] text-slate-400">Nenhuma sugestão encontrada para este objeto. Preencha manualmente.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               ))}

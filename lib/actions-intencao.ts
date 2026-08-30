@@ -270,3 +270,20 @@ export async function meAjudaIA(opts: { pergunta: string; contextoPagina: string
   const { meAjuda } = await import("@/lib/ia");
   return meAjuda(opts);
 }
+
+/** 16. Sugere dotação orçamentária com base no objeto do processo. */
+export async function sugerirDotacaoOrcamentaria(processoId: string) {
+  const { orgaoId } = await sessaoContexto();
+  const { sugerirDotacao } = await import("@/lib/dotacao");
+
+  const [proc] = await db.select({ objeto: processos.objeto }).from(processos).where(eq(processos.id, processoId)).limit(1);
+  if (!proc) throw new Error("Processo não encontrado");
+  return sugerirDotacao(proc.objeto);
+}
+
+/** 17. Sugere dotação com base em texto livre (sem processo). */
+export async function sugerirDotacaoPorTexto(texto: string) {
+  await sessaoContexto();
+  const { sugerirDotacao } = await import("@/lib/dotacao");
+  return sugerirDotacao(texto);
+}
