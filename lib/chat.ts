@@ -128,8 +128,10 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       estado.etapa = "ug";
       msg.push({
         id: ID(), papel: "sistema", tipo: "card", etapa: "ug",
-        conteudo: `Entendi! 🎯 Vamos montar a contratação de **${melhor.nomeTipo}** juntos.\n\nObjeto: *${texto.trim().slice(0, 120)}*\n\nPrimeiro: **qual a Unidade Gestora (UG)?**`,
-        opcoes: memorias.ug_preferida ? [`${memorias.ug_preferida} (da última vez)`, "Outra…"] : ["Não sei o que é UG"],
+        conteudo: `Entendi! 🎯 Vamos montar a contratação de **${melhor.nomeTipo}** juntos.\n\nObjeto: *${texto.trim().slice(0, 120)}*\n\nPrimeiro: **qual a Unidade Gestora (UG)?**\n*(Se não souber, sem problema — pode seguir e informar depois!)*`,
+        opcoes: memorias.ug_preferida
+          ? [`${memorias.ug_preferida} (da última vez)`, "Outra…", "▶️ Seguir sem UG por enquanto"]
+          : ["Não sei o que é UG", "▶️ Seguir sem UG por enquanto"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -141,10 +143,24 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         msg.push({
           id: ID(), papel: "sistema", tipo: "texto", etapa: "ug",
           conteudo: "Sem problema! A **UG (Unidade Gestora)** é a unidade administrativa que executa a despesa — geralmente aparece no CNPJ do órgão (ex.: 12.345.678/0001-90). Se preferir, seguimos e você informa depois — deixo como alerta ⚠️.",
-          opcoes: ["Seguir sem UG por enquanto", "Vou informar agora"],
+          opcoes: ["▶️ Seguir sem UG por enquanto", "Vou informar agora"],
           criadaEm: new Date().toISOString(),
         });
         estado.perguntaAtual = "ug";
+        return { mensagens: msg, estado };
+      }
+      // "Seguir sem UG por enquanto" — não trava, segue direto
+      if (t.includes("seguir sem ug") || t.includes("sem ug por enquanto") || t.includes("seguir sem")) {
+        estado.ug = "";
+        estado.etapa = "documentos";
+        estado.documentoAtual = FLUXO_DOCUMENTOS[0].chave;
+        estado.documentos.pc = { status: "falta" };
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "card", etapa: "documentos",
+          conteudo: `UG **não informada** ⚠️ (deixo como alerta — você informa depois).\n\nAgora vamos aos **documentos**, um de cada vez. Começando:\n\n📄 **${FLUXO_DOCUMENTOS[0].nome}**\n\nVocê já tem? Se tiver o arquivo, **anexe aqui** 📎 que eu identifico e sigo.`,
+          opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
+          criadaEm: new Date().toISOString(),
+        });
         return { mensagens: msg, estado };
       }
       estado.ug = texto.trim();
