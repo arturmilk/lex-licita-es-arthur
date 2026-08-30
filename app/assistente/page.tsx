@@ -244,6 +244,44 @@ export default function ChatGuiadoPage() {
     }
   };
 
+  // ── Baixar documento (minuta/edital) ─────────────────────────
+  const baixarDocumento = (m: Mensagem) => {
+    const texto = (m.conteudo || "").replace(/\*\*/g, "");
+    const nome = m.conteudo.includes("EDITAL") ? "edital" : "minuta";
+    const blob = new Blob([texto], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${nome}_estimaia_${new Date().toISOString().slice(0, 10)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // ── Editar documento (abre textarea em tela cheia) ───────────
+  const [editando, setEditando] = useState<{ m: Mensagem; texto: string } | null>(null);
+
+  const salvarEdicao = async () => {
+    if (!editando || !conversa) return;
+    try {
+      // salva a edição como mensagem do sistema (o documento editado fica na conversa)
+      const r = await enviarMensagemChat(conversa.id, `✏️ Editei o documento: ${editando.texto.slice(0, 150)}…`);
+      setConversa(prev => prev ? {
+        ...prev,
+        mensagens: [...(prev.mensagens || []), {
+          id: "edit-" + Date.now(), papel: "sistema", tipo: "documento",
+          conteudo: `✏️ **Documento editado (versão final):**\n\n${editando.texto.slice(0, 1800)}${editando.texto.length > 1800 ? "…" : ""}`,
+          criadaEm: new Date().toISOString(),
+        }, ...r.mensagens],
+        etapaAtual: r.estado.etapa,
+      } : prev);
+      setEditando(null);
+    } catch (e: any) {
+      setErro(String(e?.message || e));
+    }
+  };
+
   const estiloBalao = (m: Mensagem) => {
     if (m.papel === "servidor") return "bg-indigo-600 text-white ml-auto";
     switch (m.tipo) {
@@ -353,6 +391,23 @@ export default function ChatGuiadoPage() {
                     </span>
                   </div>
                   <div className="text-sm whitespace-pre-wrap leading-relaxed"><Rich text={m.conteudo} /></div>
+                  {/* Botões Baixar/Editar para documentos (minuta/edital) */}
+                  {m.tipo === "documento" && (m.conteudo.includes("Minuta") || m.conteudo.includes("EDITAL") || m.conteudo.includes("Contrato")) && (
+                    <div className="flex flex-wrap gap-1.5 mt-2.5">
+                      <button
+                        onClick={() => baixarDocumento(m)}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-full cursor-pointer"
+                      >
+                        ⬇️ Baixar {m.conteudo.includes("EDITAL") ? "edital" : "documento"}
+                      </button>
+                      <button
+                        onClick={() => setEditando({ m, texto: (m.conteudo || "").replace(/\*\*/g, "") })}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-white border border-emerald-300 hover:bg-emerald-50 px-3 py-1.5 rounded-full cursor-pointer"
+                      >
+                        ✏️ Editar
+                      </button>
+                    </div>
+                  )}
                   {m.opcoes && m.opcoes.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mt-2.5">
                       {m.opcoes.map((op) => (
@@ -443,6 +498,39 @@ export default function ChatGuiadoPage() {
       <p className="mt-1 text-[11px] text-slate-400 text-center">
         O assistente nunca trava: se faltar um documento, ele alerta e explica a implicação — mas segue conduzindo. 🤝
       </p>
+
+      {/* Modal de edição do documento */}
+      {editando && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-3">
+          <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
+              <p className="font-bold text-slate-800 text-sm">✏️ Editar documento</p>
+              <button onClick={() => setEditando(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer text-lg leading-none">✕</button>
+            </div>
+            <textarea
+              value={editando.texto}
+              onChange={(e) => setEditando({ ...editando, texto: e.target.value })}
+              className="flex-1 min-h-[50vh] p-4 text-sm font-mono text-slate-800 focus:outline-none resize-none"
+            />
+            <div className="flex items-center justify-between gap-2 px-5 py-3 border-t border-slate-200">
+              <button
+                onClick={() => baixarDocumento({ ...editando.m, conteudo: editando.texto })}
+                className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-lg cursor-pointer"
+              >
+                ⬇️ Baixar
+              </button>
+              <div className="flex gap-2">
+                <button onClick={() => setEditando(null)} className="text-xs font-semibold text-slate-600 bg-slate-100 px-4 py-2 rounded-lg cursor-pointer">
+                  Cancelar
+                </button>
+                <button onClick={salvarEdicao} className="text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 px-4 py-2 rounded-lg cursor-pointer">
+                  💾 Salvar no chat
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

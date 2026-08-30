@@ -22,7 +22,7 @@ export interface MensagemChat {
 }
 
 export interface EstadoChat {
-  etapa: string;                       // intencao | ug | documentos | pesquisa | dotacao | minuta | juridico | finalizado
+  etapa: string;                       // intencao | ug | documentos | pesquisa | dotacao | minuta | juridico | finalizado | edital | edital_catmat | edital_pronto
   objeto?: string;
   tipoProcesso?: string;
   ug?: string;
@@ -30,6 +30,8 @@ export interface EstadoChat {
   documentoAtual?: string;             // qual documento está sendo coletado
   documentos: Record<string, { status: "ok" | "falta" | "pulado"; anexadoEm?: string; implicacao?: string }>;
   perguntaAtual?: string;
+  catmat?: string;                     // código(s) CATMAT/CATSER provável(eis)
+  minuta?: string;                     // minuta gerada (para baixar/editar)
 }
 
 // Fluxo de documentos por tipo de processo (PC → ETP → depois etapas do chat)
@@ -111,6 +113,23 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
   const t = (texto || "").trim().toLowerCase();
 
   switch (estado.etapa) {
+    // ── 0. FINALIZADO → transições ──────────────────────────────
+    case "finalizado": {
+      if (t.includes("elaborar edital") || t.includes("elaborar") || t.includes("edital")) {
+        estado.etapa = "edital";
+        // cai no case edital abaixo (busca CATMAT e pergunta)
+        const { mensagens } = await responder("sim", estado, memorias);
+        return { mensagens, estado };
+      }
+      msg.push({
+        id: ID(), papel: "sistema", tipo: "card", etapa: "finalizado",
+        conteudo: "✅ Contratação mapeada! Você pode **elaborar o edital**, **ver o painel** ou continuar conversando.",
+        opcoes: ["📄 Elaborar edital", "📋 Ver painel", "💬 Continuar conversando"],
+        criadaEm: new Date().toISOString(),
+      });
+      return { mensagens: msg, estado };
+    }
+
     // ── 1. INTENÇÃO ─────────────────────────────────────────────
     case "intencao": {
       const sugestoes = await detectarIntencao(texto);
@@ -462,11 +481,11 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       if (faltas.length) {
         resumo += `\n⚠️ **Faltam:** ${faltas.map(d => d.nome).join(", ")}`;
       }
-      resumo += `\n\nO processo está **${faltas.length ? "em andamento (com alertas)" : "pronto para publicação"}**. Quer ver o painel?`;
+      resumo += `\n\n**Próximo passo:** 📄 **elaborar o EDITAL** com o CATMAT provável!`;
       msg.push({
         id: ID(), papel: "sistema", tipo: "card", etapa: "finalizado",
         conteudo: resumo,
-        opcoes: ["📋 Ver painel", "💬 Continuar conversando"],
+        opcoes: ["📄 Elaborar edital", "📋 Ver painel", "💬 Continuar conversando"],
         criadaEm: new Date().toISOString(),
       });
       // ── RESULTADO PRONTO: gera a minuta + justificativa com IA ──
@@ -482,6 +501,93 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
           criadaEm: new Date().toISOString(),
         });
       } catch { /* IA indisponível — o resumo já foi entregue */ }
+      return { mensagens: msg, estado };
+    }
+
+    // ── 8. EDITAL (com CATMAT provável) ─────────────────────────
+    case "edital": {
+      // Busca CATMAT/CATSER provável pelo objeto
+      let catTexto = "";
+      try {
+        const { catmatProvavel } = await import("@/lib/catmat");
+        const r = await catmatProvavel(estado.objeto || "", 5);
+        estado.catmat = r.itens.map(i => `${i.tipo} ${i.codigo} — ${i.descricao.slice(0, 60)}`).join("\n");
+        if (r.itens.length) {
+          catTexto = `\n\n🔎 **Código(s) provável(eis) encontrado(s):**\n${r.itens.map((i, n) => `${n + 1}. ${i.tipo} **${i.codigo}** — ${i.descricao.slice(0, 70)}`).join("\n")}`;
+        } else {
+          catTexto = "\n\n⚠️ Não encontrei o código exato no catálogo. Posso **sugerir com IA** — ou você informa o código que conhece.";
+        }
+      } catch {
+        catTexto = "\n\n⚠️ Não consegui consultar o catálogo agora. Posso **sugerir com IA** — ou você informa o código.";
+      }
+
+      if (t.includes("elaborar") || t.includes("edital") || t.includes("sim") || t.includes("gerar")) {
+        // Pergunta o CATMAT antes de gerar (com opção de sugerir)
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "card", etapa: "edital",
+          conteudo: `📄 **Edital** — vamos elaborar!\n\n**CATMAT/CATSER provável para o objeto:**\n${estado.catmat || "a consultar…"}${catTexto}\n\n👉 Se tiver **dúvida sobre o código**, eu **sugiro o mais provável** com base no objeto.`,
+          opcoes: ["💡 Sugerir o código com IA", "✍️ Vou informar o código", "▶️ Seguir com o provável"],
+          criadaEm: new Date().toISOString(),
+        });
+        estado.etapa = "edital_catmat";
+        return { mensagens: msg, estado };
+      }
+      msg.push({
+        id: ID(), papel: "sistema", tipo: "pergunta", etapa: "edital",
+        conteudo: "Quer **elaborar o edital** com o CATMAT provável?",
+        opcoes: ["📄 Sim, elaborar edital", "📋 Ver painel", "💬 Continuar conversando"],
+        criadaEm: new Date().toISOString(),
+      });
+      return { mensagens: msg, estado };
+    }
+
+    // ── 9. EDITAL — escolha do CATMAT ───────────────────────────
+    case "edital_catmat": {
+      let codigo = "";
+      if (t.includes("sugerir") || t.includes("ia")) {
+        // IA sugere o código mais provável
+        try {
+          const { chat } = await import("@/lib/ia");
+          const sugestao = await chat([
+            { role: "system", content: "Você é especialista em CATMAT/CATSER (catálogos de materiais e serviços do governo federal). Dado o objeto, diga APENAS o código e o nome, no formato: CÓDIGO — NOME. Ex.: 3910.05.01.0 — SERVIÇOS MÉDICOS" },
+            { role: "user", content: `Objeto: ${estado.objeto}` },
+          ], 0.2);
+          codigo = sugestao.trim().slice(0, 120);
+        } catch { codigo = ""; }
+        if (!codigo) codigo = "Código CATSER provável (consulte o catálogo para confirmar)";
+      } else {
+        // Servidor informou o código
+        codigo = texto.trim().slice(0, 120);
+      }
+
+      // Gera o edital com IA
+      let edital = "";
+      try {
+        const { chat } = await import("@/lib/ia");
+        edital = await chat([
+          { role: "system", content: "Você é um especialista em licitações públicas (Lei 14.133/2021). Escreva um EDITAL DE LICITAÇÃO completo e profissional em português, com: 1) preâmbulo (órgão, processo, modalidade), 2) objeto detalhado com código CATMAT/CATSER, 3) justificativa, 4) condições de participação, 5) critérios de julgamento, 6) prazos e datas, 7) recursos, 8) disposições finais. Linguagem formal de edital." },
+          { role: "user", content: `Objeto: ${estado.objeto || "não informado"}\nCódigo CATMAT/CATSER: ${codigo}\nTipo: ${estado.tipoProcesso || "—"}\nUG: ${estado.ug || "—"}` },
+        ], 0.5);
+      } catch { /* IA indisponível */ }
+
+      estado.etapa = "edital_pronto";
+      msg.push({
+        id: ID(), papel: "sistema", tipo: "documento", etapa: "edital_pronto",
+        conteudo: `📄 **EDITAL ELABORADO**\n\n**CATMAT/CATSER:** ${codigo}\n\n${edital ? edital.slice(0, 2000) + (edital.length > 2000 ? "…" : "") : "Não consegui gerar o edital agora. Use os modelos AGU na jornada do processo."}`,
+        opcoes: ["⬇️ Baixar edital", "✏️ Editar edital", "📋 Ver painel"],
+        criadaEm: new Date().toISOString(),
+      });
+      return { mensagens: msg, estado };
+    }
+
+    // ── 10. EDITAL PRONTO (final) ───────────────────────────────
+    case "edital_pronto": {
+      msg.push({
+        id: ID(), papel: "sistema", tipo: "card", etapa: "edital_pronto",
+        conteudo: "📄 **Edital elaborado!** Você pode **baixar** e **editar** — e na jornada do processo encontra tudo salvo (minuta + edital + julgados + dotação).",
+        opcoes: ["⬇️ Baixar edital", "✏️ Editar edital", "📋 Ver painel"],
+        criadaEm: new Date().toISOString(),
+      });
       return { mensagens: msg, estado };
     }
 
