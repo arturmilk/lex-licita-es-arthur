@@ -12,7 +12,7 @@ import {
   consultarNormas,
   painelGestor,
 } from "@/lib/intencao";
-import { tiposProcesso, tarefas, historicoProcesso, minutas, alertas, processos } from "@/lib/db/schema";
+import { tiposProcesso, tarefas, historicoProcesso, minutas, alertas, processos, julgadosProcesso, modelosDocumento } from "@/lib/db/schema";
 import { eq, and, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 
@@ -286,4 +286,98 @@ export async function sugerirDotacaoPorTexto(texto: string) {
   await sessaoContexto();
   const { sugerirDotacao } = await import("@/lib/dotacao");
   return sugerirDotacao(texto);
+}
+
+/** 18. Busca julgados (TCU + TCE-RO) pelo objeto do processo. */
+export async function buscarJulgadosDoProcesso(processoId: string) {
+  await sessaoContexto();
+  const { buscarJulgadosMulti } = await import("@/lib/julgados");
+  const [proc] = await db.select({ objeto: processos.objeto }).from(processos).where(eq(processos.id, processoId)).limit(1);
+  if (!proc) throw new Error("Processo não encontrado");
+  return buscarJulgadosMulti(proc.objeto);
+}
+
+/** 19. Adiciona um julgado ao processo (link guardado como parâmetro de apoio). */
+export async function adicionarJulgado(processoId: string, j: {
+  tribunal: string; numero: string; relator?: string; orgaoJulgador?: string;
+  ementa?: string; link: string; assunto?: string;
+}) {
+  const { orgaoId } = await sessaoContexto();
+  const [linha] = await db.insert(julgadosProcesso).values({
+    orgaoId, processoId,
+    tribunal: j.tribunal,
+    numero: j.numero?.slice(0, 60),
+    relator: j.relator?.slice(0, 255),
+    orgaoJulgador: j.orgaoJulgador?.slice(0, 120),
+    ementa: j.ementa,
+    link: j.link,
+    assunto: j.assunto?.slice(0, 255),
+  }).returning();
+  return linha;
+}
+
+/** 20. Lista julgados vinculados ao processo. */
+export async function listarJulgados(processoId: string) {
+  await sessaoContexto();
+  return db.select().from(julgadosProcesso).where(eq(julgadosProcesso.processoId, processoId)).orderBy(desc(julgadosProcesso.createdAt));
+}
+
+/** 21. Marca/desmarca julgado como usado na justificativa. */
+export async function alternarJulgadoUsado(julgadoId: string, usado: boolean) {
+  await sessaoContexto();
+  await db.update(julgadosProcesso).set({ usado }).where(eq(julgadosProcesso.id, julgadoId));
+  return { ok: true };
+}
+
+/** 22. Remove julgado do processo. */
+export async function removerJulgado(julgadoId: string) {
+  await sessaoContexto();
+  await db.delete(julgadosProcesso).where(eq(julgadosProcesso.id, julgadoId));
+  return { ok: true };
+}
+
+/** 23. Lista modelos de documentos (AGU etc.) disponíveis. */
+export async function listarModelosDocumento() {
+  await sessaoContexto();
+  return db.select().from(modelosDocumento).where(eq(modelosDocumento.ativo, true)).orderBy(modelosDocumento.categoria, modelosDocumento.nome);
+}
+
+/** 24. Auto-preenche um modelo com dados do processo + julgados marcados como usados. */
+export async function preencherModeloDocumento(processoId: string, modeloId: string) {
+  const { orgaoId } = await sessaoContexto();
+  const { sugerirDotacao } = await import("@/lib/dotacao");
+
+  const [proc] = await db.select().from(processos).where(eq(processos.id, processoId)).limit(1);
+  if (!proc) throw new Error("Processo não encontrado");
+  const [modelo] = await db.select().from(modelosDocumento).where(eq(modelosDocumento.id, modeloId)).limit(1);
+  if (!modelo) throw new Error("Modelo não encontrado");
+
+  const julgados = await db.select().from(julgadosProcesso).where(and(eq(julgadosProcesso.processoId, processoId), eq(julgadosProcesso.usado, true)));
+  const dotacao = sugerirDotacao(proc.objeto)[0]?.classificacao || "—";
+
+  const txt = (s: string) => s || "—";
+  const dataHoje = new Date().toLocaleDateString("pt-BR");
+  const julgadosTxt = julgados.length
+    ? julgados.map((j) => `  • ${j.tribunal === "tcu" ? "TCU" : "TCE-RO"} — Acórdão ${j.numero} (${j.relator || "—"})\n    ${j.link}`).join("\n")
+    : "  (nenhum julgado marcado como usado — adicione na seção Julgados)";
+
+  const substituicoes: Record<string, string> = {
+    "{{objeto}}": txt(proc.objeto),
+    "{{numeroProcesso}}": txt(proc.numero || ""),
+    "{{orgao}}": "Órgão solicitante",
+    "{{unidade}}": "—",
+    "{{dotacao}}": dotacao,
+    "{{modalidade}}": "Pregão Eletrônico",
+    "{{justificativa}}": `A presente contratação visa atender à necessidade de ${txt(proc.objeto).toLowerCase()}, conforme demanda da unidade, estando em conformidade com a Lei nº 14.133/2021 e com os princípios da legalidade, impessoalidade, moralidade, publicidade e eficiência.`,
+    "{{julgados}}": julgadosTxt,
+    "{{data}}": dataHoje,
+    "{{responsavel}}": "Servidor responsável",
+  };
+
+  let conteudo = modelo.conteudoTemplate;
+  for (const [k, v] of Object.entries(substituicoes)) {
+    conteudo = conteudo.split(k).join(v);
+  }
+
+  return { ...modelo, conteudoPreenchido: conteudo, julgadosUsados: julgados.length };
 }

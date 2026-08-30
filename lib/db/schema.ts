@@ -304,6 +304,37 @@ export const baseConhecimento = pgTable("base_conhecimento", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [index("base_conhecimento_orgao_idx").on(t.orgaoId)]);
 
+/** Julgados (acórdãos TCU/TCE) vinculados ao processo como parâmetro de apoio. */
+export const julgadosProcesso = pgTable("julgados_processo", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgaoId: uuid("orgao_id").notNull().references(() => orgaos.id, { onDelete: "cascade" }),
+  processoId: uuid("processo_id").notNull().references(() => processos.id, { onDelete: "cascade" }),
+  tribunal: varchar("tribunal", { length: 30 }).notNull().default("tcu"), // tcu | tce_ro
+  numero: varchar("numero", { length: 60 }),       // ex: 1888/2026
+  relator: varchar("relator", { length: 255 }),
+  orgaoJulgador: varchar("orgao_julgador", { length: 120 }),
+  ementa: text("ementa"),
+  link: text("link"),                               // link do julgado (base de parâmetro)
+  assunto: varchar("assunto", { length: 255 }),
+  usado: boolean("usado").notNull().default(false), // marcado como usado na justificativa
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("julgados_processo_idx").on(t.processoId)]);
+
+/** Modelos de documentos oficiais (AGU etc.) com campos auto-preenchíveis. */
+export const modelosDocumento = pgTable("modelos_documento", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgaoId: uuid("orgao_id").references(() => orgaos.id, { onDelete: "cascade" }),
+  nome: varchar("nome", { length: 255 }).notNull(),
+  categoria: varchar("categoria", { length: 80 }).default("edital"), // edital | contrato | termo_referencia | ata | lista_verificacao | termo_aditivo
+  origem: varchar("origem", { length: 120 }).default("agu"),         // agu | orgao | outro
+  descricao: text("descricao"),
+  // Template com placeholders: {{objeto}}, {{numeroProcesso}}, {{dotacao}}, {{modalidade}}, {{justificativa}}, {{julgados}}, {{data}}, {{orgao}}...
+  conteudoTemplate: text("conteudo_template").notNull(),
+  campos: jsonb("campos").$type<string[]>().default([]),
+  ativo: boolean("ativo").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("modelos_documento_orgao_idx").on(t.orgaoId)]);
+
 // Relations
 export const orgaosRelations = relations(orgaos, ({ many, one }) => ({
   usuarios: many(usuarios),

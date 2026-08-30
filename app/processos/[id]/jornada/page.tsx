@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Circle, Loader2, FileText, History, ShieldAlert, Wand2, ChevronRight, CheckSquare, Sparkles, FileUp } from "lucide-react";
-import { obterTarefasDoProcesso, avancarEtapa, obterHistorico, gerarMinuta, listarMinutas, escreverComIA, obterJornada, sugerirDotacaoOrcamentaria } from "@/lib/actions-intencao";
+import { ArrowLeft, CheckCircle2, Circle, Loader2, FileText, History, ShieldAlert, Wand2, ChevronRight, CheckSquare, Sparkles, FileUp, Scale, Plus } from "lucide-react";
+import { obterTarefasDoProcesso, avancarEtapa, obterHistorico, gerarMinuta, listarMinutas, escreverComIA, obterJornada, sugerirDotacaoOrcamentaria, buscarJulgadosDoProcesso, adicionarJulgado, listarJulgados, alternarJulgadoUsado, removerJulgado, listarModelosDocumento, preencherModeloDocumento } from "@/lib/actions-intencao";
 
 export default function JornadaPage({ params }: { params: { id: string } }) {
   const [tarefas, setTarefas] = useState<any[] | null>(null);
@@ -24,6 +24,15 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
   const [camposEtapa, setCamposEtapa] = useState<Record<string, string>>({});
   const [sugestoesDotacao, setSugestoesDotacao] = useState<any[] | null>(null);
   const [carregandoDotacao, setCarregandoDotacao] = useState(false);
+  const [julgados, setJulgados] = useState<any[]>([]);
+  const [resultadoJulgados, setResultadoJulgados] = useState<any[] | null>(null);
+  const [buscandoJulgados, setBuscandoJulgados] = useState(false);
+  const [erroJulgados, setErroJulgados] = useState<string | null>(null);
+  const [modelos, setModelos] = useState<any[]>([]);
+  const [modeloSelecionado, setModeloSelecionado] = useState("");
+  const [preenchendoModelo, setPreenchendoModelo] = useState(false);
+  const [conteudoModeloPreenchido, setConteudoModeloPreenchido] = useState<string | null>(null);
+  const [julgadosUsados, setJulgadosUsados] = useState(0);
 
   const carregar = async () => {
     const ts = await obterTarefasDoProcesso(params.id);
@@ -39,6 +48,9 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
         setEtapasModelo(await obterJornada(tipoId));
       } catch { /* modelo indisponível */ }
     }
+    // Julgados guardados + modelos AGU
+    setJulgados(await listarJulgados(params.id).catch(() => []));
+    setModelos(await listarModelosDocumento().catch(() => []));
   };
 
   useEffect(() => {
@@ -84,6 +96,78 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
       setErro(String(e?.message || e));
     } finally {
       setCarregandoDotacao(false);
+    }
+  }
+
+  async function buscarJulgados() {
+    setBuscandoJulgados(true);
+    setResultadoJulgados(null);
+    setErroJulgados(null);
+    try {
+      const r = await buscarJulgadosDoProcesso(params.id);
+      setResultadoJulgados(r);
+    } catch (e: any) {
+      setErroJulgados(String(e?.message || e));
+    } finally {
+      setBuscandoJulgados(false);
+    }
+  }
+
+  async function adicionarJulgadoDoProcesso(j: any) {
+    try {
+      await adicionarJulgado(params.id, {
+        tribunal: j.tribunal, numero: j.numero, relator: j.relator,
+        orgaoJulgador: j.orgaoJulgador, ementa: j.ementa, link: j.link, assunto: j.assunto,
+      });
+      setJulgados(await listarJulgados(params.id));
+      setResultadoJulgados(null);
+    } catch (e: any) {
+      setErro(String(e?.message || e));
+    }
+  }
+
+  async function alternarUsado(id: string, usado: boolean) {
+    try {
+      await alternarJulgadoUsado(id, usado);
+      setJulgados(await listarJulgados(params.id));
+    } catch (e: any) {
+      setErro(String(e?.message || e));
+    }
+  }
+
+  async function removerJulgadoDoProcesso(id: string) {
+    try {
+      await removerJulgado(id);
+      setJulgados(await listarJulgados(params.id));
+    } catch (e: any) {
+      setErro(String(e?.message || e));
+    }
+  }
+
+  async function preencherModelo() {
+    if (!modeloSelecionado) return;
+    setPreenchendoModelo(true);
+    try {
+      const r = await preencherModeloDocumento(params.id, modeloSelecionado);
+      setConteudoModeloPreenchido(r.conteudoPreenchido);
+      setJulgadosUsados(r.julgadosUsados || 0);
+    } catch (e: any) {
+      setErro(String(e?.message || e));
+    } finally {
+      setPreenchendoModelo(false);
+    }
+  }
+
+  async function salvarModeloComoMinuta() {
+    if (!conteudoModeloPreenchido) return;
+    try {
+      const nome = modelos.find((m: any) => m.id === modeloSelecionado)?.nome || "Modelo AGU";
+      await gerarMinuta({ processoId: params.id, tipo: "modelo_agu", contexto: `Modelo: ${nome}\n\n${conteudoModeloPreenchido}` });
+      setMinutas(await listarMinutas(params.id));
+      setErro("Documento salvo como minuta do processo!");
+      setTimeout(() => setErro(null), 4000);
+    } catch (e: any) {
+      setErro(String(e?.message || e));
     }
   }
 
@@ -443,6 +527,143 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           </div>
         )}
         {erroDoc && <p className="mt-2 text-xs text-red-600">{erroDoc}</p>}
+      </div>
+
+      {/* Julgados de apoio (TCU/TCE) */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <Scale size={16} className="text-rose-600" />
+          <h3 className="font-semibold text-slate-800 text-sm">Julgados de apoio (TCU/TCE)</h3>
+        </div>
+        <p className="text-xs text-slate-500 mb-3">
+          Busque acórdãos sobre o objeto e guarde os links no processo — servem de parâmetro para o edital, para a justificativa e para fundamentar recursos.
+        </p>
+
+        <div className="flex flex-wrap gap-2 mb-3">
+          <button
+            onClick={buscarJulgados}
+            disabled={buscandoJulgados}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg cursor-pointer"
+          >
+            {buscandoJulgados ? <Loader2 size={12} className="animate-spin" /> : <Scale size={12} />}
+            Buscar julgados sobre o objeto
+          </button>
+        </div>
+
+        {erroJulgados && <p className="text-xs text-red-600 mb-2">{erroJulgados}</p>}
+
+        {resultadoJulgados && (
+          <div className="mb-3 space-y-2">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+              Resultados ({resultadoJulgados.length}) — clique para adicionar ao processo:
+            </p>
+            {resultadoJulgados.length === 0 && <p className="text-xs text-slate-400">Nenhum julgado encontrado (TCU pode estar bloqueando por limite de consultas).</p>}
+            {resultadoJulgados.map((j: any, i: number) => (
+              <div key={i} className="rounded-lg border border-rose-100 bg-rose-50/40 px-3 py-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800">
+                      {j.tribunal === "tcu" ? "TCU" : "TCE-RO"} — Acórdão {j.numero}
+                      {j.relator && j.relator !== "—" ? <span className="font-normal text-slate-500"> · Rel. {j.relator}</span> : null}
+                    </p>
+                    <p className="text-[11px] text-slate-500 line-clamp-2">{j.ementa.slice(0, 160)}</p>
+                  </div>
+                  <button
+                    onClick={() => adicionarJulgadoDoProcesso(j)}
+                    className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-white bg-rose-600 hover:bg-rose-700 px-2 py-1 rounded-md cursor-pointer"
+                  >
+                    <Plus size={10} /> Guardar
+                  </button>
+                </div>
+                <a href={j.link} target="_blank" rel="noreferrer" className="text-[10px] text-rose-600 hover:underline break-all">🔗 {j.link}</a>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {julgados.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Guardados no processo ({julgados.length}):</p>
+            {julgados.map((j: any) => (
+              <div key={j.id} className={`rounded-lg border px-3 py-2 ${j.usado ? "border-green-300 bg-green-50/50" : "border-slate-200 bg-white"}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800">
+                      {j.tribunal === "tcu" ? "TCU" : "TCE-RO"} — Acórdão {j.numero}
+                      {j.usado && <span className="ml-1.5 text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">USADO NA JUSTIFICATIVA</span>}
+                    </p>
+                    {j.ementa && <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{j.ementa.slice(0, 140)}</p>}
+                    {j.link && <a href={j.link} target="_blank" rel="noreferrer" className="text-[10px] text-rose-600 hover:underline break-all">🔗 {j.link}</a>}
+                  </div>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <button
+                      onClick={() => alternarUsado(j.id, !j.usado)}
+                      className={`text-[10px] font-bold px-2 py-1 rounded-md cursor-pointer ${j.usado ? "bg-green-600 text-white" : "bg-slate-200 text-slate-600 hover:bg-slate-300"}`}
+                    >
+                      {j.usado ? "✓ Em uso" : "Marcar em uso"}
+                    </button>
+                    <button onClick={() => removerJulgadoDoProcesso(j.id)} className="text-[10px] text-red-400 hover:text-red-600 cursor-pointer">remover</button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modelos de documento (AGU) auto-preenchíveis */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <FileText size={16} className="text-violet-600" />
+          <h3 className="font-semibold text-slate-800 text-sm">Modelos de documento (AGU)</h3>
+        </div>
+        <p className="text-xs text-slate-500 mb-3">
+          Escolha um modelo oficial (Lei 14.133/2021) — ele é <strong>auto-preenchido</strong> com o objeto, dotação, justificativa e os julgados marcados como em uso.
+        </p>
+
+        <select
+          value={modeloSelecionado}
+          onChange={(e) => setModeloSelecionado(e.target.value)}
+          className="w-full sm:w-auto px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-violet-400 text-sm mb-3"
+        >
+          <option value="">Selecione um modelo…</option>
+          {modelos.map((m: any) => (
+            <option key={m.id} value={m.id}>{m.nome}</option>
+          ))}
+        </select>
+
+        {modeloSelecionado && (
+          <button
+            onClick={preencherModelo}
+            disabled={preenchendoModelo}
+            className="ml-2 inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 px-3 py-2 rounded-lg cursor-pointer"
+          >
+            {preenchendoModelo ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
+            Auto-preenchar com dados do processo
+          </button>
+        )}
+
+        {conteudoModeloPreenchido && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] font-semibold text-violet-500 uppercase tracking-wide">
+                Documento preenchido ({julgadosUsados} julgado(s) em uso incluídos)
+              </p>
+              <button
+                onClick={salvarModeloComoMinuta}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-violet-600 hover:bg-violet-700 px-3 py-1.5 rounded-lg cursor-pointer"
+              >
+                <CheckCircle2 size={12} /> Salvar como minuta do processo
+              </button>
+            </div>
+            <textarea
+              value={conteudoModeloPreenchido}
+              onChange={(e) => setConteudoModeloPreenchido(e.target.value)}
+              rows={16}
+              className="w-full font-mono text-[11px] leading-relaxed text-slate-700 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-violet-400"
+            />
+          </div>
+        )}
       </div>
 
       {/* Histórico */}
