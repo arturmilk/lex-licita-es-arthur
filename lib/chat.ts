@@ -175,6 +175,37 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         return { mensagens: msg, estado };
       }
 
+      // BOTÃO "▶️ Seguir mesmo assim" / "▶️ Seguir": avança sem travar
+      if (t.includes("seguir mesmo assim") || t.includes("▶️ seguir") || t.includes("seguir")) {
+        if (estado.documentos[doc.chave]?.status !== "ok") {
+          estado.documentos[doc.chave] = { status: "falta", implicacao: doc.implicacao };
+        }
+        const proximo = FLUXO_DOCUMENTOS[FLUXO_DOCUMENTOS.indexOf(doc) + 1];
+        if (proximo) {
+          estado.documentoAtual = proximo.chave;
+          msg.push({
+            id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
+            conteudo: `✅ Seguindo! 📄 **${proximo.nome}** — você já tem?`,
+            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
+            criadaEm: new Date().toISOString(),
+          });
+        } else {
+          estado.documentoAtual = undefined;
+        }
+        return { mensagens: msg, estado };
+      }
+
+      // BOTÃO "🔄 Quero resolver agora": pede o anexo
+      if (t.includes("quero resolver agora") || t.includes("resolver agora")) {
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
+          conteudo: `Perfeito! Vamos resolver o **${doc.nome}** agora.\n\nClique em **📎 Anexar arquivo** para enviar o documento, ou me diga se prefere que eu gere um modelo.`,
+          opcoes: ["📎 Anexar arquivo", "📄 Gerar modelo", "▶️ Seguir mesmo assim"],
+          criadaEm: new Date().toISOString(),
+        });
+        return { mensagens: msg, estado };
+      }
+
       if (t.includes("anexei") || t.includes("anexei o documento") || t.includes("sim") || t.includes("já tenho") || t.includes("tenho") || t.includes("anexar")) {
         estado.documentos[doc.chave] = { status: "ok", anexadoEm: new Date().toISOString() };
         msg.push({
@@ -203,7 +234,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.documentos[doc.chave] = { status: "falta", implicacao: doc.implicacao };
         msg.push({
           id: ID(), papel: "sistema", tipo: "alerta", etapa: "documentos",
-          conteudo: `⚠️ **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\nNão vou travar, seguimos — mas **recomendo anexar antes da etapa jurídica**.`,
+          conteudo: `⚠️ **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\n**Não vou travar** — escolha uma opção para continuar:`,
+          opcoes: ["▶️ Seguir mesmo assim", "🔄 Quero resolver agora", "📎 Anexar arquivo"],
           criadaEm: new Date().toISOString(),
         });
         // Avança para o próximo documento
@@ -258,7 +290,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.documentos[doc.chave] = { status: "falta", implicacao: doc.implicacao };
         msg.push({
           id: ID(), papel: "sistema", tipo: "alerta", etapa: "documentos",
-          conteudo: `⚠️ **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\nNão vou travar, seguimos — mas **recomendo anexar antes da etapa jurídica**.`,
+          conteudo: `⚠️ **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\n**Não vou travar** — escolha uma opção para continuar:`,
+          opcoes: ["▶️ Seguir mesmo assim", "🔄 Quero resolver agora", "📎 Anexar arquivo"],
           criadaEm: new Date().toISOString(),
         });
         const proximo = FLUXO_DOCUMENTOS[FLUXO_DOCUMENTOS.indexOf(doc) + 1];
@@ -328,7 +361,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       msg.push({
         id: ID(), papel: "sistema", tipo: "pergunta", etapa: "pesquisa",
         conteudo: `Busco a pesquisa no **${memorias.fonte_preco || "PNCP"}**?`,
-        opcoes: ["✅ Sim", "🎯 Outra fonte", "❓ Explica"],
+        opcoes: ["✅ Sim", "🎯 Outra fonte", "❓ Explica", "▶️ Seguir com PNCP"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -354,7 +387,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       msg.push({
         id: ID(), papel: "sistema", tipo: "pergunta", etapa: "dotacao",
         conteudo: "E a **dotação orçamentária**? Usa a sugestão ou informa a sua?",
-        opcoes: ["💡 Sugestão do sistema", "✍️ Informar a minha"],
+        opcoes: ["💡 Sugestão do sistema", "✍️ Informar a minha", "▶️ Seguir com a sugestão"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -395,7 +428,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       msg.push({
         id: ID(), papel: "sistema", tipo: "pergunta", etapa: "minuta",
         conteudo: "Como prefere a **minuta**?",
-        opcoes: ["✨ Gerar com IA", "📄 Modelo AGU", "✍️ Tenho a minha"],
+        opcoes: ["✨ Gerar com IA", "📄 Modelo AGU", "✍️ Tenho a minha", "▶️ Seguir com IA"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
