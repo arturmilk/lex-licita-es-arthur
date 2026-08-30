@@ -44,6 +44,40 @@ export const FLUXO_DOCUMENTOS = [
 
 const ID = () => Math.random().toString(36).slice(2, 10);
 
+/**
+ * Interpreta a resposta livre do servidor com IA — entendendo o que ele
+ * realmente quis dizer em cada etapa (evita o loop de "não entendi").
+ * Retorna { intencao, resposta } onde intencao é uma das ações esperadas.
+ */
+async function interpretarComIA(texto: string, estado: EstadoChat): Promise<{ intencao: string; resposta: string }> {
+  try {
+    const { chat } = await import("@/lib/ia");
+    const docAtual = FLUXO_DOCUMENTOS.find(d => d.chave === estado.documentoAtual);
+    const contexto = [
+      `Etapa atual do fluxo de contratação pública: ${estado.etapa}`,
+      estado.documentoAtual ? `Documento sendo perguntado: ${docAtual?.nome || estado.documentoAtual}` : "",
+      estado.objeto ? `Objeto: ${estado.objeto}` : "",
+      "O servidor é um usuário de órgão público que pode nunca ter feito licitação.",
+      "Responda APENAS com JSON: {\"intencao\": \"uma de: confirmar | negar | explicar | informar | anexar | avancar\", \"resposta\": \"texto curto do que o usuário quis dizer\"}",
+    ].filter(Boolean).join("\n");
+    const out = await chat([
+      { role: "system", content: contexto },
+      { role: "user", content: `Resposta do servidor: "${texto}"` },
+    ], 0.2);
+    const m = out.match(/\{[\s\S]*\}/);
+    if (m) {
+      const j = JSON.parse(m[0]);
+      return { intencao: String(j.intencao || "").toLowerCase(), resposta: String(j.resposta || "") };
+    }
+  } catch { /* fallback para regras */ }
+  const t = texto.toLowerCase();
+  if (/não|nao|ainda nao|ainda não|sem /.test(t)) return { intencao: "negar", resposta: texto };
+  if (/sim|tenho|já|ja|ok|pode|confirmo|anexei/.test(t)) return { intencao: "confirmar", resposta: texto };
+  if (/o que é|o que e|como funciona|explica|o que significa/.test(t)) return { intencao: "explicar", resposta: texto };
+  if (/anexar|anexei|arquivo|documento/.test(t)) return { intencao: "anexar", resposta: texto };
+  return { intencao: "informar", resposta: texto };
+}
+
 /** Cria um estado inicial de chat. */
 export function estadoInicial(): EstadoChat {
   return {
@@ -198,10 +232,61 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         return { mensagens: msg, estado };
       }
 
-      // próxima pergunta do documento atual
+      // ── Resposta livre: interpreta com IA (evita loop) ──
+      const { intencao, resposta } = await interpretarComIA(texto, estado);
+      if (intencao === "confirmar") {
+        estado.documentos[doc.chave] = { status: "ok", anexadoEm: new Date().toISOString() };
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
+          conteudo: `✅ **${doc.nome}** registrado! (${resposta.slice(0, 100)})`,
+          opcoes: ["📎 Anexar arquivo", "▶️ Seguir"],
+          criadaEm: new Date().toISOString(),
+        });
+        const proximo = FLUXO_DOCUMENTOS[FLUXO_DOCUMENTOS.indexOf(doc) + 1];
+        if (proximo) {
+          estado.documentoAtual = proximo.chave;
+          msg.push({
+            id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
+            conteudo: `📄 **${proximo.nome}** — você já tem?`,
+            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
+            criadaEm: new Date().toISOString(),
+          });
+        } else estado.documentoAtual = undefined;
+        return { mensagens: msg, estado };
+      }
+      if (intencao === "negar") {
+        estado.documentos[doc.chave] = { status: "falta", implicacao: doc.implicacao };
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "alerta", etapa: "documentos",
+          conteudo: `⚠️ **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\nNão vou travar, seguimos — mas **recomendo anexar antes da etapa jurídica**.`,
+          criadaEm: new Date().toISOString(),
+        });
+        const proximo = FLUXO_DOCUMENTOS[FLUXO_DOCUMENTOS.indexOf(doc) + 1];
+        if (proximo) {
+          estado.documentoAtual = proximo.chave;
+          msg.push({
+            id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
+            conteudo: `📄 **${proximo.nome}** — você já tem?`,
+            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
+            criadaEm: new Date().toISOString(),
+          });
+        } else estado.documentoAtual = undefined;
+        return { mensagens: msg, estado };
+      }
+      if (intencao === "explicar") {
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "texto", etapa: "documentos",
+          conteudo: `📘 **${doc.nome}** — o que é:\n\n${explicarDocumento(doc.chave)}\n\nTem um modelo pronto se precisar!`,
+          opcoes: ["📎 Gerar/baixar modelo", "✅ Já entendi, tenho", "❌ Ainda não tenho"],
+          criadaEm: new Date().toISOString(),
+        });
+        return { mensagens: msg, estado };
+      }
+      // "informar" — o servidor deu uma informação extra; reconhece e pergunta de novo
+      // de forma amigável (não é loop: a resposta foi absorvida)
       msg.push({
         id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-        conteudo: `📄 **${doc.nome}** — você já tem?`,
+        conteudo: `Anotado! (${resposta.slice(0, 120)})\n\n📄 **${doc.nome}** — você já tem?`,
         opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
         criadaEm: new Date().toISOString(),
       });
@@ -335,6 +420,19 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         opcoes: ["📋 Ver painel", "💬 Continuar conversando"],
         criadaEm: new Date().toISOString(),
       });
+      // ── RESULTADO PRONTO: gera a minuta + justificativa com IA ──
+      try {
+        const { chat } = await import("@/lib/ia");
+        const minuta = await chat([
+          { role: "system", content: "Você é um especialista em licitações públicas (Lei 14.133/2021). Escreva uma MINUTA DE CONTRATAÇÃO completa e profissional em português, com: 1) objeto detalhado, 2) justificativa da necessidade, 3) requisitos do contratado, 4) estimativa de preços com base na pesquisa, 5) dotação orçamentária, 6) condições de pagamento, 7) vigência, 8) cláusula de sanções. Use linguagem formal de edital." },
+          { role: "user", content: `Objeto: ${estado.objeto || "não informado"}\nTipo: ${estado.tipoProcesso || "—"}\nUG: ${estado.ug || "—"}\nDocumentos OK: ${FLUXO_DOCUMENTOS.filter(d => estado.documentos[d.chave]?.status === "ok").map(d => d.nome).join(", ") || "nenhum"}\nDocumentos faltando: ${faltas.map(d => d.nome).join(", ") || "nenhum"}` },
+        ], 0.5);
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "documento", etapa: "finalizado",
+          conteudo: `📝 **Minuta pronta (gerada com IA):**\n\n${minuta.slice(0, 1800)}${minuta.length > 1800 ? "…" : ""}`,
+          criadaEm: new Date().toISOString(),
+        });
+      } catch { /* IA indisponível — o resumo já foi entregue */ }
       return { mensagens: msg, estado };
     }
 

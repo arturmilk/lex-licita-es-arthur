@@ -16,7 +16,7 @@ interface ChatMsg {
   content: string;
 }
 
-async function chat(messages: ChatMsg[], temperature = 0.3): Promise<string> {
+export async function chat(messages: ChatMsg[], temperature = 0.3): Promise<string> {
   if (!API_KEY) throw new Error("DEEPSEEK_API_KEY não configurada.");
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: "POST",
