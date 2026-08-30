@@ -228,18 +228,43 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                      campo}
                   </label>
                   {campo.toLowerCase().includes("data") ? (
-                    <input
-                      type="date"
-                      value={camposEtapa[campo] || ""}
-                      onChange={(e) => setCamposEtapa({ ...camposEtapa, [campo]: e.target.value })}
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
-                    />
+                    <div>
+                      <input
+                        type="date"
+                        value={camposEtapa[campo] || ""}
+                        onChange={(e) => setCamposEtapa({ ...camposEtapa, [campo]: e.target.value })}
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
+                      />
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {campo === "dataAbertura" ? "Ex.: 15/10/2026 — data prevista para abertura das propostas" :
+                         campo === "dataInicio" ? "Ex.: 01/09/2026 — primeiro dia da viagem/licença" :
+                         campo === "dataFim" ? "Ex.: 05/09/2026 — último dia" :
+                         "Selecione a data"}
+                      </p>
+                    </div>
                   ) : (
                     <input
                       type="text"
                       value={camposEtapa[campo] || ""}
                       onChange={(e) => setCamposEtapa({ ...camposEtapa, [campo]: e.target.value })}
-                      placeholder={`Informe ${campo === "dataAbertura" ? "a data" : "o valor"}`}
+                      placeholder={
+                        campo === "modalidade" ? "Ex.: Pregão Eletrônico, Concorrência, Dispensa..." :
+                        campo === "objeto" ? "Ex.: Aquisição de papel A4 para uso administrativo" :
+                        campo === "quantidade" ? "Ex.: 500" :
+                        campo === "unidade" ? "Ex.: resma, unidade, kg, m²..." :
+                        campo === "justificativa" ? "Ex.: necessidade de reposição do estoque para o exercício" :
+                        campo === "metodoCalculo" ? "Ex.: média aritmética, mediana, menor preço..." :
+                        campo === "valorEstimado" ? "Ex.: 45.000,00" :
+                        campo === "dotacaoOrcamentaria" ? "Ex.: 2026.11.122.0002.2001 (natureza 339030)" :
+                        campo === "especificacoes" ? "Ex.: 75g/m², branco, 500 folhas, formato A4" :
+                        campo === "condicoesPagamento" ? "Ex.: pagamento em 30 dias após entrega, via nota de empenho" :
+                        campo === "destino" ? "Ex.: Brasília/DF — Almoxarifado Central" :
+                        campo === "motivo" ? "Ex.: participação em reunião de trabalho na sede do órgão" :
+                        campo === "valorDiarias" ? "Ex.: 350,00 (conforme tabela vigente)" :
+                        campo === "tipoLicenca" ? "Ex.: licença para tratamento de saúde, licença-maternidade..." :
+                        campo === "fundamentacaoLegal" ? "Ex.: art. 75, II da Lei 14.133/2021" :
+                        `Informe ${campo}`
+                      }
                       className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
                     />
                   )}

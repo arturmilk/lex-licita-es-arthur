@@ -979,7 +979,7 @@ export default function NovaPesquisaPage() {
                           <Field label="Descrição do item *">
                             <input
                               className="inp"
-                              placeholder='Ex: Notebook 14" — 16GB RAM, SSD 512GB'
+                              placeholder='Ex: Notebook 14" — 16GB RAM, SSD 512GB (ou: Papel A4 75g 500 folhas)'
                               value={item.descricao}
                               onChange={e => updateItem(idx, "descricao", e.target.value)}
                             />
@@ -996,13 +996,14 @@ export default function NovaPesquisaPage() {
                             <Field label="Quantidade *">
                               <input
                                 type="number" className="inp" min={0}
+                                placeholder="Ex: 500"
                                 value={item.quantidade === 0 ? "" : item.quantidade}
                                 onChange={e => updateItem(idx, "quantidade", e.target.value === "" ? 0 : Number(e.target.value))}
                               />
                             </Field>
                             <Field label="Unidade de medida">
                               <select className="inp" value={item.unidadeMedida} onChange={e => updateItem(idx, "unidadeMedida", e.target.value)}>
-                                <option value="">Selecione...</option>
+                                <option value="">Selecione (ex: unidade, resma, kg, m²)...</option>
                                 {UNIDADES_MEDIDA.map(u => <option key={u} value={u}>{u}</option>)}
                               </select>
                             </Field>
@@ -1054,12 +1055,14 @@ export default function NovaPesquisaPage() {
           <Grid2>
             <Field label="Número do processo *">
               <input className="inp" placeholder="Ex: 2026/00123" value={processo.numero} onChange={e => setProcesso({ ...processo, numero: e.target.value })} />
+              <p className="text-[10px] text-slate-400 mt-0.5">Ex.: 2026/00123 ou 0001/2026-PG — como consta no SEI/processo físico</p>
             </Field>
             <Field label="Órgão">
               <input className="inp inp-ro" value={processo.orgao} readOnly />
             </Field>
             <Field label="Unidade">
               <input className="inp" placeholder="Ex: SUPLAN/DILIC" value={processo.unidade} onChange={e => setProcesso({ ...processo, unidade: e.target.value })} />
+              <p className="text-[10px] text-slate-400 mt-0.5">Ex.: DILOG/Diretoria de Logística ou SUPLAN/DILIC</p>
             </Field>
             <Field label="Responsável">
               <input className="inp inp-ro" value={processo.responsavel} readOnly />
