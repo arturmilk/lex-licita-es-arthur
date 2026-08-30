@@ -197,7 +197,7 @@ export default function PainelPage() {
                 <div>
                   <p className="font-semibold text-slate-600 mb-1">Processos ({resultadoBusca.processos.length})</p>
                   {resultadoBusca.processos.map((p: any) => (
-                    <Link key={p.id} href={`/processos/${p.id}`} className="block px-3 py-1.5 rounded bg-slate-50 hover:bg-slate-100 text-slate-700">
+                    <Link key={p.id} href={`/processos/${p.id}/jornada`} className="block px-3 py-1.5 rounded bg-slate-50 hover:bg-slate-100 text-slate-700">
                       <span className="font-mono">{p.numero}</span> — {p.objeto} <span className="text-slate-400">({p.status})</span>
                     </Link>
                   ))}
@@ -217,7 +217,13 @@ export default function PainelPage() {
                 <div>
                   <p className="font-semibold text-slate-600 mb-1">Tarefas ({resultadoBusca.tarefas.length})</p>
                   {resultadoBusca.tarefas.map((t: any) => (
-                    <div key={t.id} className="px-3 py-1.5 rounded bg-amber-50 text-amber-800">{t.titulo}</div>
+                    t.processoId ? (
+                      <Link key={t.id} href={`/processos/${t.processoId}/jornada`} className="block px-3 py-1.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-800">
+                        {t.titulo}
+                      </Link>
+                    ) : (
+                      <div key={t.id} className="px-3 py-1.5 rounded bg-amber-50 text-amber-800">{t.titulo}</div>
+                    )
                   ))}
                 </div>
               )}
@@ -310,13 +316,22 @@ export default function PainelPage() {
             ) : (
               <div className="space-y-2">
                 {painel.tarefasHoje.map((t: any) => (
-                  <Link key={t.id} href={`/processos/${t.processoId}`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 hover:border-indigo-200 px-3 py-2 transition-colors block">
-                    <div>
-                      <p className="text-sm font-medium text-slate-800">{t.titulo}</p>
-                      <p className="text-xs text-slate-500">{t.descricao?.slice(0, 90)}… {badgeStatus(t.status)}</p>
+                  t.processoId ? (
+                    <Link key={t.id} href={`/processos/${t.processoId}/jornada`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 hover:border-indigo-200 px-3 py-2 transition-colors block">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{t.titulo}</p>
+                        <p className="text-xs text-slate-500">{t.descricao?.slice(0, 90)}… {badgeStatus(t.status)}</p>
+                      </div>
+                      <ArrowRight size={14} className="text-slate-400 shrink-0" />
+                    </Link>
+                  ) : (
+                    <div key={t.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 px-3 py-2">
+                      <div>
+                        <p className="text-sm font-medium text-slate-800">{t.titulo}</p>
+                        <p className="text-xs text-slate-500">{t.descricao?.slice(0, 90)}… {badgeStatus(t.status)}</p>
+                      </div>
                     </div>
-                    <ArrowRight size={14} className="text-slate-400 shrink-0" />
-                  </Link>
+                  )
                 ))}
               </div>
             )}
