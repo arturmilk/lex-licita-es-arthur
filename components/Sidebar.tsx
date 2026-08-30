@@ -1,12 +1,13 @@
 "use client";
 import React, { useState } from "react";
-import { Layers, LayoutDashboard, Plus, FileText, Search, BarChart3, Paperclip, Settings, LogOut, Menu, X, Home, Users, Sparkles } from "lucide-react";
+import { Layers, LayoutDashboard, Plus, FileText, Search, BarChart3, Paperclip, Settings, LogOut, Menu, X, Home, Users, Sparkles, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { sair } from "@/lib/auth-actions";
 
 const navItems = [
   { href: "/painel", icon: Home, label: "Painel de trabalho", roles: ["pesquisador", "gestor", "administrador"], destaque: true },
+  { href: "/assistente", icon: MessageCircle, label: "💬 Assistente guiado", roles: ["pesquisador", "gestor", "administrador"], destaque: true },
   { href: "/pesquisa/nova", icon: Plus, label: "Nova pesquisa", roles: ["pesquisador", "gestor", "administrador"] },
   { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["pesquisador", "gestor", "administrador"] },
   { href: "/processos", icon: FileText, label: "Processos", roles: ["pesquisador", "gestor", "administrador"] },

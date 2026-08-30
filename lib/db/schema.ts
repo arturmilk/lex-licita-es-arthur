@@ -335,6 +335,32 @@ export const modelosDocumento = pgTable("modelos_documento", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [index("modelos_documento_orgao_idx").on(t.orgaoId)]);
 
+/** Memória do órgão — auto-aprendizado do chat guiado (o que o órgão costuma usar). */
+export const memoriaOrgao = pgTable("memoria_orgao", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgaoId: uuid("orgao_id").notNull().references(() => orgaos.id, { onDelete: "cascade" }),
+  chave: varchar("chave", { length: 80 }).notNull(),   // ug_preferida | modalidade_preferida | fonte_preco | modelos_reutilizaveis | servidor_frequente
+  valor: text("valor").notNull(),
+  usos: integer("usos").notNull().default(1),
+  ultimoUso: timestamp("ultimo_uso").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => [index("memoria_orgao_uniq").on(t.orgaoId, t.chave)]);
+
+/** Conversas do chat guiado (persistência para continuar depois). */
+export const conversasChat = pgTable("conversas_chat", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orgaoId: uuid("orgao_id").notNull().references(() => orgaos.id, { onDelete: "cascade" }),
+  usuarioId: uuid("usuario_id").references(() => usuarios.id, { onDelete: "set null" }),
+  processoId: uuid("processo_id").references(() => processos.id, { onDelete: "set null" }),
+  titulo: varchar("titulo", { length: 255 }).notNull().default("Nova contratação"),
+  etapaAtual: varchar("etapa_atual", { length: 80 }).default("intencao"), // intencao | documentos | pesquisa | dotacao | minuta | juridico | finalizado
+  mensagens: jsonb("mensagens").$type<any[]>().default([]),
+  statusDocumentos: jsonb("status_documentos").$type<Record<string, any>>().default({}),
+  finalizada: boolean("finalizada").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [index("conversas_chat_orgao_idx").on(t.orgaoId)]);
+
 // Relations
 export const orgaosRelations = relations(orgaos, ({ many, one }) => ({
   usuarios: many(usuarios),
