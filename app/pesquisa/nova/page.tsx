@@ -168,6 +168,7 @@ export default function NovaPesquisaPage() {
   const [iaFiltroReady, setIaFiltroReady] = useState(false);
   const [textoFiltro, setTextoFiltro] = useState("");
   const [regiaoFiltro, setRegiaoFiltro] = useState("todas");
+  const [parametrosBusca, setParametrosBusca] = useState<{ rotulo: string; termo: string; parametros: string }[] | null>(null);
   const [ordenacao, setOrdenacao] = useState<"relevancia" | "valor_asc" | "valor_desc" | "data_desc">("relevancia");
 
   // Período → dias (usado tanto na 1ª busca quanto na paginação)
@@ -328,7 +329,7 @@ export default function NovaPesquisaPage() {
   };
 
   const pesquisarPNCP = async () => {
-    setPesquisando(true); setResultados([]); setErroPesquisa(null);
+    setPesquisando(true); setResultados([]); setErroPesquisa(null); setParametrosBusca(null);
     setSituFiltro("todos"); setIaFiltroReady(false); setIaAnalisando(false);
     setPaginaPorItem({}); setTotalPorItem({}); setTotalPagsPorItem({});
     goToStep(9);
@@ -343,15 +344,40 @@ export default function NovaPesquisaPage() {
 
     const objetoLimpo = limparTermo(objetoDesc);
 
+    // ── TERMO PARAMETRIZADO: objeto + especificação + quantidade + unidade + local ──
+    // O agente junta TODAS as informações disponíveis para a busca no PNCP.
+    // Quantidade/unidade entram para ajudar a achar itens com porte compatível
+    // (ex: "resma 500 folhas"), e o local/região de entrega orienta relevância.
+    function montarTermo(item?: any): string {
+      const partes: string[] = [];
+      if (item?.descricao) partes.push(limparTermo(item.descricao));
+      if (item?.especificacao) partes.push(limparTermo(item.especificacao));
+      if (item?.quantidade && item.quantidade > 0) partes.push(String(item.quantidade));
+      if (item?.unidadeMedida) partes.push(limparTermo(item.unidadeMedida));
+      if (!item && objetoLimpo) partes.unshift(objetoLimpo);
+      // Local/região de entrega: ajuda a priorizar referências da mesma região
+      if (localEntrega) partes.push(limparTermo(localEntrega));
+      const termo = partes.filter(Boolean).join(" ").trim();
+      return termo || objetoDesc;
+    }
+
     // Um alvo por item (busca separada para cada item/lote)
-    const alvos: { itemId: string; rotulo: string; termo: string }[] = [];
+    const alvos: { itemId: string; rotulo: string; termo: string; parametros: string }[] = [];
     if (formaParcelamento === "global" || itens.length === 0) {
-      alvos.push({ itemId: "global", rotulo: objetoDesc.slice(0, 60) || "Objeto", termo: objetoLimpo || objetoDesc });
+      const termo = montarTermo();
+      alvos.push({
+        itemId: "global", rotulo: objetoDesc.slice(0, 60) || "Objeto",
+        termo,
+        parametros: `objeto=${objetoDesc.slice(0, 60)}${localEntrega ? ` | local=${localEntrega}` : ""}`,
+      });
     } else {
       const base = itens.filter(i => (i.descricao || "").trim().length > 0);
       for (const item of (base.length ? base : itens)) {
-        const termo = limparTermo(`${item.descricao} ${item.especificacao}`.trim()) || objetoLimpo || objetoDesc;
-        alvos.push({ itemId: item.id, rotulo: item.descricao.slice(0, 60), termo });
+        const termo = montarTermo(item);
+        alvos.push({
+          itemId: item.id, rotulo: item.descricao.slice(0, 60), termo,
+          parametros: `${item.descricao.slice(0, 60)}${item.unidadeMedida ? ` | ${item.quantidade || ""} ${item.unidadeMedida}` : ""}${localEntrega ? ` | local=${localEntrega}` : ""}`,
+        });
       }
     }
 
@@ -359,6 +385,9 @@ export default function NovaPesquisaPage() {
     const novosTermos: Record<string, string> = {};
     for (const a of alvos) novosTermos[a.itemId] = a.termo;
     setTermoPorItem(novosTermos);
+
+    // Mostra ao servidor quais parâmetros o agente juntou na busca
+    setParametrosBusca(alvos.map(a => ({ rotulo: a.rotulo, termo: a.termo, parametros: a.parametros })));
 
     // Busca multi-fonte — PNCP principal (rápido) + Compras.gov + Contratos.gov.br
     // (preços REAIS pagos). NOTA: precos_abertos leva ~30s (excluído);
@@ -427,6 +456,49 @@ export default function NovaPesquisaPage() {
           ? `Erro ao consultar o PNCP: ${errosApi[0]}. Verifique a conectividade do servidor.`
           : "Nenhum edital encontrado. Tente termos mais genéricos.";
         setErroPesquisa(msgErro);
+        // ── SUGESTÃO: refaz com termo reduzido (sem quantidade/unidade/local) ──
+        // Se a busca parametrizada (objeto+espec+qtde+unidade+local) não achou
+        // nada, tenta com o termo essencial — o que a usuária pediu: "se ele não
+        // encontrar exatamente como foi pesquisado, ele deve sugerir o que foi encontrado".
+        try {
+          const termoEssencial = (() => {
+            if (formaParcelamento === "global" || itens.length === 0) return objetoLimpo || objetoDesc;
+            const item = (itens.filter(i => (i.descricao || "").trim().length > 0)[0]) || itens[0];
+            return limparTermo(`${item?.descricao || ""} ${item?.especificacao || ""}`.trim()) || objetoLimpo || objetoDesc;
+          })();
+          if (termoEssencial && termoEssencial !== alvos[0]?.termo) {
+            const resp2 = await fetch(`/api/pncp?termo=${encodeURIComponent(termoEssencial)}&fontes=${fontesMulti}&tamanhoPagina=${TAM}`, { signal: AbortSignal.timeout(40_000) });
+            const data2 = await resp2.json().catch(() => null);
+            const items2: any[] = data2?.items || [];
+            if (items2.length > 0) {
+              const sugeridos: ResultadoPNCP[] = items2.map((it, idx) => ({
+                id: `sugestao-${alvos[0]?.itemId || "global"}-${idx}`,
+                fonte: it.fonte || "pncp",
+                itemId: alvos[0]?.itemId || "global",
+                orgao: it.orgao || "Órgão público",
+                descricao: it.descricao || "",
+                quantidade: it.quantidade ?? null,
+                data: it.dataContrato || "",
+                valor_unitario: it.valorUnitario ?? null,
+                valor_total: it.valorTotal ?? null,
+                localizacao: it.localizacao || "",
+                similaridade: it.similaridade ?? 0,
+                documento_origem: it.documentoOrigem || "",
+                link_origem: it.linkEdital || "",
+                status_avaliacao: "pendente" as const,
+                dadosBrutos: it.dadosBrutos || {},
+              }));
+              setResultados(sugeridos);
+              setTotalPorItem({ [alvos[0]?.itemId || "global"]: data2?.total ?? items2.length });
+              setTotalPagsPorItem({ [alvos[0]?.itemId || "global"]: Math.max(1, Math.ceil((data2?.total ?? items2.length) / TAM)) });
+              setPaginaPorItem({ [alvos[0]?.itemId || "global"]: 1 });
+              setErroPesquisa(
+                `Não encontramos referências exatas para "${alvos[0]?.termo}". ` +
+                `Buscamos com o termo essencial "${termoEssencial}" — veja as sugestões abaixo.`
+              );
+            }
+          }
+        } catch { /* fallback silencioso */ }
       } else {
         setResultados(novosResultados);
         setTotalPorItem(novoTotal);
@@ -1720,6 +1792,23 @@ export default function NovaPesquisaPage() {
 
             {/* Conteúdo */}
             <div className="px-6 lg:px-8 py-6">
+              {/* Parâmetros que o agente juntou na busca */}
+              {parametrosBusca && parametrosBusca.length > 0 && (
+                <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/40 px-4 py-3">
+                  <p className="text-[11px] font-bold text-indigo-700 uppercase tracking-wide mb-1.5">
+                    🔍 Como o agente buscou (objeto + especificação + quantidade + unidade + local)
+                  </p>
+                  <div className="space-y-1">
+                    {parametrosBusca.map((p, i) => (
+                      <div key={i} className="text-[11px] text-slate-600">
+                        <span className="font-semibold text-slate-700">{p.rotulo}:</span>{" "}
+                        <span className="font-mono text-indigo-800">{p.termo}</span>
+                        {p.parametros && <span className="text-slate-400"> — {p.parametros}</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {erroPaginacao && (
                 <div className="flex items-center justify-between gap-3 mb-4 px-4 py-2.5 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
                   <span>{erroPaginacao}</span>
