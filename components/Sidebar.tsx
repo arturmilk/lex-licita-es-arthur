@@ -6,18 +6,22 @@ import { usePathname } from "next/navigation";
 import { sair } from "@/lib/auth-actions";
 
 const navItems = [
-  { href: "/painel", icon: Home, label: "Painel de trabalho", roles: ["pesquisador", "gestor", "administrador"], destaque: true },
-  { href: "/assistente", icon: MessageCircle, label: "💬 Assistente", roles: ["pesquisador", "gestor", "administrador"], destaque: true },
-  { href: "/busca", icon: Search, label: "🔍 Busca inteligente", roles: ["pesquisador", "gestor", "administrador"] },
-  { href: "/jurisprudencia", icon: Scale, label: "⚖️ Jurisprudência", roles: ["pesquisador", "gestor", "administrador"] },
-  { href: "/pesquisa/nova", icon: Plus, label: "Nova pesquisa", roles: ["pesquisador", "gestor", "administrador"] },
-  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["pesquisador", "gestor", "administrador"] },
-  { href: "/processos", icon: FileText, label: "Processos", roles: ["pesquisador", "gestor", "administrador"] },
-  { href: "/pesquisas", icon: Search, label: "Pesquisas", roles: ["pesquisador", "gestor", "administrador"] },
-  { href: "/relatorios", icon: BarChart3, label: "Relatórios", roles: ["pesquisador", "gestor", "administrador"] },
-  { href: "/evidencias", icon: Paperclip, label: "Evidências", roles: ["pesquisador", "gestor", "administrador"] },
-  { href: "/gestor", icon: Users, label: "Visão do gestor", roles: ["gestor", "administrador"] },
-  { href: "/admin", icon: Settings, label: "Administração", roles: ["administrador"] },
+  // ── INÍCIO ──
+  { href: "/painel", icon: Home, label: "Painel de trabalho", roles: ["pesquisador", "gestor", "administrador"], grupo: "Início" },
+  { href: "/assistente", icon: MessageCircle, label: "Assistente", roles: ["pesquisador", "gestor", "administrador"], grupo: "Início" },
+  // ── TRABALHAR ──
+  { href: "/pesquisa/nova", icon: Plus, label: "Nova pesquisa", roles: ["pesquisador", "gestor", "administrador"], grupo: "Trabalhar" },
+  { href: "/processos", icon: FileText, label: "Processos", roles: ["pesquisador", "gestor", "administrador"], grupo: "Trabalhar" },
+  { href: "/pesquisas", icon: Search, label: "Pesquisas", roles: ["pesquisador", "gestor", "administrador"], grupo: "Trabalhar" },
+  // ── CONSULTAR ──
+  { href: "/busca", icon: Search, label: "Busca inteligente", roles: ["pesquisador", "gestor", "administrador"], grupo: "Consultar" },
+  { href: "/jurisprudencia", icon: Scale, label: "Jurisprudência", roles: ["pesquisador", "gestor", "administrador"], grupo: "Consultar" },
+  { href: "/relatorios", icon: BarChart3, label: "Relatórios", roles: ["pesquisador", "gestor", "administrador"], grupo: "Consultar" },
+  { href: "/evidencias", icon: Paperclip, label: "Evidências", roles: ["pesquisador", "gestor", "administrador"], grupo: "Consultar" },
+  // ── GESTÃO ──
+  { href: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["pesquisador", "gestor", "administrador"], grupo: "Gestão" },
+  { href: "/gestor", icon: Users, label: "Visão do gestor", roles: ["gestor", "administrador"], grupo: "Gestão" },
+  { href: "/admin", icon: Settings, label: "Administração", roles: ["administrador"], grupo: "Gestão" },
 ];
 
 const perfilLabel: Record<string, string> = {
@@ -41,35 +45,48 @@ export default function Sidebar({ user }: { user: any }) {
     <>
       <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <img src="/logo-lex.png" alt="LEX Licitações" className="w-8 h-8 object-contain rounded" />
-          <span className="text-white font-bold text-lg">LEX Licitações</span>
+          <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center shrink-0 shadow-sm">
+            <img src="/logo-lex.png" alt="LEX Licitações" className="w-7 h-7 object-contain" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-white font-bold text-lg leading-none block">LEX Licitações</span>
+            <p className="text-white/50 text-[11px] mt-1 truncate">{user.orgaoNome || "Órgão"}</p>
+          </div>
           <button className="md:hidden ml-auto text-neutral-400" onClick={() => setAberto(false)} aria-label="Fechar menu">
             <X className="w-5 h-5" />
           </button>
         </div>
-        <p className="text-neutral-400 text-xs mt-2 truncate">{user.orgaoNome || "Órgão"}</p>
       </div>
 
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-        {navItems.filter(item => item.roles.includes(perfil)).map(({ href, icon: Icon, label }) => {
-          const ativo = pathname === href || (href !== "/" && pathname.startsWith(href));
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setAberto(false)}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${
-                ativo ? "bg-neutral-800 text-white font-medium" : "text-neutral-300 hover:bg-neutral-800 hover:text-white"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {label}
-            </Link>
-          );
-        })}
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+        {(() => {
+          const visiveis = navItems.filter(item => item.roles.includes(perfil));
+          const grupos = Array.from(new Set(visiveis.map(i => i.grupo)));
+          return grupos.map(grupo => (
+            <div key={grupo} className="mb-2">
+              <p className="px-3 pt-2 pb-1 text-[10px] font-bold uppercase tracking-widest text-white/40">{grupo}</p>
+              {visiveis.filter(i => i.grupo === grupo).map(({ href, icon: Icon, label }) => {
+                const ativo = pathname === href || (href !== "/" && pathname.startsWith(href));
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setAberto(false)}
+                    className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm ${
+                      ativo ? "bg-white/15 text-white font-medium" : "text-white/70 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    {label}
+                  </Link>
+                );
+              })}
+            </div>
+          ));
+        })()}
       </nav>
 
-      <div className="p-4 border-t border-neutral-800">
+      <div className="p-4 border-t border-white/10">
         <div className="mb-3">
           <p className="text-white text-sm font-medium truncate">{user.name}</p>
           <p className="text-neutral-400 text-xs truncate">{user.email}</p>
@@ -98,7 +115,9 @@ export default function Sidebar({ user }: { user: any }) {
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2">
-          <img src="/logo-lex.png" alt="LEX Licitações" className="w-6 h-6 object-contain rounded" />
+          <div className="w-6 h-6 bg-white rounded flex items-center justify-center shrink-0">
+            <img src="/logo-lex.png" alt="LEX Licitações" className="w-5 h-5 object-contain" />
+          </div>
           <span className="text-white font-bold">LEX Licitações</span>
         </div>
         <span className="ml-auto text-neutral-400 text-xs truncate max-w-[140px]">{user.name}</span>
