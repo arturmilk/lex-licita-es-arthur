@@ -730,6 +730,60 @@ export default function NovaPesquisaPage() {
     return { stats, nAceitas: aceitosRaw.length };
   };
 
+  // ── CALCULAR DIRETO: usa os resultados da pesquisa AUTOMATICAMENTE ──
+  // Sem exigir aceite manual — pega os melhores resultados com valor
+  // (maior similaridade primeiro), calcula e deixa notas explicativas.
+  const [notasCalcularDireto, setNotasCalcularDireto] = useState<string[] | null>(null);
+  const [usadosCalcularDireto, setUsadosCalcularDireto] = useState<ResultadoPNCP[]>([]);
+
+  const calcularDireto = () => {
+    // 1. Pega TODOS os resultados com valor (aceitos ou não)
+    const comValor = resultados.filter(r => (r.valor_unitario != null || r.valor_total != null));
+    if (comValor.length === 0) {
+      setNotasCalcularDireto(["❌ Nenhum resultado com valor encontrado na pesquisa. Clique em 'Refazer pesquisa' para buscar preços."]);
+      setUsadosCalcularDireto([]);
+      setPrecoEstimado(null);
+      setEstatisticas(null);
+      setAlertaCv(null);
+      return;
+    }
+
+    // 2. Ordena por similaridade (melhores primeiro) e pega até 10
+    const ordenados = [...comValor].sort((a, b) => (b.similaridade || 0) - (a.similaridade || 0));
+    const top = ordenados.slice(0, 10);
+
+    // 2b. IN 126 (art. 11 §2º): desconsidera preços inexequíveis/sobrepreços ANTES do cálculo
+    // (remove os discrepantes da amostra para não distorcer a média)
+    const valsBrutos = top.map(r => (r.valor_unitario ?? r.valor_total) as number);
+    const limpos = top.filter(r => classificarPrecoIN126((r.valor_unitario ?? r.valor_total) as number, valsBrutos).tipo === "válido");
+    const descartados = top.filter(r => classificarPrecoIN126((r.valor_unitario ?? r.valor_total) as number, valsBrutos).tipo !== "válido");
+    const amostra = limpos.length >= 3 ? limpos : top; // se sobrar <3, usa todos (art. 11 §1º)
+
+    // 3. Calcula com a amostra limpa (sem precisar aceitar)
+    const vals = amostra.map(r => (r.valor_unitario ?? r.valor_total) as number);
+    const pesos = amostra.map(r => r.quantidade ?? 1);
+    const { estatisticas: stats, alertaCv, cvExcedido, metodoEfetivo, preco } = calcularComRegraCv(
+      vals, config.metodo, quantidade, config.cvLimite, pesos,
+    );
+    setEstatisticas(stats);
+    setAlertaCv(alertaCv ? { cv: cvExcedido as number, limite: config.cvLimite, metodoEfetivo } : null);
+    setMetodoEfetivo(metodoEfetivo);
+    setPrecoEstimado(preco);
+    setUsadosCalcularDireto(amostra);
+
+    // 4. Notas explicativas (transparência do que o agente fez)
+    const notas: string[] = [];
+    notas.push(`🔍 Usei ${amostra.length} resultado(s) da pesquisa que têm valor, ordenados por relevância (similaridade com o objeto).`);
+    if (descartados.length > 0) {
+      notas.push(`🚫 Desconsiderei ${descartados.length} preço(s) discrepante(s) — IN 126, art. 11, §2º (${descartados.map(r => formatarMoeda((r.valor_unitario ?? r.valor_total) as number)).join(", ")}) — por serem inexequíveis (< 50% da média) ou sobrepreços (> 150%).`);
+    }
+    notas.push(`⚖️ Classificação IN 126/2023-TJRO: preços < 50% da média = inexequíveis · > 150% = sobrepreço (desconsiderados no cálculo).`);
+    if (alertaCv) notas.push(`⚠️ Dispersão alta (CV ${cvExcedido?.toFixed(1)}% > limite ${config.cvLimite}%) → apliquei automaticamente o MENOR PREÇO como referência (regra de segurança).`);
+    notas.push(`🧮 Método aplicado: ${metodoEfetivo.replace(/_/g, " ")} — preço de referência unitário ${formatarMoeda(preco.unitario)} × ${quantidade} ${unidadeMedida}(s) = ${formatarMoeda(preco.total)}.`);
+    notas.push(`💡 Dica: você pode revisar/aceitar/descartar referências na etapa anterior e recalcular — o sistema respeita suas escolhas.`);
+    setNotasCalcularDireto(notas);
+  };
+
   const linksAceitos = resultados.filter(r => r.status_avaliacao === "aceito").map(r => ({ nome: r.documento_origem, url: r.link_origem, tipo: "link" as const }));
 
   // ── ME/EPP (LC 123/2006): exclusividade até R$ 80.000 ou reserva de 25% ────
@@ -2143,29 +2197,17 @@ export default function NovaPesquisaPage() {
             </div>
             <div className="p-4">
               {(() => {
-                const aceitas = resultados.filter(r => r.status_avaliacao === "aceito" && (r.valor_unitario != null || r.valor_total != null));
-                if (aceitas.length === 0) {
+                // CALCULAR DIRETO: usa os resultados da pesquisa automaticamente
+                const fonte = usadosCalcularDireto.length > 0 ? usadosCalcularDireto : resultados.filter(r => (r.valor_unitario != null || r.valor_total != null));
+                if (fonte.length === 0) {
                   return (
                     <div className="text-center py-4">
-                      <p className="text-xs text-slate-500 mb-3">Ainda não há referências aceitas para montar o quadro comparativo.</p>
+                      <p className="text-xs text-slate-500 mb-3">Pesquise primeiro (aba Pesquisa → Realizar pesquisa) para buscar os preços. Depois clique abaixo:</p>
                       <button
-                        onClick={() => { nextStepToResultados(); }}
+                        onClick={() => goToStep(5)}
                         className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg cursor-pointer"
                       >
-                        <Search size={13} /> Ir para Resultados e aceitar referências
-                      </button>
-                    </div>
-                  );
-                }
-                if (!precoEstimado) {
-                  return (
-                    <div className="text-center py-4">
-                      <p className="text-xs text-slate-500 mb-3">{aceitas.length} referência(s) aceita(s) pronta(s) para o cálculo.</p>
-                      <button
-                        onClick={() => calcular()}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg cursor-pointer"
-                      >
-                        <Calculator size={13} /> Calcular agora
+                        <Search size={13} /> Ir para a pesquisa
                       </button>
                     </div>
                   );
@@ -2177,7 +2219,22 @@ export default function NovaPesquisaPage() {
                       ⚖️ <strong>Base legal:</strong> <strong>Instrução nº 126/2023-TJRO</strong> (art. 3º, III e VII; art. 8º; art. 11) — pesquisa de preços para bens e serviços de qualquer natureza no TJRO.
                     </div>
 
+                    {/* Botão calcular direto (se ainda não calculou com os automáticos) */}
+                    {!precoEstimado && (
+                      <div className="text-center py-3">
+                        <p className="text-xs text-slate-500 mb-3">{fonte.length} resultado(s) com valor encontrado(s) na pesquisa — <strong>sem precisar aceitar um a um</strong>.</p>
+                        <button
+                          onClick={() => calcularDireto()}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg cursor-pointer"
+                        >
+                          <Calculator size={13} /> Calcular direto agora
+                        </button>
+                      </div>
+                    )}
+
                     {/* Quadro comparativo — com classificação IN 126 */}
+                    {precoEstimado && (
+                      <>
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead>
@@ -2191,10 +2248,10 @@ export default function NovaPesquisaPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-emerald-100">
-                          {aceitas.map((r, i) => {
+                          {fonte.map((r, i) => {
                             const v = (r.valor_unitario ?? r.valor_total) as number;
                             const q = r.quantidade ?? 1;
-                            const classif = classificarPrecoIN126(v, aceitas.map(a => (a.valor_unitario ?? a.valor_total) as number));
+                            const classif = classificarPrecoIN126(v, fonte.map(a => (a.valor_unitario ?? a.valor_total) as number));
                             return (
                               <tr key={r.id || i} className={`bg-white hover:bg-emerald-50/50 ${classif.tipo !== "válido" ? "opacity-60" : ""}`}>
                                 <td className="px-3 py-2 font-mono text-slate-500">{i + 1}</td>
@@ -2220,9 +2277,8 @@ export default function NovaPesquisaPage() {
 
                     {/* Preços desconsiderados (art. 11 §2º) */}
                     {(() => {
-                      const vals = aceitas.map(r => (r.valor_unitario ?? r.valor_total) as number);
-                      const desconsiderados = aceitas.filter(r => classificarPrecoIN126((r.valor_unitario ?? r.valor_total) as number, vals).tipo !== "válido");
-                      const validos = vals.filter(v => classificarPrecoIN126(v, vals).tipo === "válido");
+                      const vals = fonte.map(r => (r.valor_unitario ?? r.valor_total) as number);
+                      const desconsiderados = fonte.filter(r => classificarPrecoIN126((r.valor_unitario ?? r.valor_total) as number, vals).tipo !== "válido");
                       if (desconsiderados.length > 0) {
                         return (
                           <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-800 leading-relaxed">
@@ -2243,7 +2299,7 @@ export default function NovaPesquisaPage() {
 
                     {/* Menos de 3 preços válidos (art. 11 §1º) */}
                     {(() => {
-                      const vals = aceitas.map(r => (r.valor_unitario ?? r.valor_total) as number);
+                      const vals = fonte.map(r => (r.valor_unitario ?? r.valor_total) as number);
                       const validos = vals.filter(v => classificarPrecoIN126(v, vals).tipo === "válido");
                       if (validos.length > 0 && validos.length < 3) {
                         return (
@@ -2259,7 +2315,7 @@ export default function NovaPesquisaPage() {
                     <div className="rounded-lg bg-white border border-emerald-100 p-3 text-xs text-slate-700 leading-relaxed">
                       <p className="font-bold text-emerald-700 mb-1.5">🧮 Como cheguei ao preço de referência (art. 11 da IN 126/2023-TJRO)</p>
                       {(() => {
-                        const vals = aceitas.map(r => (r.valor_unitario ?? r.valor_total) as number);
+                        const vals = fonte.map(r => (r.valor_unitario ?? r.valor_total) as number);
                         const validos = vals.filter(v => classificarPrecoIN126(v, vals).tipo === "válido");
                         const desconsiderados = vals.filter(v => classificarPrecoIN126(v, vals).tipo !== "válido");
                         const base = validos.length >= 3 ? validos : vals;
@@ -2291,7 +2347,21 @@ export default function NovaPesquisaPage() {
                         </div>
                         <div className="text-right">
                           <p className="text-[10px] text-emerald-100">Preços válidos</p>
-                          <p className="text-lg font-bold tabular-nums">{aceitas.filter(r => classificarPrecoIN126((r.valor_unitario ?? r.valor_total) as number, aceitas.map(a => (a.valor_unitario ?? a.valor_total) as number)).tipo === "válido").length}</p>
+                          <p className="text-lg font-bold tabular-nums">{fonte.filter(r => classificarPrecoIN126((r.valor_unitario ?? r.valor_total) as number, fonte.map(a => (a.valor_unitario ?? a.valor_total) as number)).tipo === "válido").length}</p>
+                        </div>
+                      </div>
+                    )}
+                      </>
+                    )}
+
+                    {/* NOTAS EXPLICATIVAS — embaixo (transparência do agente) */}
+                    {notasCalcularDireto && notasCalcularDireto.length > 0 && (
+                      <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-2">📝 Notas explicativas do cálculo</p>
+                        <div className="space-y-1.5">
+                          {notasCalcularDireto.map((n, i) => (
+                            <p key={i} className="text-[11px] text-slate-600 leading-relaxed">{n}</p>
+                          ))}
                         </div>
                       </div>
                     )}
