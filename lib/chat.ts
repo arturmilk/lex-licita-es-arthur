@@ -114,17 +114,17 @@ export function estadoInicial(): EstadoChat {
 
 /** O que o chat fala ao abrir (capa). */
 export function mensagemAbertura(hasMemoria: boolean, memorias?: Record<string, string>): MensagemChat {
-  let conteudo = "Olá! 👋 Eu conduzo sua contratação do início ao fim, como se fosse um especialista ao seu lado.\n\n**O que vamos contratar hoje?** Você pode digitar, falar 🎤 ou anexar um documento 📎 — eu identifico e começamos.";
+  let conteudo = "Olá!  Eu conduzo sua contratação do início ao fim, como se fosse um especialista ao seu lado.\n\n**O que vamos contratar hoje?** Você pode digitar, falar  ou anexar um documento  — eu identifico e começamos.";
   if (hasMemoria && memorias) {
     const sugs: string[] = [];
     if (memorias.ug_preferida) sugs.push(`UG ${memorias.ug_preferida}`);
     if (memorias.modalidade_preferida) sugs.push(memorias.modalidade_preferida);
     if (memorias.fonte_preco) sugs.push(memorias.fonte_preco);
-    if (sugs.length) conteudo += `\n\n🧠 **Da última vez** seu órgão usou: ${sugs.join(", ")} — já deixei pré-selecionado.`;
+    if (sugs.length) conteudo += `\n\n **Da última vez** seu órgão usou: ${sugs.join(", ")} — já deixei pré-selecionado.`;
   }
   return {
     id: ID(), papel: "sistema", tipo: "pergunta", etapa: "intencao",
-    conteudo, opcoes: ["🖊️ Digitar", "🎤 Falar", "📎 Anexar documento"], criadaEm: new Date().toISOString(),
+    conteudo, opcoes: [" Digitar", " Falar", " Anexar documento"], criadaEm: new Date().toISOString(),
   };
 }
 
@@ -147,8 +147,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       }
       msg.push({
         id: ID(), papel: "sistema", tipo: "card", etapa: "finalizado",
-        conteudo: "✅ Contratação mapeada! Você pode **elaborar o edital**, **ver o painel** ou continuar conversando.",
-        opcoes: ["📄 Elaborar edital", "📋 Ver painel", "💬 Continuar conversando"],
+        conteudo: " Contratação mapeada! Você pode **elaborar o edital**, **ver o painel** ou continuar conversando.",
+        opcoes: [" Elaborar edital", " Ver painel", " Continuar conversando"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -171,10 +171,10 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       estado.etapa = "ug";
       msg.push({
         id: ID(), papel: "sistema", tipo: "card", etapa: "ug",
-        conteudo: `Entendi! 🎯 Vamos montar a contratação de **${melhor.nomeTipo}** juntos.\n\nObjeto: *${texto.trim().slice(0, 120)}*\n\nPrimeiro: **qual a Unidade Gestora (UG)?**\n*(Se não souber, sem problema — pode seguir e informar depois!)*`,
+        conteudo: `Entendi!  Vamos montar a contratação de **${melhor.nomeTipo}** juntos.\n\nObjeto: *${texto.trim().slice(0, 120)}*\n\nPrimeiro: **qual a Unidade Gestora (UG)?**\n*(Se não souber, sem problema — pode seguir e informar depois!)*`,
         opcoes: memorias.ug_preferida
-          ? [`${memorias.ug_preferida} (da última vez)`, "Outra…", "▶️ Seguir sem UG por enquanto"]
-          : ["Não sei o que é UG", "▶️ Seguir sem UG por enquanto"],
+          ? [`${memorias.ug_preferida} (da última vez)`, "Outra…", "▶ Seguir sem UG por enquanto"]
+          : ["Não sei o que é UG", "▶ Seguir sem UG por enquanto"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -185,8 +185,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       if (t.includes("não sei") || t.includes("nao sei")) {
         msg.push({
           id: ID(), papel: "sistema", tipo: "texto", etapa: "ug",
-          conteudo: "Sem problema! A **UG (Unidade Gestora)** é a unidade administrativa que executa a despesa — geralmente aparece no CNPJ do órgão (ex.: 12.345.678/0001-90). Se preferir, seguimos e você informa depois — deixo como alerta ⚠️.",
-          opcoes: ["▶️ Seguir sem UG por enquanto", "Vou informar agora"],
+          conteudo: "Sem problema! A **UG (Unidade Gestora)** é a unidade administrativa que executa a despesa — geralmente aparece no CNPJ do órgão (ex.: 12.345.678/0001-90). Se preferir, seguimos e você informa depois — deixo como alerta .",
+          opcoes: ["▶ Seguir sem UG por enquanto", "Vou informar agora"],
           criadaEm: new Date().toISOString(),
         });
         estado.perguntaAtual = "ug";
@@ -200,8 +200,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.documentos.pc = { status: "falta" };
         msg.push({
           id: ID(), papel: "sistema", tipo: "card", etapa: "documentos",
-          conteudo: `UG **não informada** ⚠️ (deixo como alerta — você informa depois).\n\nAgora vamos aos **documentos**, um de cada vez. Começando:\n\n📄 **${FLUXO_DOCUMENTOS[0].nome}**\n\nVocê já tem? Se tiver o arquivo, **anexe aqui** 📎 que eu identifico e sigo.`,
-          opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
+          conteudo: `UG **não informada**  (deixo como alerta — você informa depois).\n\nAgora vamos aos **documentos**, um de cada vez. Começando:\n\n **${FLUXO_DOCUMENTOS[0].nome}**\n\nVocê já tem? Se tiver o arquivo, **anexe aqui**  que eu identifico e sigo.`,
+          opcoes: [" Já tenho", " Ainda não", " O que é isso?", " Anexar arquivo"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
@@ -218,16 +218,16 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         // Resposta não parece UG → pergunta de novo, entendendo o que ela digitou
         let aviso = "";
         if (pareceDocumento) {
-          aviso = `🤔 **Percebi que você colou outro conteúdo** (parece um documento ou o objeto da contratação).\n\nIsso aqui é o campo da **UG** — só o **código numérico** da Unidade Gestora (6 dígitos, ex.: **120001** ou 12.345.678/0001-90).\n\nO documento que você colou, guardo **mais adiante**, quando pedir os documentos do processo. 👍`;
+          aviso = ` **Percebi que você colou outro conteúdo** (parece um documento ou o objeto da contratação).\n\nIsso aqui é o campo da **UG** — só o **código numérico** da Unidade Gestora (6 dígitos, ex.: **120001** ou 12.345.678/0001-90).\n\nO documento que você colou, guardo **mais adiante**, quando pedir os documentos do processo. `;
         } else if (respostaUG.length > 20) {
-          aviso = `🤔 Essa resposta parece **longa demais** para o campo da UG.\n\nA **UG** é só o **código numérico** da Unidade Gestora (ex.: **120001** ou o CNPJ do órgão).`;
+          aviso = ` Essa resposta parece **longa demais** para o campo da UG.\n\nA **UG** é só o **código numérico** da Unidade Gestora (ex.: **120001** ou o CNPJ do órgão).`;
         } else {
-          aviso = `🤔 **"${respostaUG.slice(0, 50)}"** não parece um código de UG.\n\nA **UG (Unidade Gestora)** é identificada por um **número de 6 dígitos** (ex.: **120001**) ou pelo **CNPJ** do órgão (ex.: 12.345.678/0001-90).\n\nPode conferir no SEI/processo ou perguntar ao setor financeiro.`;
+          aviso = ` **"${respostaUG.slice(0, 50)}"** não parece um código de UG.\n\nA **UG (Unidade Gestora)** é identificada por um **número de 6 dígitos** (ex.: **120001**) ou pelo **CNPJ** do órgão (ex.: 12.345.678/0001-90).\n\nPode conferir no SEI/processo ou perguntar ao setor financeiro.`;
         }
         msg.push({
           id: ID(), papel: "sistema", tipo: "texto", etapa: "ug",
-          conteudo: `${aviso}\n\n🔄 Qual a **UG** correta?`,
-          opcoes: ["▶️ Seguir sem UG por enquanto", "Não sei o que é UG"],
+          conteudo: `${aviso}\n\n Qual a **UG** correta?`,
+          opcoes: ["▶ Seguir sem UG por enquanto", "Não sei o que é UG"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
@@ -239,8 +239,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       estado.documentos.pc = { status: "falta" };
       msg.push({
         id: ID(), papel: "sistema", tipo: "card", etapa: "documentos",
-        conteudo: `UG anotada ✅\n\nAgora vamos aos **documentos**, um de cada vez. Começando:\n\n📄 **${FLUXO_DOCUMENTOS[0].nome}**\n\nVocê já tem? Se tiver o arquivo, **anexe aqui** 📎 que eu identifico e sigo.`,
-        opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
+        conteudo: `UG anotada \n\nAgora vamos aos **documentos**, um de cada vez. Começando:\n\n **${FLUXO_DOCUMENTOS[0].nome}**\n\nVocê já tem? Se tiver o arquivo, **anexe aqui**  que eu identifico e sigo.`,
+        opcoes: [" Já tenho", " Ainda não", " O que é isso?", " Anexar arquivo"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -254,15 +254,15 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.etapa = "pesquisa";
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "pesquisa",
-          conteudo: `Documentos mapeados! 🗂️\n\nAgora a **pesquisa de preços**. Seu órgão costuma usar **${memorias.fonte_preco || "PNCP"}**. Confirma que busco o valor estimado com as referências?`,
-          opcoes: ["✅ Sim, buscar no PNCP", "🎯 Quero definir outra fonte", "❓ Explica como funciona"],
+          conteudo: `Documentos mapeados! \n\nAgora a **pesquisa de preços**. Seu órgão costuma usar **${memorias.fonte_preco || "PNCP"}**. Confirma que busco o valor estimado com as referências?`,
+          opcoes: [" Sim, buscar no PNCP", " Quero definir outra fonte", " Explica como funciona"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
       }
 
-      // BOTÃO "▶️ Seguir mesmo assim" / "▶️ Seguir": avança sem travar
-      if (t.includes("seguir mesmo assim") || t.includes("▶️ seguir") || t.includes("seguir")) {
+      // BOTÃO "▶ Seguir mesmo assim" / "▶ Seguir": avança sem travar
+      if (t.includes("seguir mesmo assim") || t.includes("▶ seguir") || t.includes("seguir")) {
         if (estado.documentos[doc.chave]?.status !== "ok") {
           estado.documentos[doc.chave] = { status: "falta", implicacao: doc.implicacao };
         }
@@ -271,8 +271,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
           estado.documentoAtual = proximo.chave;
           msg.push({
             id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-            conteudo: `✅ Seguindo! 📄 **${proximo.nome}** — você já tem?`,
-            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
+            conteudo: ` Seguindo!  **${proximo.nome}** — você já tem?`,
+            opcoes: [" Já tenho", " Ainda não", " O que é isso?", " Anexar arquivo"],
             criadaEm: new Date().toISOString(),
           });
         } else {
@@ -281,18 +281,18 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         return { mensagens: msg, estado };
       }
 
-      // BOTÃO "🔄 Quero resolver agora": pede o anexo
+      // BOTÃO " Quero resolver agora": pede o anexo
       if (t.includes("quero resolver agora") || t.includes("resolver agora")) {
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-          conteudo: `Perfeito! Vamos resolver o **${doc.nome}** agora.\n\nClique em **📎 Anexar arquivo** para enviar o documento, ou **📄 crie com o modelo AGU** — eu preencho com os dados do processo.`,
-          opcoes: ["📎 Anexar arquivo", "📄 Criar com modelo AGU", "▶️ Seguir mesmo assim"],
+          conteudo: `Perfeito! Vamos resolver o **${doc.nome}** agora.\n\nClique em ** Anexar arquivo** para enviar o documento, ou ** crie com o modelo AGU** — eu preencho com os dados do processo.`,
+          opcoes: [" Anexar arquivo", " Criar com modelo AGU", "▶ Seguir mesmo assim"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
       }
 
-      // BOTÃO "📄 Criar com modelo AGU": inicia a COLETA GUIADA de campos
+      // BOTÃO " Criar com modelo AGU": inicia a COLETA GUIADA de campos
       if (t.includes("criar com modelo agu") || t.includes("criar com o modelo") || t.includes("gerar modelo")) {
         const camposDef = CAMPOS_DOCUMENTO[doc.chave] || [];
         // AGENTE REDATOR: herda campos já respondidos em documentos anteriores
@@ -318,8 +318,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         const herdou = Object.keys(camposHerdeiros).length > 0;
         msg.push({
           id: ID(), papel: "sistema", tipo: "card", etapa: "coleta_doc",
-          conteudo: `📄 **${doc.nome}** — vamos montar com o modelo AGU, **campo por campo** para ficar completo!${herdou ? `\n\n🧠 *O Redator já aproveitou do documento anterior: ${Object.entries(camposHerdeiros).map(([k, v]) => `${k}=${v}`).join(", ")}.*` : ""}\n\n${ordemFiltrada.length === 0 ? "Todos os campos já estão preenchidos! Gerando o documento…" : `🟡 **Pergunta 1/${ordemFiltrada.length}:** ${primeiro.pergunta}\n\n💡 ${primeiro.explicacao}\n\n*(pode digitar a resposta, escolher uma opção ou pular — eu completo com o padrão)*`}`,
-          opcoes: ordemFiltrada.length === 0 ? [] : [...(primeiro.opcoes || []), "⏭️ Pular (usar padrão)"],
+          conteudo: ` **${doc.nome}** — vamos montar com o modelo AGU, **campo por campo** para ficar completo!${herdou ? `\n\n *O Redator já aproveitou do documento anterior: ${Object.entries(camposHerdeiros).map(([k, v]) => `${k}=${v}`).join(", ")}.*` : ""}\n\n${ordemFiltrada.length === 0 ? "Todos os campos já estão preenchidos! Gerando o documento…" : ` **Pergunta 1/${ordemFiltrada.length}:** ${primeiro.pergunta}\n\n ${primeiro.explicacao}\n\n*(pode digitar a resposta, escolher uma opção ou pular — eu completo com o padrão)*`}`,
+          opcoes: ordemFiltrada.length === 0 ? [] : [...(primeiro.opcoes || []), "⏭ Pular (usar padrão)"],
           criadaEm: new Date().toISOString(),
         });
         // Se todos os campos foram herdados, gera direto (sem perguntar)
@@ -334,8 +334,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.documentos[doc.chave] = { status: "ok", anexadoEm: new Date().toISOString() };
         msg.push({
           id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
-          conteudo: `✅ **${doc.nome}** recebido! Pode anexar o arquivo aqui 📎 se quiser.`,
-          opcoes: ["📎 Anexar arquivo", "▶️ Seguir"],
+          conteudo: ` **${doc.nome}** recebido! Pode anexar o arquivo aqui  se quiser.`,
+          opcoes: [" Anexar arquivo", "▶ Seguir"],
           criadaEm: new Date().toISOString(),
         });
         // Avança automaticamente para o próximo documento
@@ -344,8 +344,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
           estado.documentoAtual = proximo.chave;
           msg.push({
             id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-            conteudo: `📄 **${proximo.nome}** — você já tem?`,
-            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
+            conteudo: ` **${proximo.nome}** — você já tem?`,
+            opcoes: [" Já tenho", " Ainda não", " O que é isso?", " Anexar arquivo"],
             criadaEm: new Date().toISOString(),
           });
         } else {
@@ -358,8 +358,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.documentos[doc.chave] = { status: "falta", implicacao: doc.implicacao };
         msg.push({
           id: ID(), papel: "sistema", tipo: "alerta", etapa: "documentos",
-          conteudo: `⚠️ **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\n**Não vou travar** — escolha uma opção para continuar:\n\n📄 **${doc.nome}** — o que fazer?`,
-          opcoes: ["📄 Criar com modelo AGU", "📎 Anexar arquivo", "▶️ Seguir mesmo assim", "🔄 Quero resolver agora"],
+          conteudo: ` **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\n**Não vou travar** — escolha uma opção para continuar:\n\n **${doc.nome}** — o que fazer?`,
+          opcoes: [" Criar com modelo AGU", " Anexar arquivo", "▶ Seguir mesmo assim", " Quero resolver agora"],
           criadaEm: new Date().toISOString(),
         });
         // NÃO avança — espera a escolha do servidor (criar/anexar/pular)
@@ -369,8 +369,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       if (t.includes("o que é") || t.includes("o que e") || t.includes("não sei o que")) {
         msg.push({
           id: ID(), papel: "sistema", tipo: "texto", etapa: "documentos",
-          conteudo: `📘 **${doc.nome}** — o que é:\n\n${explicarDocumento(doc.chave)}\n\nTem um modelo pronto se precisar!`,
-          opcoes: ["📎 Gerar/baixar modelo", "✅ Já entendi, tenho", "❌ Ainda não tenho"],
+          conteudo: ` **${doc.nome}** — o que é:\n\n${explicarDocumento(doc.chave)}\n\nTem um modelo pronto se precisar!`,
+          opcoes: [" Gerar/baixar modelo", " Já entendi, tenho", " Ainda não tenho"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
@@ -382,8 +382,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.documentos[doc.chave] = { status: "ok", anexadoEm: new Date().toISOString() };
         msg.push({
           id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
-          conteudo: `✅ **${doc.nome}** registrado! (${resposta.slice(0, 100)})`,
-          opcoes: ["📎 Anexar arquivo", "▶️ Seguir"],
+          conteudo: ` **${doc.nome}** registrado! (${resposta.slice(0, 100)})`,
+          opcoes: [" Anexar arquivo", "▶ Seguir"],
           criadaEm: new Date().toISOString(),
         });
         const proximo = FLUXO_DOCUMENTOS[FLUXO_DOCUMENTOS.indexOf(doc) + 1];
@@ -391,8 +391,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
           estado.documentoAtual = proximo.chave;
           msg.push({
             id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-            conteudo: `📄 **${proximo.nome}** — você já tem?`,
-            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
+            conteudo: ` **${proximo.nome}** — você já tem?`,
+            opcoes: [" Já tenho", " Ainda não", " O que é isso?", " Anexar arquivo"],
             criadaEm: new Date().toISOString(),
           });
         } else estado.documentoAtual = undefined;
@@ -402,8 +402,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.documentos[doc.chave] = { status: "falta", implicacao: doc.implicacao };
         msg.push({
           id: ID(), papel: "sistema", tipo: "alerta", etapa: "documentos",
-          conteudo: `⚠️ **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\n**Não vou travar** — escolha uma opção para continuar:`,
-          opcoes: ["▶️ Seguir mesmo assim", "🔄 Quero resolver agora", "📎 Anexar arquivo"],
+          conteudo: ` **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\n**Não vou travar** — escolha uma opção para continuar:`,
+          opcoes: ["▶ Seguir mesmo assim", " Quero resolver agora", " Anexar arquivo"],
           criadaEm: new Date().toISOString(),
         });
         const proximo = FLUXO_DOCUMENTOS[FLUXO_DOCUMENTOS.indexOf(doc) + 1];
@@ -411,8 +411,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
           estado.documentoAtual = proximo.chave;
           msg.push({
             id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-            conteudo: `📄 **${proximo.nome}** — você já tem?`,
-            opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
+            conteudo: ` **${proximo.nome}** — você já tem?`,
+            opcoes: [" Já tenho", " Ainda não", " O que é isso?", " Anexar arquivo"],
             criadaEm: new Date().toISOString(),
           });
         } else estado.documentoAtual = undefined;
@@ -421,8 +421,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       if (intencao === "explicar") {
         msg.push({
           id: ID(), papel: "sistema", tipo: "texto", etapa: "documentos",
-          conteudo: `📘 **${doc.nome}** — o que é:\n\n${explicarDocumento(doc.chave)}\n\nTem um modelo pronto se precisar!`,
-          opcoes: ["📎 Gerar/baixar modelo", "✅ Já entendi, tenho", "❌ Ainda não tenho"],
+          conteudo: ` **${doc.nome}** — o que é:\n\n${explicarDocumento(doc.chave)}\n\nTem um modelo pronto se precisar!`,
+          opcoes: [" Gerar/baixar modelo", " Já entendi, tenho", " Ainda não tenho"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
@@ -431,8 +431,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       // de forma amigável (não é loop: a resposta foi absorvida)
       msg.push({
         id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-        conteudo: `Anotado! (${resposta.slice(0, 120)})\n\n📄 **${doc.nome}** — você já tem?`,
-        opcoes: ["✅ Já tenho", "❌ Ainda não", "❓ O que é isso?", "📎 Anexar arquivo"],
+        conteudo: `Anotado! (${resposta.slice(0, 120)})\n\n **${doc.nome}** — você já tem?`,
+        opcoes: [" Já tenho", " Ainda não", " O que é isso?", " Anexar arquivo"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -455,8 +455,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         if (invalida) {
           msg.push({
             id: ID(), papel: "sistema", tipo: "texto", etapa: "coleta_doc",
-            conteudo: `${invalida}\n\n🔄 **${campoDef?.pergunta}**\n\n💡 ${campoDef?.explicacao}`,
-            opcoes: [...(campoDef?.opcoes || []), "⏭️ Pular (usar padrão)"],
+            conteudo: `${invalida}\n\n **${campoDef?.pergunta}**\n\n ${campoDef?.explicacao}`,
+            opcoes: [...(campoDef?.opcoes || []), "⏭ Pular (usar padrão)"],
             criadaEm: new Date().toISOString(),
           });
           return { mensagens: msg, estado };
@@ -482,8 +482,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         const proxDef = camposDef.find(c => c.chave === proximoCampo);
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "coleta_doc",
-          conteudo: `✅ Anotado! (${resposta.slice(0, 80) || "padrão"})\n\n🟡 **Pergunta ${idxAtual + 2}/${camposDef.length}:** ${proxDef?.pergunta}\n\n💡 ${proxDef?.explicacao}`,
-          opcoes: [...(proxDef?.opcoes || []), "⏭️ Pular (usar padrão)"],
+          conteudo: ` Anotado! (${resposta.slice(0, 80) || "padrão"})\n\n **Pergunta ${idxAtual + 2}/${camposDef.length}:** ${proxDef?.pergunta}\n\n ${proxDef?.explicacao}`,
+          opcoes: [...(proxDef?.opcoes || []), "⏭ Pular (usar padrão)"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
@@ -504,14 +504,14 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         ], 0.4);
         msg.push({
           id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
-          conteudo: `📄 **${doc?.nome} GERADO completo (modelo AGU):**\n\n${conteudo.slice(0, 2000)}${conteudo.length > 2000 ? "…" : ""}\n\n⬇️ **Baixe** com o botão abaixo ou **edite** se precisar ajustar.`,
+          conteudo: ` **${doc?.nome} GERADO completo (modelo AGU):**\n\n${conteudo.slice(0, 2000)}${conteudo.length > 2000 ? "…" : ""}\n\n **Baixe** com o botão abaixo ou **edite** se precisar ajustar.`,
           completo: conteudo,   // documento INTEIRO (download usa este campo)
           criadaEm: new Date().toISOString(),
         });
       } catch {
         msg.push({
           id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
-          conteudo: `📄 **${doc?.nome}** gerado! (IA indisponível — use o modelo AGU na jornada do processo.)`,
+          conteudo: ` **${doc?.nome}** gerado! (IA indisponível — use o modelo AGU na jornada do processo.)`,
           criadaEm: new Date().toISOString(),
         });
       }
@@ -526,8 +526,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.documentoAtual = proximoDoc.chave;
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-          conteudo: `📄 **${proximoDoc.nome}** — você já tem? Se não, posso **criar com o modelo AGU** também (campo por campo)!`,
-          opcoes: ["✅ Já tenho", "❌ Ainda não", "📄 Criar com modelo AGU", "📎 Anexar arquivo"],
+          conteudo: ` **${proximoDoc.nome}** — você já tem? Se não, posso **criar com o modelo AGU** também (campo por campo)!`,
+          opcoes: [" Já tenho", " Ainda não", " Criar com modelo AGU", " Anexar arquivo"],
           criadaEm: new Date().toISOString(),
         });
       } else {
@@ -554,7 +554,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "dotacao",
           conteudo: `Agora a **dotação orçamentária**. Com base no objeto, sugiro uma classificação. Você tem a dotação do seu órgão?`,
-          opcoes: ["💡 Usar a sugestão do sistema", "✍️ Informar a minha", "❓ O que é dotação?"],
+          opcoes: [" Usar a sugestão do sistema", " Informar a minha", " O que é dotação?"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
@@ -562,8 +562,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       if (t.includes("explica")) {
         msg.push({
           id: ID(), papel: "sistema", tipo: "texto", etapa: "pesquisa",
-          conteudo: "📘 **Pesquisa de preços**: levantamos o valor de mercado do objeto com pelo menos 3 fontes (PNCP, Painel de Preços, contratos). A **média** vira o valor estimado da licitação — é o que garante que o preço é justo.",
-          opcoes: ["✅ Entendi, buscar no PNCP", "🎯 Outra fonte"],
+          conteudo: " **Pesquisa de preços**: levantamos o valor de mercado do objeto com pelo menos 3 fontes (PNCP, Painel de Preços, contratos). A **média** vira o valor estimado da licitação — é o que garante que o preço é justo.",
+          opcoes: [" Entendi, buscar no PNCP", " Outra fonte"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
@@ -571,7 +571,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       msg.push({
         id: ID(), papel: "sistema", tipo: "pergunta", etapa: "pesquisa",
         conteudo: `Busco a pesquisa no **${memorias.fonte_preco || "PNCP"}**?`,
-        opcoes: ["✅ Sim", "🎯 Outra fonte", "❓ Explica", "▶️ Seguir com PNCP"],
+        opcoes: [" Sim", " Outra fonte", " Explica", "▶ Seguir com PNCP"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -583,13 +583,13 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.etapa = "minuta";
         msg.push({
           id: ID(), papel: "sistema", tipo: "texto", etapa: "dotacao",
-          conteudo: "💡 Usei a classificação mais provável para o objeto (função/subfunção/natureza). **Valide com a unidade de orçamento** antes de empenhar — eu já deixo anotado no processo.",
+          conteudo: " Usei a classificação mais provável para o objeto (função/subfunção/natureza). **Valide com a unidade de orçamento** antes de empenhar — eu já deixo anotado no processo.",
           criadaEm: new Date().toISOString(),
         });
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "minuta",
-          conteudo: `Quase lá! 📝 Agora a **minuta do edital/TR**. Quer que eu **gere com IA** (preencho com os dados do processo + julgados de apoio) ou você prefere um **modelo da AGU**?`,
-          opcoes: ["✨ Gerar com IA", "📄 Modelo AGU", "✍️ Tenho minha própria minuta"],
+          conteudo: `Quase lá!  Agora a **minuta do edital/TR**. Quer que eu **gere com IA** (preencho com os dados do processo + julgados de apoio) ou você prefere um **modelo da AGU**?`,
+          opcoes: [" Gerar com IA", " Modelo AGU", " Tenho minha própria minuta"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
@@ -597,7 +597,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       msg.push({
         id: ID(), papel: "sistema", tipo: "pergunta", etapa: "dotacao",
         conteudo: "E a **dotação orçamentária**? Usa a sugestão ou informa a sua?",
-        opcoes: ["💡 Sugestão do sistema", "✍️ Informar a minha", "▶️ Seguir com a sugestão"],
+        opcoes: [" Sugestão do sistema", " Informar a minha", "▶ Seguir com a sugestão"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -609,13 +609,13 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.etapa = "juridico";
         msg.push({
           id: ID(), papel: "sistema", tipo: "texto", etapa: "minuta",
-          conteudo: "✨ **Minuta gerada com IA** — preenchi com o objeto, dotação sugerida e julgados de apoio. Está salva como rascunho no processo. Você pode editar antes de usar!",
+          conteudo: " **Minuta gerada com IA** — preenchi com o objeto, dotação sugerida e julgados de apoio. Está salva como rascunho no processo. Você pode editar antes de usar!",
           criadaEm: new Date().toISOString(),
         });
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "juridico",
-          conteudo: "Última etapa: **análise jurídica** ⚖️. Vai encaminhar para a Assessoria Jurídica?",
-          opcoes: ["✅ Sim, vou encaminhar", "⚠️ Seguir sem por enquanto"],
+          conteudo: "Última etapa: **análise jurídica** . Vai encaminhar para a Assessoria Jurídica?",
+          opcoes: [" Sim, vou encaminhar", " Seguir sem por enquanto"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
@@ -624,13 +624,13 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.etapa = "juridico";
         msg.push({
           id: ID(), papel: "sistema", tipo: "texto", etapa: "minuta",
-          conteudo: "📄 **Modelo AGU** selecionado — está na seção de modelos do processo, pronto para preencher com 1 clique.",
+          conteudo: " **Modelo AGU** selecionado — está na seção de modelos do processo, pronto para preencher com 1 clique.",
           criadaEm: new Date().toISOString(),
         });
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "juridico",
-          conteudo: "Última etapa: **análise jurídica** ⚖️. Vai encaminhar para a Assessoria?",
-          opcoes: ["✅ Sim", "⚠️ Seguir sem"],
+          conteudo: "Última etapa: **análise jurídica** . Vai encaminhar para a Assessoria?",
+          opcoes: [" Sim", " Seguir sem"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
@@ -638,7 +638,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       msg.push({
         id: ID(), papel: "sistema", tipo: "pergunta", etapa: "minuta",
         conteudo: "Como prefere a **minuta**?",
-        opcoes: ["✨ Gerar com IA", "📄 Modelo AGU", "✍️ Tenho a minha", "▶️ Seguir com IA"],
+        opcoes: [" Gerar com IA", " Modelo AGU", " Tenho a minha", "▶ Seguir com IA"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -648,19 +648,19 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
     case "juridico": {
       estado.etapa = "finalizado";
       const faltas = FLUXO_DOCUMENTOS.filter(d => estado.documentos[d.chave]?.status === "falta");
-      let resumo = "🎉 **Contratação mapeada!** Aqui está o resumo:\n\n";
-      resumo += `📦 **Objeto:** ${estado.objeto || "—"}\n`;
-      resumo += `🏛️ **Tipo:** ${estado.tipoProcesso || "—"}\n`;
-      resumo += `🏢 **UG:** ${estado.ug || "não informada ⚠️"}\n`;
-      resumo += `📄 **Documentos:** ${FLUXO_DOCUMENTOS.filter(d => estado.documentos[d.chave]?.status === "ok").length}/${FLUXO_DOCUMENTOS.length} OK\n`;
+      let resumo = " **Contratação mapeada!** Aqui está o resumo:\n\n";
+      resumo += ` **Objeto:** ${estado.objeto || "—"}\n`;
+      resumo += ` **Tipo:** ${estado.tipoProcesso || "—"}\n`;
+      resumo += ` **UG:** ${estado.ug || "não informada "}\n`;
+      resumo += ` **Documentos:** ${FLUXO_DOCUMENTOS.filter(d => estado.documentos[d.chave]?.status === "ok").length}/${FLUXO_DOCUMENTOS.length} OK\n`;
       if (faltas.length) {
-        resumo += `\n⚠️ **Faltam:** ${faltas.map(d => d.nome).join(", ")}`;
+        resumo += `\n **Faltam:** ${faltas.map(d => d.nome).join(", ")}`;
       }
-      resumo += `\n\n**Próximo passo:** 📄 **elaborar o EDITAL** com o CATMAT provável!`;
+      resumo += `\n\n**Próximo passo:**  **elaborar o EDITAL** com o CATMAT provável!`;
       msg.push({
         id: ID(), papel: "sistema", tipo: "card", etapa: "finalizado",
         conteudo: resumo,
-        opcoes: ["📄 Elaborar edital", "📋 Ver painel", "💬 Continuar conversando"],
+        opcoes: [" Elaborar edital", " Ver painel", " Continuar conversando"],
         criadaEm: new Date().toISOString(),
       });
       // ── RESULTADO PRONTO: gera a minuta + justificativa com IA ──
@@ -672,7 +672,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         ], 0.5);
         msg.push({
           id: ID(), papel: "sistema", tipo: "documento", etapa: "finalizado",
-          conteudo: `📝 **Minuta pronta (gerada com IA):**\n\n${minuta.slice(0, 1800)}${minuta.length > 1800 ? "…" : ""}`,
+          conteudo: ` **Minuta pronta (gerada com IA):**\n\n${minuta.slice(0, 1800)}${minuta.length > 1800 ? "…" : ""}`,
           completo: minuta,   // minuta INTEIRA (download usa este campo)
           criadaEm: new Date().toISOString(),
         });
@@ -689,20 +689,20 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         const r = await catmatProvavel(estado.objeto || "", 5);
         estado.catmat = r.itens.map(i => `${i.tipo} ${i.codigo} — ${i.descricao.slice(0, 60)}`).join("\n");
         if (r.itens.length) {
-          catTexto = `\n\n🔎 **Código(s) provável(eis) encontrado(s):**\n${r.itens.map((i, n) => `${n + 1}. ${i.tipo} **${i.codigo}** — ${i.descricao.slice(0, 70)}`).join("\n")}`;
+          catTexto = `\n\n **Código(s) provável(eis) encontrado(s):**\n${r.itens.map((i, n) => `${n + 1}. ${i.tipo} **${i.codigo}** — ${i.descricao.slice(0, 70)}`).join("\n")}`;
         } else {
-          catTexto = "\n\n⚠️ Não encontrei o código exato no catálogo. Posso **sugerir com IA** — ou você informa o código que conhece.";
+          catTexto = "\n\n Não encontrei o código exato no catálogo. Posso **sugerir com IA** — ou você informa o código que conhece.";
         }
       } catch {
-        catTexto = "\n\n⚠️ Não consegui consultar o catálogo agora. Posso **sugerir com IA** — ou você informa o código.";
+        catTexto = "\n\n Não consegui consultar o catálogo agora. Posso **sugerir com IA** — ou você informa o código.";
       }
 
       if (t.includes("elaborar") || t.includes("edital") || t.includes("sim") || t.includes("gerar")) {
         // Pergunta o CATMAT antes de gerar (com opção de sugerir)
         msg.push({
           id: ID(), papel: "sistema", tipo: "card", etapa: "edital",
-          conteudo: `📄 **Edital** — vamos elaborar!\n\n**CATMAT/CATSER provável para o objeto:**\n${estado.catmat || "a consultar…"}${catTexto}\n\n👉 Se tiver **dúvida sobre o código**, eu **sugiro o mais provável** com base no objeto.`,
-          opcoes: ["💡 Sugerir o código com IA", "✍️ Vou informar o código", "▶️ Seguir com o provável"],
+          conteudo: ` **Edital** — vamos elaborar!\n\n**CATMAT/CATSER provável para o objeto:**\n${estado.catmat || "a consultar…"}${catTexto}\n\n Se tiver **dúvida sobre o código**, eu **sugiro o mais provável** com base no objeto.`,
+          opcoes: [" Sugerir o código com IA", " Vou informar o código", "▶ Seguir com o provável"],
           criadaEm: new Date().toISOString(),
         });
         estado.etapa = "edital_catmat";
@@ -711,7 +711,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       msg.push({
         id: ID(), papel: "sistema", tipo: "pergunta", etapa: "edital",
         conteudo: "Quer **elaborar o edital** com o CATMAT provável?",
-        opcoes: ["📄 Sim, elaborar edital", "📋 Ver painel", "💬 Continuar conversando"],
+        opcoes: [" Sim, elaborar edital", " Ver painel", " Continuar conversando"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -749,9 +749,9 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       estado.etapa = "edital_pronto";
       msg.push({
         id: ID(), papel: "sistema", tipo: "documento", etapa: "edital_pronto",
-        conteudo: `📄 **EDITAL ELABORADO**\n\n**CATMAT/CATSER:** ${codigo}\n\n${edital ? edital.slice(0, 2000) + (edital.length > 2000 ? "…" : "") : "Não consegui gerar o edital agora. Use os modelos AGU na jornada do processo."}`,
+        conteudo: ` **EDITAL ELABORADO**\n\n**CATMAT/CATSER:** ${codigo}\n\n${edital ? edital.slice(0, 2000) + (edital.length > 2000 ? "…" : "") : "Não consegui gerar o edital agora. Use os modelos AGU na jornada do processo."}`,
         completo: `EDITAL DE LICITAÇÃO\nCATMAT/CATSER: ${codigo}\n\n${edital || ""}`,   // edital INTEIRO
-        opcoes: ["⬇️ Baixar edital", "✏️ Editar edital", "📋 Ver painel"],
+        opcoes: [" Baixar edital", " Editar edital", " Ver painel"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -761,8 +761,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
     case "edital_pronto": {
       msg.push({
         id: ID(), papel: "sistema", tipo: "card", etapa: "edital_pronto",
-        conteudo: "📄 **Edital elaborado!** Você pode **baixar** e **editar** — e na jornada do processo encontra tudo salvo (minuta + edital + julgados + dotação).",
-        opcoes: ["⬇️ Baixar edital", "✏️ Editar edital", "📋 Ver painel"],
+        conteudo: " **Edital elaborado!** Você pode **baixar** e **editar** — e na jornada do processo encontra tudo salvo (minuta + edital + julgados + dotação).",
+        opcoes: [" Baixar edital", " Editar edital", " Ver painel"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -771,7 +771,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
     default:
       msg.push({
         id: ID(), papel: "sistema", tipo: "texto",
-        conteudo: "Pode me contar mais? Digite o que você precisa ou anexe um documento 📎",
+        conteudo: "Pode me contar mais? Digite o que você precisa ou anexe um documento ",
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -802,26 +802,26 @@ function validarCampoColeta(campo: string, resposta: string): string | null {
   switch (campo) {
     case "quantidade":
       if (!/\d/.test(resposta)) {
-        return `🤔 **"${resposta.slice(0, 50)}"** não tem um número.\n\nA **quantidade** precisa de um número (ex.: **2** profissionais, **500** resmas, **10** licenças).`;
+        return ` **"${resposta.slice(0, 50)}"** não tem um número.\n\nA **quantidade** precisa de um número (ex.: **2** profissionais, **500** resmas, **10** licenças).`;
       }
       if (/pedido de compra|etp|edital|contrato|termo de referência|preciso|quero/i.test(t)) {
-        return `🤔 Isso parece um **documento**, não uma quantidade.\n\nAqui quero saber **quantos/quantas** do objeto (ex.: **2** profissionais, **500** resmas).`;
+        return ` Isso parece um **documento**, não uma quantidade.\n\nAqui quero saber **quantos/quantas** do objeto (ex.: **2** profissionais, **500** resmas).`;
       }
       return null;
     case "unidade":
       const unidades = ["unidade", "un", "mês", "mes", "resma", "kg", "m²", "m2", "hora", "h", "dia", "serviço", "servico", "pacote", "caixa", "cx", "par", "lote"];
       if (resposta.length > 20 && !unidades.some(u => t.includes(u))) {
-        return `🤔 **"${resposta.slice(0, 50)}"** não parece uma **unidade de medida**.\n\nUnidades comuns: **unidade, mês, resma, kg, m², hora, caixa**...`;
+        return ` **"${resposta.slice(0, 50)}"** não parece uma **unidade de medida**.\n\nUnidades comuns: **unidade, mês, resma, kg, m², hora, caixa**...`;
       }
       return null;
     case "prazo":
       if (!/\d/.test(resposta) && !/dias|meses|mês|ano|semana|semanal/i.test(t)) {
-        return `🤔 **"${resposta.slice(0, 50)}"** não parece um **prazo**.\n\nPrazo precisa de número + período (ex.: **30 dias**, **12 meses**).`;
+        return ` **"${resposta.slice(0, 50)}"** não parece um **prazo**.\n\nPrazo precisa de número + período (ex.: **30 dias**, **12 meses**).`;
       }
       return null;
     case "valorEstimado":
       if (resposta.length > 0 && !/\d/.test(resposta) && !/pesquisa|pncp|definir|não sei|nao sei/i.test(t)) {
-        return `🤔 **"${resposta.slice(0, 50)}"** não parece um **valor**.\n\nPode digitar um valor (ex.: **45.000,00**) ou responder **"deixa a pesquisa definir"**.`;
+        return ` **"${resposta.slice(0, 50)}"** não parece um **valor**.\n\nPode digitar um valor (ex.: **45.000,00**) ou responder **"deixa a pesquisa definir"**.`;
       }
       return null;
     default:

@@ -175,7 +175,7 @@ export default function NovaPesquisaPage() {
   const [refazendoItem, setRefazendoItem] = useState<string | null>(null);
   const [ordenacao, setOrdenacao] = useState<"relevancia" | "valor_asc" | "valor_desc" | "data_desc">("relevancia");
 
-  // Período → dias (usado tanto na 1ª busca quanto na paginação)
+  // Período  dias (usado tanto na 1ª busca quanto na paginação)
   const PERIODO_DIAS: Record<string, number> = {
     "90_dias": 90,
     "6_meses": 180,
@@ -395,7 +395,7 @@ export default function NovaPesquisaPage() {
     //   do item (limpo de códigos/ruído). NUNCA entram especificação completa,
     //   quantidade, unidade ou local — o PNCP faz busca textual de TODAS as
     //   palavras juntas, e qualquer excesso derruba o resultado (ex: especificação
-    //   longa de clínico geral → 1). Termo curto = amplitude máxima.
+    //   longa de clínico geral  1). Termo curto = amplitude máxima.
     // CAMADA 2 — PRIORIZAÇÃO: especificação/quantidade/unidade/local aplicados
     //   DEPOIS, como boost de similaridade/ordenação nos resultados.
     function montarTermoBusca(item?: any): string {
@@ -709,7 +709,7 @@ export default function NovaPesquisaPage() {
 
   const gerarConteudoIA = async (stats: any, nAceitas: number) => {
     if (!stats) {
-      setJustificativaIA("⚠️ Nenhuma referência aceita com valor. Volte à tabela de resultados e clique em ✓ Aceitar em editais com preço.");
+      setJustificativaIA(" Nenhuma referência aceita com valor. Volte à tabela de resultados e clique em  Aceitar em editais com preço.");
       return;
     }
     setIaLoading(true);
@@ -726,7 +726,7 @@ export default function NovaPesquisaPage() {
       if (data.justificativa) setJustificativaIA(data.justificativa);
     } catch (err: any) {
       console.error("Erro no agente justificador:", err);
-      setJustificativaIA(`⚠️ Erro ao gerar justificativa: ${err?.message || "falha na rede"}. Tente novamente.`);
+      setJustificativaIA(` Erro ao gerar justificativa: ${err?.message || "falha na rede"}. Tente novamente.`);
     }
     try {
       const aceitos = resultados.filter(r => r.status_avaliacao === "aceito");
@@ -754,7 +754,7 @@ export default function NovaPesquisaPage() {
     const aceitos = aceitosRaw.map(r => (r.valor_unitario ?? r.valor_total) as number);
     if (aceitos.length === 0) { setEstatisticas(null); setAlertaCv(null); setPrecoEstimado(null); setAnaliseCritica(null); return null; }
     const pesos = aceitosRaw.map(r => r.quantidade ?? 1);
-    // Regra da reunião: CV > limite (20%) → alerta + menor preço automaticamente
+    // Regra da reunião: CV > limite (20%)  alerta + menor preço automaticamente
     const { estatisticas: stats, alertaCv, cvExcedido, metodoEfetivo, preco } = calcularComRegraCv(
       aceitos, config.metodo, quantidade, config.cvLimite, pesos,
     );
@@ -834,7 +834,7 @@ export default function NovaPesquisaPage() {
     // 1. Pega TODOS os resultados com valor (aceitos ou não)
     const comValor = resultados.filter(r => (r.valor_unitario != null || r.valor_total != null));
     if (comValor.length === 0) {
-      setNotasCalcularDireto(["❌ Nenhum resultado com valor encontrado na pesquisa. Clique em 'Refazer pesquisa' para buscar preços."]);
+      setNotasCalcularDireto([" Nenhum resultado com valor encontrado na pesquisa. Clique em 'Refazer pesquisa' para buscar preços."]);
       setUsadosCalcularDireto([]);
       setPrecoEstimado(null);
       setEstatisticas(null);
@@ -867,14 +867,14 @@ export default function NovaPesquisaPage() {
 
     // 4. Notas explicativas (transparência do que o agente fez)
     const notas: string[] = [];
-    notas.push(`🔍 Usei ${amostra.length} resultado(s) da pesquisa que têm valor, ordenados por relevância (similaridade com o objeto).`);
+    notas.push(` Usei ${amostra.length} resultado(s) da pesquisa que têm valor, ordenados por relevância (similaridade com o objeto).`);
     if (descartados.length > 0) {
-      notas.push(`🚫 Desconsiderei ${descartados.length} preço(s) discrepante(s) — IN 126, art. 11, §2º (${descartados.map(r => formatarMoeda((r.valor_unitario ?? r.valor_total) as number)).join(", ")}) — por serem inexequíveis (< 50% da média) ou sobrepreços (> 150%).`);
+      notas.push(` Desconsiderei ${descartados.length} preço(s) discrepante(s) — IN 126, art. 11, §2º (${descartados.map(r => formatarMoeda((r.valor_unitario ?? r.valor_total) as number)).join(", ")}) — por serem inexequíveis (< 50% da média) ou sobrepreços (> 150%).`);
     }
-    notas.push(`⚖️ Classificação IN 126/2023-TJRO: preços < 50% da média = inexequíveis · > 150% = sobrepreço (desconsiderados no cálculo).`);
-    if (alertaCv) notas.push(`⚠️ Dispersão alta (CV ${cvExcedido?.toFixed(1)}% > limite ${config.cvLimite}%) → apliquei automaticamente o MENOR PREÇO como referência (regra de segurança).`);
-    notas.push(`🧮 Método aplicado: ${metodoEfetivo.replace(/_/g, " ")} — preço de referência unitário ${formatarMoeda(preco.unitario)} × ${quantidade} ${unidadeMedida}(s) = ${formatarMoeda(preco.total)}.`);
-    notas.push(`💡 Dica: você pode revisar/aceitar/descartar referências na etapa anterior e recalcular — o sistema respeita suas escolhas.`);
+    notas.push(` Classificação IN 126/2023-TJRO: preços < 50% da média = inexequíveis · > 150% = sobrepreço (desconsiderados no cálculo).`);
+    if (alertaCv) notas.push(` Dispersão alta (CV ${cvExcedido?.toFixed(1)}% > limite ${config.cvLimite}%)  apliquei automaticamente o MENOR PREÇO como referência (regra de segurança).`);
+    notas.push(` Método aplicado: ${metodoEfetivo.replace(/_/g, " ")} — preço de referência unitário ${formatarMoeda(preco.unitario)} × ${quantidade} ${unidadeMedida}(s) = ${formatarMoeda(preco.total)}.`);
+    notas.push(` Dica: você pode revisar/aceitar/descartar referências na etapa anterior e recalcular — o sistema respeita suas escolhas.`);
     setNotasCalcularDireto(notas);
   };
 
@@ -1011,7 +1011,7 @@ export default function NovaPesquisaPage() {
 
   const renderStep = () => {
     switch (step) {
-      // ── Etapa 1: Objeto e parcelamento (2ª tela antiga → 1ª posição) ────────
+      // ── Etapa 1: Objeto e parcelamento (2ª tela antiga  1ª posição) ────────
       case 1: return (
         <StepCard
           title="Objeto da contratação e parcelamento"
@@ -1373,7 +1373,7 @@ export default function NovaPesquisaPage() {
                     </div>
                     {invalido && (
                       <p className="mt-2 text-[11px] text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
-                        ⚠ CNPJ e fonte são obrigatórios para validade documental desta cotação.
+                         CNPJ e fonte são obrigatórios para validade documental desta cotação.
                       </p>
                     )}
                   </div>
@@ -1395,7 +1395,7 @@ export default function NovaPesquisaPage() {
           desc="O sistema busca simultaneamente no PNCP, Dados Abertos e Compras.gov e traz todos os resultados. Use os filtros na tabela para selecionar o que interessa."
           footer={
             <div className="flex items-center gap-3">
-              <Btn onClick={prevStep}>← Voltar</Btn>
+              <Btn onClick={prevStep}> Voltar</Btn>
               <Btn primary onClick={pesquisarPNCP} icon={pesquisando ? <Loader2 size={14} className="animate-spin"/> : <Search size={14}/>}>
                 {pesquisando ? "Buscando…" : "Realizar pesquisa"}
               </Btn>
@@ -1565,7 +1565,7 @@ export default function NovaPesquisaPage() {
         <StepCard
           title="Configurações da pesquisa"
           desc="Ajuste os parâmetros antes de realizar a pesquisa."
-          footer={<><Btn onClick={prevStep}>← Voltar</Btn><Btn primary onClick={pesquisarPNCP} icon={<Search size={14}/>}>Realizar pesquisa</Btn></>}
+          footer={<><Btn onClick={prevStep}> Voltar</Btn><Btn primary onClick={pesquisarPNCP} icon={<Search size={14}/>}>Realizar pesquisa</Btn></>}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <Field label="Período da pesquisa">
@@ -1599,9 +1599,9 @@ export default function NovaPesquisaPage() {
           if (!sit) return null;
           const l = sit.toLowerCase();
           if (l.includes("divulgada") || l.includes("aberta") || l.includes("recebendo"))
-            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 whitespace-nowrap">✔ {sit}</span>;
+            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 whitespace-nowrap"> {sit}</span>;
           if (l.includes("anulada") || l.includes("cancelada") || l.includes("revogada"))
-            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 whitespace-nowrap">✖ {sit}</span>;
+            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 whitespace-nowrap"> {sit}</span>;
           if (l.includes("encerrada") || l.includes("homologada") || l.includes("adjudicada"))
             return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 whitespace-nowrap">{sit}</span>;
           return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 whitespace-nowrap">{sit}</span>;
@@ -1722,12 +1722,12 @@ export default function NovaPesquisaPage() {
                   <button disabled={pagAtual <= 1}
                     onClick={() => buscarPaginaItem(itemId, pagAtual - 1)}
                     className="px-3 py-1 text-xs border border-slate-300 rounded-lg font-semibold disabled:opacity-30 hover:bg-slate-50 transition-colors">
-                    ← Anterior
+                     Anterior
                   </button>
                   <button disabled={pagAtual >= totalPags}
                     onClick={() => buscarPaginaItem(itemId, pagAtual + 1)}
                     className="px-3 py-1 text-xs border border-slate-300 rounded-lg font-semibold disabled:opacity-30 hover:bg-slate-50 transition-colors">
-                    Próxima →
+                    Próxima 
                   </button>
                 </div>
               </div>
@@ -1857,9 +1857,9 @@ export default function NovaPesquisaPage() {
                     </span>
                     <div className="flex gap-2">
                       <button disabled={pagAtual <= 1} onClick={() => buscarPaginaItem(itemId, pagAtual - 1)}
-                        className="px-3 py-1 text-xs border rounded font-semibold disabled:opacity-30 hover:bg-white transition-colors">← Anterior</button>
+                        className="px-3 py-1 text-xs border rounded font-semibold disabled:opacity-30 hover:bg-white transition-colors"> Anterior</button>
                       <button disabled={pagAtual >= totalPags} onClick={() => buscarPaginaItem(itemId, pagAtual + 1)}
-                        className="px-3 py-1 text-xs border rounded font-semibold disabled:opacity-30 hover:bg-white transition-colors">Próxima →</button>
+                        className="px-3 py-1 text-xs border rounded font-semibold disabled:opacity-30 hover:bg-white transition-colors">Próxima </button>
                     </div>
                   </div>
                 </div>
@@ -1934,7 +1934,7 @@ export default function NovaPesquisaPage() {
                   className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 focus:outline-none focus:border-[#C9A227] cursor-pointer"
                   title="Filtrar por região (inferida da localização do edital)"
                 >
-                  <option value="todas">🌎 Todas as regiões</option>
+                  <option value="todas"> Todas as regiões</option>
                   <option value="norte">Norte</option>
                   <option value="nordeste">Nordeste</option>
                   <option value="centro_oeste">Centro-Oeste</option>
@@ -1949,8 +1949,8 @@ export default function NovaPesquisaPage() {
                   title="Ordenar resultados"
                 >
                   <option value="relevancia">Relevância</option>
-                  <option value="valor_asc">Menor valor ↑</option>
-                  <option value="valor_desc">Maior valor ↓</option>
+                  <option value="valor_asc">Menor valor </option>
+                  <option value="valor_desc">Maior valor </option>
                   <option value="data_desc">Mais recentes</option>
                 </select>
                 {/* Separador + badges de contagem */}
@@ -2037,7 +2037,7 @@ export default function NovaPesquisaPage() {
               {parametrosBusca && parametrosBusca.length > 0 && (
                 <div className="mb-4 rounded-lg border border-[#d5dce8] bg-[#eef2f8]/40 px-4 py-3">
                   <p className="text-[11px] font-bold text-[#032650] uppercase tracking-wide mb-1.5">
-                    🔍 Como o agente buscou
+                     Como o agente buscou
                   </p>
                   <div className="space-y-1">
                     {parametrosBusca.map((p, i) => (
@@ -2080,13 +2080,13 @@ export default function NovaPesquisaPage() {
               {/* Ações */}
               {resultados.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-slate-200 flex items-center gap-3 flex-wrap">
-                  <Btn onClick={() => goToStep(8)}>← Configurações</Btn>
+                  <Btn onClick={() => goToStep(8)}> Configurações</Btn>
                   <button
                     onClick={() => { calcular(); goToStep(12); }}
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer"
                     title="Calcula com as referências aceitas e abre o quadro comparativo com o valor estimado"
                   >
-                    <Calculator size={13} /> 🧮 Calcular direto (quadro comparativo)
+                    <Calculator size={13} />  Calcular direto (quadro comparativo)
                   </button>
                   <Btn primary onClick={() => { const r = calcular(); nextStep(); if (r) gerarConteudoIA(r.stats, r.nAceitas); }} icon={<BarChart3 size={14}/>}>
                     Calcular e analisar
@@ -2105,7 +2105,7 @@ export default function NovaPesquisaPage() {
           desc="Gere uma justificativa técnica automatizada com base nas referências aceitas e nas estatísticas calculadas. Esta etapa é opcional — você pode pular e prosseguir."
           footer={
             <div className="flex items-center gap-3 flex-wrap">
-              <Btn onClick={() => goToStep(9)}>← Revisar referências</Btn>
+              <Btn onClick={() => goToStep(9)}> Revisar referências</Btn>
               <Btn icon={iaLoading ? <Loader2 size={13} className="animate-spin"/> : <RefreshCw size={13}/>}
                 disabled={iaLoading}
                 onClick={() => {
@@ -2115,14 +2115,14 @@ export default function NovaPesquisaPage() {
                   const stats = r?.stats ?? estatisticas;
                   const nAce  = r?.nAceitas ?? resultados.filter(r => r.status_avaliacao === "aceito").length;
                   if (!stats) {
-                    setJustificativaIA("⚠️ Nenhuma referência aceita com valor disponível. Na tabela de resultados (etapa anterior), clique em ✓ Aceitar em pelo menos 3 editais que tenham valor na coluna **Vlr. total edital (A)** ou **Vlr. unit. (B)**.");
+                    setJustificativaIA(" Nenhuma referência aceita com valor disponível. Na tabela de resultados (etapa anterior), clique em  Aceitar em pelo menos 3 editais que tenham valor na coluna **Vlr. total edital (A)** ou **Vlr. unit. (B)**.");
                     return;
                   }
                   gerarConteudoIA(stats, nAce);
                 }}>
                 {iaLoading ? "Gerando…" : "Gerar justificativa"}
               </Btn>
-              <Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Próximo →</Btn>
+              <Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Próximo </Btn>
             </div>
           }
         >
@@ -2153,7 +2153,7 @@ export default function NovaPesquisaPage() {
               {(validacaoIA.alertas || []).map((a: any, i: number) => (
                 <div key={i} className={`mt-1.5 text-xs px-3 py-2 rounded-lg ${a.tipo === "erro" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>
                   <span className="font-semibold">{a.campo}:</span> {a.mensagem}
-                  {a.sugestao && <span className="block mt-0.5 opacity-80">→ {a.sugestao}</span>}
+                  {a.sugestao && <span className="block mt-0.5 opacity-80"> {a.sugestao}</span>}
                 </div>
               ))}
             </div>
@@ -2179,7 +2179,7 @@ export default function NovaPesquisaPage() {
                     : p.severidade === "atencao" ? "border-amber-200 bg-amber-50 text-amber-800"
                     : "border-slate-200 bg-white text-slate-700"}`}>
                     <p className="font-semibold">
-                      {p.severidade === "alerta" ? "⚠️ " : p.severidade === "atencao" ? "• " : "ℹ️ "}{p.titulo}
+                      {p.severidade === "alerta" ? " " : p.severidade === "atencao" ? "• " : "ℹ "}{p.titulo}
                     </p>
                     <p className="mt-0.5 opacity-90">{p.detalhe}</p>
                   </div>
@@ -2249,7 +2249,7 @@ export default function NovaPesquisaPage() {
             <>
               {alertaCv && (
                 <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 leading-relaxed">
-                  <strong>⚠ Regra de variação aplicada (CV &gt; {alertaCv.limite}%):</strong> a dispersão das referências
+                  <strong> Regra de variação aplicada (CV &gt; {alertaCv.limite}%):</strong> a dispersão das referências
                   ({alertaCv.cv.toFixed(1).replace(".", ",")}%) ultrapassou o limite. O cálculo usou automaticamente o
                   <strong> menor preço</strong> como referência, evitando média distorcida. Método efetivo: <strong>{alertaCv.metodoEfetivo.replace(/_/g, " ")}</strong>.
                 </div>
@@ -2306,7 +2306,7 @@ export default function NovaPesquisaPage() {
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Método aplicado</p>
                   <p className="text-base font-semibold text-slate-700">{(metodoEfetivo || config.metodo).replace(/_/g, " ")}</p>
-                  {alertaCv && <p className="text-[10px] text-red-500 mt-1 font-medium">CV acima do limite → menor preço</p>}
+                  {alertaCv && <p className="text-[10px] text-red-500 mt-1 font-medium">CV acima do limite  menor preço</p>}
                 </div>
               </div>
               <div className="rounded-lg bg-blue-50 border border-blue-100 p-4 text-sm text-blue-800 leading-relaxed">
@@ -2338,7 +2338,7 @@ export default function NovaPesquisaPage() {
             <div className="flex items-center justify-between px-4 py-3 bg-emerald-600 text-white flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <Calculator size={15} />
-                <p className="text-sm font-bold">🧮 Calcular direto — quadro comparativo</p>
+                <p className="text-sm font-bold"> Calcular direto — quadro comparativo</p>
               </div>
               <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full">agente automático</span>
             </div>
@@ -2349,7 +2349,7 @@ export default function NovaPesquisaPage() {
                 if (fonte.length === 0) {
                   return (
                     <div className="text-center py-4">
-                      <p className="text-xs text-slate-500 mb-3">Pesquise primeiro (aba Pesquisa → Realizar pesquisa) para buscar os preços. Depois clique abaixo:</p>
+                      <p className="text-xs text-slate-500 mb-3">Pesquise primeiro (aba Pesquisa  Realizar pesquisa) para buscar os preços. Depois clique abaixo:</p>
                       <button
                         onClick={() => goToStep(5)}
                         className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg cursor-pointer"
@@ -2363,7 +2363,7 @@ export default function NovaPesquisaPage() {
                   <div className="space-y-4">
                     {/* Referência legal IN 126/2023-TJRO */}
                     <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-800 leading-relaxed">
-                      ⚖️ <strong>Base legal:</strong> <strong>Instrução nº 126/2023-TJRO</strong> (art. 3º, III e VII; art. 8º; art. 11) — pesquisa de preços para bens e serviços de qualquer natureza no TJRO.
+                       <strong>Base legal:</strong> <strong>Instrução nº 126/2023-TJRO</strong> (art. 3º, III e VII; art. 8º; art. 11) — pesquisa de preços para bens e serviços de qualquer natureza no TJRO.
                     </div>
 
                     {/* Botão calcular direto (se ainda não calculou com os automáticos) */}
@@ -2408,10 +2408,10 @@ export default function NovaPesquisaPage() {
                                 <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{q}</td>
                                 <td className="px-3 py-2">
                                   {classif.tipo === "válido" ? (
-                                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✓ válido</span>
+                                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700"> válido</span>
                                   ) : (
                                     <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${classif.tipo === "inexequível" ? "bg-red-100 text-red-700" : classif.tipo === "sobrepreço" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>
-                                      ⚠ {classif.tipo} ({classif.pct}% da média)
+                                       {classif.tipo} ({classif.pct}% da média)
                                     </span>
                                   )}
                                 </td>
@@ -2429,7 +2429,7 @@ export default function NovaPesquisaPage() {
                       if (desconsiderados.length > 0) {
                         return (
                           <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-800 leading-relaxed">
-                            <p className="font-bold mb-1">🚫 Preços desconsiderados (art. 11, §2º da IN 126/2023-TJRO)</p>
+                            <p className="font-bold mb-1"> Preços desconsiderados (art. 11, §2º da IN 126/2023-TJRO)</p>
                             {desconsiderados.map((r, i) => {
                               const v = (r.valor_unitario ?? r.valor_total) as number;
                               const c = classificarPrecoIN126(v, vals);
@@ -2451,7 +2451,7 @@ export default function NovaPesquisaPage() {
                       if (validos.length > 0 && validos.length < 3) {
                         return (
                           <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 leading-relaxed">
-                            ⚠️ <strong>Atenção (art. 11, §1º da IN 126/2023-TJRO):</strong> o cálculo exige <strong>3 ou mais preços válidos</strong>. Atualmente há <strong>{validos.length}</strong>. O mapa de formação de preços pode conter menos de 3, <strong>desde que justificado e ratificado pela autoridade competente</strong>.
+                             <strong>Atenção (art. 11, §1º da IN 126/2023-TJRO):</strong> o cálculo exige <strong>3 ou mais preços válidos</strong>. Atualmente há <strong>{validos.length}</strong>. O mapa de formação de preços pode conter menos de 3, <strong>desde que justificado e ratificado pela autoridade competente</strong>.
                           </div>
                         );
                       }
@@ -2460,7 +2460,7 @@ export default function NovaPesquisaPage() {
 
                     {/* Explicação da média conforme IN 126 */}
                     <div className="rounded-lg bg-white border border-emerald-100 p-3 text-xs text-slate-700 leading-relaxed">
-                      <p className="font-bold text-emerald-700 mb-1.5">🧮 Como cheguei ao preço de referência (art. 11 da IN 126/2023-TJRO)</p>
+                      <p className="font-bold text-emerald-700 mb-1.5"> Como cheguei ao preço de referência (art. 11 da IN 126/2023-TJRO)</p>
                       {(() => {
                         const vals = fonte.map(r => (r.valor_unitario ?? r.valor_total) as number);
                         const validos = vals.filter(v => classificarPrecoIN126(v, vals).tipo === "válido");
@@ -2488,7 +2488,7 @@ export default function NovaPesquisaPage() {
                     {precoEstimado && (
                       <div className="rounded-lg bg-emerald-600 text-white p-4 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-100">💡 Valor estimado sugerido da contratação (art. 11 IN 126)</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-100"> Valor estimado sugerido da contratação (art. 11 IN 126)</p>
                           <p className="text-xl font-bold tabular-nums">{formatarMoeda(precoEstimado.total)}</p>
                           <p className="text-[11px] text-emerald-100">({precoEstimado.unitario ? formatarMoeda(precoEstimado.unitario) : ""} × {quantidade} {unidadeMedida}(s) · método {config.metodo.replace(/_/g, " ")})</p>
                         </div>
@@ -2531,7 +2531,7 @@ export default function NovaPesquisaPage() {
                     {/* NOTAS EXPLICATIVAS — embaixo (transparência do agente) */}
                     {notasCalcularDireto && notasCalcularDireto.length > 0 && (
                       <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-2">📝 Notas explicativas do cálculo</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-2"> Notas explicativas do cálculo</p>
                         <div className="space-y-1.5">
                           {notasCalcularDireto.map((n, i) => (
                             <p key={i} className="text-[11px] text-slate-600 leading-relaxed">{n}</p>
@@ -2556,7 +2556,7 @@ export default function NovaPesquisaPage() {
         >
           {alertaCv && (
             <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 leading-relaxed">
-              <strong>⚠ Alerta — dispersão acima do limite ({alertaCv.limite}%):</strong> o coeficiente de variação das
+              <strong> Alerta — dispersão acima do limite ({alertaCv.limite}%):</strong> o coeficiente de variação das
               referências aceitas é <strong>{alertaCv.cv.toFixed(1).replace(".", ",")}%</strong>. Conforme a regra de negócio,
               o sistema aplicou automaticamente o <strong>menor preço</strong> como referência de cálculo para evitar
               média distorcida. Você pode optar por outra metodologia abaixo, assumindo o risco da dispersão.
@@ -2588,7 +2588,7 @@ export default function NovaPesquisaPage() {
             </div>
             {alertaCv && config.metodo !== "menor_preco" && (
               <p className="mt-2 text-xs text-amber-600">
-                ⚠ Com CV de {alertaCv.cv.toFixed(1).replace(".", ",")}% (acima de {alertaCv.limite}%), o menor preço é a recomendação padrão.
+                 Com CV de {alertaCv.cv.toFixed(1).replace(".", ",")}% (acima de {alertaCv.limite}%), o menor preço é a recomendação padrão.
               </p>
             )}
           </div>
@@ -2628,8 +2628,8 @@ export default function NovaPesquisaPage() {
                     <p className="font-medium text-slate-700">Aplicar regra de ME/EPP à estimativa</p>
                     <p className="text-xs text-slate-500 mt-1">
                       {calcularMeEpp().tipo === "exclusividade"
-                        ? <>Valor total estimado de <strong>{formatarMoeda(precoEstimado.total)}</strong> (≤ R$ 80.000) → <strong>exclusividade ME/EPP</strong> na licitação (100% do item).</>
-                        : <>Valor total estimado de <strong>{formatarMoeda(precoEstimado.total)}</strong> ({">"} R$ 80.000) → <strong>reserva de 25%</strong> do valor para ME/EPP em itens divisíveis.</>}
+                        ? <>Valor total estimado de <strong>{formatarMoeda(precoEstimado.total)}</strong> (≤ R$ 80.000)  <strong>exclusividade ME/EPP</strong> na licitação (100% do item).</>
+                        : <>Valor total estimado de <strong>{formatarMoeda(precoEstimado.total)}</strong> ({">"} R$ 80.000)  <strong>reserva de 25%</strong> do valor para ME/EPP em itens divisíveis.</>}
                     </p>
                     {meEpp.aplicar && (
                       <p className="text-xs text-[#032650] mt-2 font-medium">
@@ -2762,7 +2762,7 @@ export default function NovaPesquisaPage() {
                           <p>BDI: {calc.bdi}% · <strong className="text-slate-800">Custo total: {formatarMoeda(calc.total)}</strong></p>
                           {precoMercado > 0 && (
                             <p className={dif <= 0 ? "text-green-600" : "text-amber-600"}>
-                              vs. preço estimado de mercado {formatarMoeda(precoMercado)} → {dif >= 0 ? "+" : ""}{dif.toFixed(1).replace(".", ",")}%
+                              vs. preço estimado de mercado {formatarMoeda(precoMercado)}  {dif >= 0 ? "+" : ""}{dif.toFixed(1).replace(".", ",")}%
                             </p>
                           )}
                         </div>

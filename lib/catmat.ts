@@ -8,7 +8,7 @@
  *   GET https://dadosabertos.compras.gov.br/modulo-servico/6_consultarItemServico
  *       ?descricao=<termo>&pagina=10&tamanhoPagina=N
  *
- * ⚠️ A API exige pagina entre 10 e 500 e tamanhoPagina entre 10 e 500.
+ *  A API exige pagina entre 10 e 500 e tamanhoPagina entre 10 e 500.
  */
 
 const BASE_MATERIAL = "https://dadosabertos.compras.gov.br/modulo-material/4_consultarItemMaterial";

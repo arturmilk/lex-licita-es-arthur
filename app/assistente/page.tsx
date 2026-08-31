@@ -12,7 +12,7 @@ class ChatErrorBoundary extends React.Component<{ children: React.ReactNode }, {
     if (this.state.erro) {
       return (
         <div className="flex flex-col items-center justify-center h-64 gap-3 text-center">
-          <p className="text-sm text-slate-600">Algo deu errado ao exibir esta conversa 😕</p>
+          <p className="text-sm text-slate-600">Algo deu errado ao exibir esta conversa </p>
           <button
             onClick={() => { this.setState({ erro: false }); window.location.reload(); }}
             className="text-xs font-semibold text-white bg-[#032650] px-4 py-2 rounded-full cursor-pointer"
@@ -237,7 +237,7 @@ export default function ChatGuiadoPage() {
         ...prev,
         mensagens: [...(prev.mensagens || []), {
           id: "doc-" + Date.now(), papel: "sistema", tipo: "documento",
-          conteudo: `📎 **${file.name}** recebido e identificado!\n\n${resumo?.importa || ""}`,
+          conteudo: ` **${file.name}** recebido e identificado!\n\n${resumo?.importa || ""}`,
           criadaEm: new Date().toISOString(),
         }, ...r.mensagens],
         etapaAtual: r.estado.etapa,
@@ -285,12 +285,12 @@ export default function ChatGuiadoPage() {
     if (!editando || !conversa) return;
     try {
       // salva a edição como mensagem do sistema (o documento editado fica na conversa)
-      const r = await enviarMensagemChat(conversa.id, `✏️ Editei o documento: ${editando.texto.slice(0, 150)}…`);
+      const r = await enviarMensagemChat(conversa.id, ` Editei o documento: ${editando.texto.slice(0, 150)}…`);
       setConversa(prev => prev ? {
         ...prev,
         mensagens: [...(prev.mensagens || []), {
           id: "edit-" + Date.now(), papel: "sistema", tipo: "documento",
-          conteudo: `✏️ **Documento editado (versão final):**\n\n${editando.texto.slice(0, 1800)}${editando.texto.length > 1800 ? "…" : ""}`,
+          conteudo: ` **Documento editado (versão final):**\n\n${editando.texto.slice(0, 1800)}${editando.texto.length > 1800 ? "…" : ""}`,
           completo: editando.texto,   // versão completa editada
           criadaEm: new Date().toISOString(),
         }, ...r.mensagens],
@@ -338,7 +338,7 @@ export default function ChatGuiadoPage() {
             onClick={() => setMostrarHistorico(!mostrarHistorico)}
             className="text-xs font-semibold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-full hover:bg-slate-50 cursor-pointer"
           >
-            🕘 Conversas ({historico.length})
+             Conversas ({historico.length})
           </button>
           <button
             onClick={iniciarNova}
@@ -361,7 +361,7 @@ export default function ChatGuiadoPage() {
             >
               <span className="text-sm text-slate-700 truncate">{c.titulo}</span>
               <span className="text-[10px] text-slate-400 shrink-0">
-                {c.finalizada ? "✅ finalizada" : c.etapaAtual}
+                {c.finalizada ? " finalizada" : c.etapaAtual}
               </span>
             </button>
           ))}
@@ -387,10 +387,10 @@ export default function ChatGuiadoPage() {
               </p>
               <div className="flex flex-wrap gap-2 justify-center mt-2">
                 <button onClick={iniciarNova} className="text-xs font-semibold text-white bg-[#032650] hover:bg-[#032650] px-4 py-2 rounded-full cursor-pointer">
-                  ✨ Nova contratação
+                   Nova contratação
                 </button>
                 <button onClick={() => setMostrarHistorico(true)} className="text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-full cursor-pointer">
-                  🕘 Ver conversas anteriores
+                   Ver conversas anteriores
                 </button>
                 {/* AGENTE HISTORIADOR: padrões do órgão */}
                 <button
@@ -398,14 +398,14 @@ export default function ChatGuiadoPage() {
                   disabled={carregandoBriefing}
                   className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-4 py-2 rounded-full cursor-pointer disabled:opacity-50"
                 >
-                  {carregandoBriefing ? "Analisando histórico…" : "🧠 Memória do meu órgão"}
+                  {carregandoBriefing ? "Analisando histórico…" : " Memória do meu órgão"}
                 </button>
               </div>
 
               {/* Painel do Historiador */}
               {briefingHist && (
                 <div className="mt-6 w-full max-w-md rounded-2xl border border-amber-200 bg-amber-50/60 p-5 text-left">
-                  <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wide mb-2">🧠 Agente Historiador — o que o seu órgão costuma fazer</p>
+                  <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wide mb-2"> Agente Historiador — o que o seu órgão costuma fazer</p>
                   {briefingHist.briefing ? (
                     <div className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{briefingHist.briefing}</div>
                   ) : (
@@ -448,13 +448,13 @@ export default function ChatGuiadoPage() {
                         onClick={() => baixarDocumento(m)}
                         className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-3 py-1.5 rounded-full cursor-pointer"
                       >
-                        ⬇️ Baixar {m.conteudo.includes("EDITAL") ? "edital" : "documento"}
+                         Baixar {m.conteudo.includes("EDITAL") ? "edital" : "documento"}
                       </button>
                       <button
                         onClick={() => setEditando({ m, texto: (m.completo || m.conteudo || "").replace(/\*\*/g, "") })}
                         className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-white border border-emerald-300 hover:bg-emerald-50 px-3 py-1.5 rounded-full cursor-pointer"
                       >
-                        ✏️ Editar
+                         Editar
                       </button>
                     </div>
                   )}
@@ -546,7 +546,7 @@ export default function ChatGuiadoPage() {
       </div>
 
       <p className="mt-1 text-[11px] text-slate-400 text-center">
-        O assistente nunca trava: se faltar um documento, ele alerta e explica a implicação — mas segue conduzindo. 🤝
+        O assistente nunca trava: se faltar um documento, ele alerta e explica a implicação — mas segue conduzindo. 
       </p>
 
       {/* Modal de edição do documento */}
@@ -554,8 +554,8 @@ export default function ChatGuiadoPage() {
         <div className="fixed inset-0 z-50 bg-slate-900/60 flex items-center justify-center p-3">
           <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
             <div className="flex items-center justify-between px-5 py-3 border-b border-slate-200">
-              <p className="font-bold text-slate-800 text-sm">✏️ Editar documento</p>
-              <button onClick={() => setEditando(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer text-lg leading-none">✕</button>
+              <p className="font-bold text-slate-800 text-sm"> Editar documento</p>
+              <button onClick={() => setEditando(null)} className="text-slate-400 hover:text-slate-600 cursor-pointer text-lg leading-none"></button>
             </div>
             <textarea
               value={editando.texto}
@@ -567,14 +567,14 @@ export default function ChatGuiadoPage() {
                 onClick={() => baixarDocumento({ ...editando.m, conteudo: editando.texto })}
                 className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-lg cursor-pointer"
               >
-                ⬇️ Baixar
+                 Baixar
               </button>
               <div className="flex gap-2">
                 <button onClick={() => setEditando(null)} className="text-xs font-semibold text-slate-600 bg-slate-100 px-4 py-2 rounded-lg cursor-pointer">
                   Cancelar
                 </button>
                 <button onClick={salvarEdicao} className="text-xs font-semibold text-white bg-[#032650] hover:bg-[#032650] px-4 py-2 rounded-lg cursor-pointer">
-                  💾 Salvar no chat
+                   Salvar no chat
                 </button>
               </div>
             </div>

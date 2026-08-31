@@ -564,11 +564,11 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
             <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-2">Resumo inteligente — {resumoDoc.nome}</p>
             <div className="space-y-2 text-sm text-slate-700">
-              <p><span className="font-semibold text-slate-900">📌 O que aconteceu:</span> {resumoDoc.resumo.aconteceu}</p>
-              <p><span className="font-semibold text-slate-900">⭐ O que importa:</span> {resumoDoc.resumo.importa}</p>
-              <p><span className="font-semibold text-slate-900">⚠️ O que falta:</span> {resumoDoc.resumo.falta}</p>
-              <p><span className="font-semibold text-slate-900">🗓️ Prazos:</span> {resumoDoc.resumo.prazos}</p>
-              <p><span className="font-semibold text-slate-900">👉 Ação necessária:</span> {resumoDoc.resumo.acao}</p>
+              <p><span className="font-semibold text-slate-900"> O que aconteceu:</span> {resumoDoc.resumo.aconteceu}</p>
+              <p><span className="font-semibold text-slate-900"> O que importa:</span> {resumoDoc.resumo.importa}</p>
+              <p><span className="font-semibold text-slate-900"> O que falta:</span> {resumoDoc.resumo.falta}</p>
+              <p><span className="font-semibold text-slate-900"> Prazos:</span> {resumoDoc.resumo.prazos}</p>
+              <p><span className="font-semibold text-slate-900"> Ação necessária:</span> {resumoDoc.resumo.acao}</p>
               {resumoDoc.resumo.resumoCompleto && (
                 <p className="mt-2 text-xs text-slate-500 italic">{resumoDoc.resumo.resumoCompleto.slice(0, 300)}…</p>
               )}
@@ -576,7 +576,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
             {/* AGENTE LEITOR: dados estruturados extraídos do documento */}
             {resumoDoc.dados && (resumoDoc.dados.tipoDocumento !== "não identificado" || (resumoDoc.dados.valores || []).length > 0) && (
               <div className="mt-3 rounded-lg bg-white border border-emerald-100 p-3">
-                <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wide mb-2">🤖 Agente Leitor — dados extraídos do documento</p>
+                <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wide mb-2"> Agente Leitor — dados extraídos do documento</p>
                 <div className="text-xs text-slate-700 space-y-1">
                   <p><span className="font-semibold">Tipo de documento:</span> {resumoDoc.dados.tipoDocumento}</p>
                   {resumoDoc.dados.orgao && <p><span className="font-semibold">Órgão/UG:</span> {resumoDoc.dados.orgao}</p>}
@@ -644,7 +644,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
         {sugestoesJulgados && sugestoesJulgados.length > 0 && (
           <div className="mb-3 space-y-2">
             <p className="text-[11px] font-semibold text-rose-500 uppercase tracking-wide">
-              🤖 Bibliotecário — os mais aderentes ao seu objeto (com motivo):
+               Bibliotecário — os mais aderentes ao seu objeto (com motivo):
             </p>
             {sugestoesJulgados.map((j: any, i: number) => (
               <div key={i} className="rounded-lg border border-rose-200 bg-white px-3 py-2 shadow-sm">
@@ -660,7 +660,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                       </p>
                     )}
                     <p className="text-[11px] text-slate-500 line-clamp-1">{j.ementa?.slice(0, 120)}</p>
-                    <a href={j.link} target="_blank" rel="noreferrer" className="text-[10px] text-rose-600 hover:underline break-all">🔗 {j.link}</a>
+                    <a href={j.link} target="_blank" rel="noreferrer" className="text-[10px] text-rose-600 hover:underline break-all"> {j.link}</a>
                   </div>
                   <button
                     onClick={() => adicionarJulgadoDoProcesso(j)}
@@ -700,7 +700,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                     <Plus size={10} /> Guardar
                   </button>
                 </div>
-                <a href={j.link} target="_blank" rel="noreferrer" className="text-[10px] text-rose-600 hover:underline break-all">🔗 {j.link}</a>
+                <a href={j.link} target="_blank" rel="noreferrer" className="text-[10px] text-rose-600 hover:underline break-all"> {j.link}</a>
               </div>
             ))}
           </div>
@@ -718,14 +718,14 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                       {j.usado && <span className="ml-1.5 text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">USADO NA JUSTIFICATIVA</span>}
                     </p>
                     {j.ementa && <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{j.ementa.slice(0, 140)}</p>}
-                    {j.link && <a href={j.link} target="_blank" rel="noreferrer" className="text-[10px] text-rose-600 hover:underline break-all">🔗 {j.link}</a>}
+                    {j.link && <a href={j.link} target="_blank" rel="noreferrer" className="text-[10px] text-rose-600 hover:underline break-all"> {j.link}</a>}
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <button
                       onClick={() => alternarUsado(j.id, !j.usado)}
                       className={`text-[10px] font-bold px-2 py-1 rounded-md cursor-pointer ${j.usado ? "bg-green-600 text-white" : "bg-slate-200 text-slate-600 hover:bg-slate-300"}`}
                     >
-                      {j.usado ? "✓ Em uso" : "Marcar em uso"}
+                      {j.usado ? " Em uso" : "Marcar em uso"}
                     </button>
                     <button onClick={() => removerJulgadoDoProcesso(j.id)} className="text-[10px] text-red-400 hover:text-red-600 cursor-pointer">remover</button>
                   </div>

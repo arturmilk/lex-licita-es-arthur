@@ -6,13 +6,13 @@ import { FONTES_CONFIG } from "@/lib/sources";
 import type { FonteId } from "@/lib/sources";
 
 const FONTE_ICONES: Record<string, string> = {
-  pncp: "🏛️",
-  painel_precos: "📊",
-  compras_gov: "🛒",
-  bps: "🏥",
-  sinapi: "🏗️",
-  sicro: "🛣️",
-  manual: "✏️",
+  pncp: "",
+  painel_precos: "",
+  compras_gov: "",
+  bps: "",
+  sinapi: "",
+  sicro: "",
+  manual: "",
 };
 
 interface Props {
@@ -49,7 +49,7 @@ export default function FonteSelectorPanel({ selecionadas, onChange, termoBusca 
                   : "border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400"
               }`}
             >
-              <span className="text-xl">{FONTE_ICONES[fonte.id] || "🔍"}</span>
+              <span className="text-xl">{FONTE_ICONES[fonte.id] || ""}</span>
               <div className="flex-1 min-w-0">
                 <p className={`text-sm font-medium ${ativa ? "text-white" : "text-neutral-800"}`}>
                   {fonte.nome}
