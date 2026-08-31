@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { TrendingUp, Activity, CheckCircle, DollarSign, ArrowRight, Loader2, Plus } from "lucide-react";
+import { ArrowRight, Loader2, Plus } from "lucide-react";
 import { listarDashboard } from "@/lib/actions";
 
 type DashData = Awaited<ReturnType<typeof listarDashboard>>;
@@ -48,12 +48,28 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={Activity}    label="Total de pesquisas"   value={data ? String(data.total)           : "—"} loading={!data} />
-        <StatCard icon={TrendingUp}  label="Em andamento"         value={data ? String(data.emAndamento)     : "—"} loading={!data} />
-        <StatCard icon={CheckCircle} label="Concluídas"           value={data ? String(data.concluidas)      : "—"} loading={!data} color="green" />
-        <StatCard icon={DollarSign}  label="Valor total estimado" value={data ? fmtMoeda(data.valorTotal)    : "—"} loading={!data} color="indigo" />
+      {/* Stat cards — formato dashboard (números grandes) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
+        <div className="rounded-2xl bg-[#032650] text-white p-5 shadow-sm">
+          <p className="text-white/60 text-[11px] font-medium uppercase tracking-wide">Total de pesquisas</p>
+          {!data ? <div className="h-9 w-14 rounded bg-white/20 animate-pulse mt-1" /> : <p className="text-4xl font-bold mt-1 tabular-nums">{data.total}</p>}
+          <p className="text-white/50 text-xs mt-1">realizadas</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-blue-500 text-[11px] font-medium uppercase tracking-wide">Em andamento</p>
+          {!data ? <div className="h-9 w-14 rounded bg-slate-100 animate-pulse mt-1" /> : <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{data.emAndamento}</p>}
+          <p className="text-slate-400 text-xs mt-1">ativas</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-green-500 text-[11px] font-medium uppercase tracking-wide">Concluídas</p>
+          {!data ? <div className="h-9 w-14 rounded bg-slate-100 animate-pulse mt-1" /> : <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{data.concluidas}</p>}
+          <p className="text-slate-400 text-xs mt-1">finalizadas</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-amber-500 text-[11px] font-medium uppercase tracking-wide">Valor total estimado</p>
+          {!data ? <div className="h-9 w-20 rounded bg-slate-100 animate-pulse mt-1" /> : <p className="text-3xl font-bold mt-1 text-slate-800 tabular-nums">{fmtMoeda(data.valorTotal)}</p>}
+          <p className="text-slate-400 text-xs mt-1">em contratações</p>
+        </div>
       </div>
 
       {/* Atividades recentes */}
@@ -110,23 +126,6 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
-    </div>
-  );
-}
-
-function StatCard({ icon: Icon, label, value, loading, color }: {
-  icon: React.ElementType; label: string; value: string; loading?: boolean; color?: "green" | "indigo";
-}) {
-  const iconCls = color === "green" ? "bg-green-100 text-green-600" : color === "indigo" ? "bg-indigo-100 text-[#032650]" : "bg-slate-100 text-slate-600";
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-center gap-3 mb-3">
-        <div className={`p-2 rounded-lg ${iconCls}`}><Icon className="w-4 h-4" /></div>
-      </div>
-      {loading
-        ? <div className="h-7 w-16 rounded bg-slate-100 animate-pulse mb-1" />
-        : <span className="block text-2xl font-bold tabular-nums text-slate-800">{value}</span>}
-      <span className="text-xs text-slate-500">{label}</span>
     </div>
   );
 }

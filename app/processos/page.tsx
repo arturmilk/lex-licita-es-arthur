@@ -50,6 +50,32 @@ export default function ProcessosPage() {
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">Erro: {erro}</div>
       )}
 
+      {/* Métricas estilo dashboard */}
+      {rows && rows.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div className="rounded-2xl bg-[#032650] text-white p-5 shadow-sm">
+            <p className="text-white/60 text-[11px] font-medium uppercase tracking-wide">Total de processos</p>
+            <p className="text-4xl font-bold mt-1 tabular-nums">{rows.length}</p>
+            <p className="text-white/50 text-xs mt-1">no órgão</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-slate-400 text-[11px] font-medium uppercase tracking-wide">Rascunho</p>
+            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{rows.filter(r => r.status === "rascunho").length}</p>
+            <p className="text-slate-400 text-xs mt-1">em início</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-blue-500 text-[11px] font-medium uppercase tracking-wide">Pesquisando</p>
+            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{rows.filter(r => r.status === "pesquisando").length}</p>
+            <p className="text-slate-400 text-xs mt-1">em andamento</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-green-500 text-[11px] font-medium uppercase tracking-wide">Concluídos</p>
+            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{rows.filter(r => r.status === "concluido").length}</p>
+            <p className="text-slate-400 text-xs mt-1">finalizados</p>
+          </div>
+        </div>
+      )}
+
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         {rows === null ? (
           <div className="flex items-center justify-center py-16 gap-2 text-slate-400">

@@ -59,17 +59,27 @@ export default function PesquisasPage() {
       )}
 
       {rows !== null && rows.length > 0 && (
-        <div className="grid grid-cols-3 gap-4 mb-6">
-          {[
-            { label: "Total", value: rows.length, cls: "text-slate-800" },
-            { label: "Em andamento", value: emAndamento, cls: "text-blue-700" },
-            { label: "Concluídas", value: concluidas, cls: "text-green-700" },
-          ].map(({ label, value, cls }) => (
-            <div key={label} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-              <p className="text-xs text-slate-500 mb-1">{label}</p>
-              <p className={`text-2xl font-bold tabular-nums ${cls}`}>{value}</p>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <div className="rounded-2xl bg-[#032650] text-white p-5 shadow-sm">
+            <p className="text-white/60 text-[11px] font-medium uppercase tracking-wide">Total de pesquisas</p>
+            <p className="text-4xl font-bold mt-1 tabular-nums">{rows.length}</p>
+            <p className="text-white/50 text-xs mt-1">realizadas</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-blue-500 text-[11px] font-medium uppercase tracking-wide">Em andamento</p>
+            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{emAndamento}</p>
+            <p className="text-slate-400 text-xs mt-1">ativas</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-green-500 text-[11px] font-medium uppercase tracking-wide">Concluídas</p>
+            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{concluidas}</p>
+            <p className="text-slate-400 text-xs mt-1">finalizadas</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <p className="text-amber-500 text-[11px] font-medium uppercase tracking-wide">Referências aceitas</p>
+            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{rows.reduce((s, r) => s + (r.referenciasAceitas || 0), 0)}</p>
+            <p className="text-slate-400 text-xs mt-1">no total</p>
+          </div>
         </div>
       )}
 
