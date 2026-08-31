@@ -48,7 +48,7 @@ export default function PesquisasPage() {
         </div>
         <Link
           href="/pesquisa/nova"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-medium hover:bg-[#032650] transition-colors"
         >
           <Plus className="w-4 h-4" /> Nova pesquisa
         </Link>
@@ -87,7 +87,7 @@ export default function PesquisasPage() {
               <p className="text-sm font-medium text-slate-600">Nenhuma pesquisa realizada</p>
               <p className="text-xs text-slate-400 mt-1">Inicie uma nova pesquisa de preços para começar</p>
             </div>
-            <Link href="/pesquisa/nova" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors">
+            <Link href="/pesquisa/nova" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-medium hover:bg-[#032650] transition-colors">
               <Plus className="w-4 h-4" /> Iniciar pesquisa
             </Link>
           </div>

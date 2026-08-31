@@ -1,7 +1,7 @@
 // ============================================================
-// Estima.IA — Agentes IA via DeepSeek API
+// LEX Licitações — Agentes IA via DeepSeek API
 // ============================================================
-// Chama os 4 agentes da Estima.IA via API DeepSeek (compatível OpenAI).
+// Chama os 4 agentes da LEX Licitações via API DeepSeek (compatível OpenAI).
 // Os prompts de sistema seguem as instruções dos arquivos em openclaw-skills/.
 //
 // Requisito: DEEPSEEK_API_KEY no .env.local
@@ -65,7 +65,7 @@ export async function extrairCaracteristicas(
   descricao: string,
   especificacoes: { item: string; especificacao: string; obrigatorio: boolean }[]
 ) {
-  const systemPrompt = `Você é o Agente Extrator da Estima.IA, especialista em análise técnica de objetos de contratação pública brasileira.
+  const systemPrompt = `Você é o Agente Extrator da LEX Licitações, especialista em análise técnica de objetos de contratação pública brasileira.
 
 Sua função é ler descrições de objetos de compra/contratação e extrair:
 1. Características técnicas estruturadas
@@ -123,7 +123,7 @@ export async function calcularSimilaridade(
   especificacoes: any[],
   candidato: { descricao: string; orgao: string; localizacao: string }
 ) {
-  const systemPrompt = `Você é o Agente Similaridade da Estima.IA, especialista em comparação semântica e técnica de objetos de contratação pública brasileira.
+  const systemPrompt = `Você é o Agente Similaridade da LEX Licitações, especialista em comparação semântica e técnica de objetos de contratação pública brasileira.
 
 Compare o objeto desejado (com especificações técnicas) com um resultado obtido do Portal Nacional de Contratações Públicas (PNCP) e calcule um índice de similaridade de 0 a 100.
 
@@ -183,7 +183,7 @@ export async function gerarJustificativa(
   quantidade: number,
   referenciasAceitas: number
 ) {
-  const systemPrompt = `Você é o Agente Justificador da Estima.IA, redator técnico-jurídico especializado em contratações públicas brasileiras (Lei 14.133/2021, Decreto 10.024/2019).
+  const systemPrompt = `Você é o Agente Justificador da LEX Licitações, redator técnico-jurídico especializado em contratações públicas brasileiras (Lei 14.133/2021, Decreto 10.024/2019).
 
 Sua função é transformar números — estatísticas, médias, medianas, desvios — em um texto justificativo formal (memória de cálculo narrativa) que fundamente o preço estimado perante órgãos de controle.
 

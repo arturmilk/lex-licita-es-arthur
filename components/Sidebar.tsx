@@ -39,12 +39,10 @@ export default function Sidebar({ user }: { user: any }) {
 
   const conteudo = (
     <>
-      <div className="p-5 border-b border-neutral-800">
+      <div className="p-5 border-b border-white/10">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center">
-            <Layers className="w-4 h-4 text-neutral-900" />
-          </div>
-          <span className="text-white font-bold text-lg">Estima.IA</span>
+          <img src="/logo-lex.png" alt="LEX Licitações" className="w-8 h-8 object-contain rounded" />
+          <span className="text-white font-bold text-lg">LEX Licitações</span>
           <button className="md:hidden ml-auto text-neutral-400" onClick={() => setAberto(false)} aria-label="Fechar menu">
             <X className="w-5 h-5" />
           </button>
@@ -95,21 +93,19 @@ export default function Sidebar({ user }: { user: any }) {
   return (
     <>
       {/* Topbar mobile */}
-      <header className="md:hidden shrink-0 sticky top-0 z-40 bg-neutral-900 px-4 py-3 flex items-center gap-3 w-full">
+      <header className="md:hidden shrink-0 sticky top-0 z-40 bg-[#032650] px-4 py-3 flex items-center gap-3 w-full">
         <button onClick={() => setAberto(true)} className="text-neutral-300" aria-label="Abrir menu">
           <Menu className="w-5 h-5" />
         </button>
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-white rounded flex items-center justify-center">
-            <Layers className="w-3 h-3 text-neutral-900" />
-          </div>
-          <span className="text-white font-bold">Estima.IA</span>
+          <img src="/logo-lex.png" alt="LEX Licitações" className="w-6 h-6 object-contain rounded" />
+          <span className="text-white font-bold">LEX Licitações</span>
         </div>
         <span className="ml-auto text-neutral-400 text-xs truncate max-w-[140px]">{user.name}</span>
       </header>
 
       {/* Sidebar desktop */}
-      <aside className="hidden md:flex w-60 bg-neutral-900 flex-col shrink-0">
+      <aside className="hidden md:flex w-60 bg-[#032650] flex-col shrink-0">
         {conteudo}
       </aside>
 
@@ -117,7 +113,7 @@ export default function Sidebar({ user }: { user: any }) {
       {aberto && (
         <div className="fixed inset-0 z-50 md:hidden">
           <div className="absolute inset-0 bg-black/60" onClick={() => setAberto(false)} />
-          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-neutral-900 flex flex-col">{conteudo}</aside>
+          <aside className="absolute left-0 top-0 bottom-0 w-72 bg-[#032650] flex flex-col">{conteudo}</aside>
         </div>
       )}
     </>

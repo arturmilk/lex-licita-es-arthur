@@ -94,7 +94,7 @@ export default function PainelPage() {
           <h1 className="text-2xl font-bold text-slate-800">Painel de trabalho</h1>
           <p className="text-sm text-slate-500">O que você precisa fazer hoje, sem procurar em menus.</p>
         </div>
-        <Link href="/processos" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+        <Link href="/processos" className="inline-flex items-center gap-1.5 text-sm text-[#032650] hover:text-indigo-800 font-medium">
           Ver processos <ArrowRight size={14} />
         </Link>
       </div>
@@ -102,12 +102,12 @@ export default function PainelPage() {
       {erro && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{erro}</div>}
 
       {/* ============ O QUE VOCÊ PRECISA FAZER? (coração do sistema) ============ */}
-      <div className="mb-6 rounded-2xl border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-5 shadow-sm">
+      <div className="mb-6 rounded-2xl border-2 border-[#d5dce8] bg-gradient-to-br from-indigo-50 to-white p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-2">
-          <Sparkles size={18} className="text-indigo-600" />
+          <Sparkles size={18} className="text-[#032650]" />
           <h2 className="font-bold text-indigo-900">O que você precisa fazer?</h2>
         </div>
-        <p className="text-sm text-indigo-700/70 mb-3">
+        <p className="text-sm text-[#032650]/70 mb-3">
           Digite em linguagem normal. O sistema identifica o procedimento, monta o caminho e conduz você etapa por etapa.
         </p>
         <div className="flex gap-2">
@@ -116,12 +116,12 @@ export default function PainelPage() {
             onChange={(e) => setIntencao(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && detectar()}
             placeholder="Ex.: Preciso iniciar uma contratação de manutenção de ar-condicionado"
-            className="flex-1 px-4 py-2.5 rounded-xl border-2 border-indigo-200 focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 text-sm bg-white"
+            className="flex-1 px-4 py-2.5 rounded-xl border-2 border-[#d5dce8] focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 text-sm bg-white"
           />
           <button
             onClick={detectar}
             disabled={analisando || intencao.trim().length < 5}
-            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors cursor-pointer"
+            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#032650] text-white text-sm font-semibold hover:bg-[#032650] disabled:opacity-50 transition-colors cursor-pointer"
           >
             {analisando ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
             Entender
@@ -137,7 +137,7 @@ export default function PainelPage() {
                 key={s.tipoProcessoId}
                 onClick={() => criar(s.tipoProcessoId)}
                 disabled={criando}
-                className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white border border-indigo-200 hover:border-indigo-400 hover:bg-indigo-50 transition-colors text-left cursor-pointer"
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white border border-[#d5dce8] hover:border-indigo-400 hover:bg-[#eef2f8] transition-colors text-left cursor-pointer"
               >
                 <div>
                   <p className="font-semibold text-slate-800">{s.nomeTipo}</p>
@@ -211,7 +211,7 @@ export default function PainelPage() {
           {/* Hoje */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="flex items-center gap-2 font-semibold text-slate-800 text-sm mb-3">
-              <CalendarClock size={15} className="text-indigo-600" /> Para hoje ({painel.tarefasHoje.length})
+              <CalendarClock size={15} className="text-[#032650]" /> Para hoje ({painel.tarefasHoje.length})
             </h3>
             {painel.tarefasHoje.length === 0 ? (
               <p className="text-sm text-slate-400 py-2">Nenhuma tarefa para hoje. 🎉</p>
@@ -219,7 +219,7 @@ export default function PainelPage() {
               <div className="space-y-2">
                 {painel.tarefasHoje.map((t: any) => (
                   t.processoId ? (
-                    <Link key={t.id} href={`/processos/${t.processoId}/jornada`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 hover:border-indigo-200 px-3 py-2 transition-colors block">
+                    <Link key={t.id} href={`/processos/${t.processoId}/jornada`} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 hover:border-[#d5dce8] px-3 py-2 transition-colors block">
                       <div>
                         <p className="text-sm font-medium text-slate-800">{t.titulo}</p>
                         <p className="text-xs text-slate-500">{t.descricao?.slice(0, 90)}… {badgeStatus(t.status)}</p>
@@ -281,7 +281,7 @@ export default function PainelPage() {
           {/* Resumo */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "Tarefas ativas", valor: painel.totalAtivas, icon: Inbox, cor: "text-indigo-600 bg-indigo-50" },
+              { label: "Tarefas ativas", valor: painel.totalAtivas, icon: Inbox, cor: "text-[#032650] bg-[#eef2f8]" },
               { label: "Pendentes", valor: painel.pendentes.length, icon: Hourglass, cor: "text-amber-600 bg-amber-50" },
               { label: "Aguardando outro", valor: painel.aguardandoOutro.length, icon: Users, cor: "text-purple-600 bg-purple-50" },
               { label: "Alertas", valor: painel.alertas?.length || 0, icon: Bell, cor: "text-red-600 bg-red-50" },

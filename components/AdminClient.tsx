@@ -199,7 +199,7 @@ export default function AdminClient({ usuarios: initialUsuarios, config: initial
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100">
           <div>
             <h2 className="font-semibold text-neutral-800">Chaves de API (Agentes)</h2>
-            <p className="text-xs text-neutral-400 mt-0.5">Use para integrar agentes externos ao Estima.IA</p>
+            <p className="text-xs text-neutral-400 mt-0.5">Use para integrar agentes externos ao LEX Licitações</p>
           </div>
           <button onClick={() => setNovaKey(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 text-white rounded-lg text-xs font-medium hover:bg-neutral-800 transition-colors">

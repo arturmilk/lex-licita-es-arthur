@@ -29,7 +29,7 @@ function CardHeader({ title, icon: Icon, action }: { title: string; icon: React.
   return (
     <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
       <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4 text-indigo-600" />
+        <Icon className="w-4 h-4 text-[#032650]" />
         <h2 className="text-base font-semibold text-slate-800">{title}</h2>
       </div>
       {action}
@@ -46,7 +46,7 @@ function StatBox({ label, value, cls = "" }: { label: string; value: React.React
   );
 }
 
-function BarChart({ data, cor = "bg-indigo-500", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
+function BarChart({ data, cor = "bg-[#eef2f8]0", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
   const max = Math.max(1, ...data.map((d) => d.total));
   return (
     <div className="flex items-end gap-2 h-28">
@@ -67,7 +67,7 @@ function BarChart({ data, cor = "bg-indigo-500", rotulo }: { data: { rotulo: str
   );
 }
 
-function BarrasHorizontais({ data, cor = "bg-indigo-500", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
+function BarrasHorizontais({ data, cor = "bg-[#eef2f8]0", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
   const max = Math.max(1, ...data.map((d) => d.total));
   return (
     <div className="space-y-1.5">
@@ -98,7 +98,7 @@ function Inp({ label, ...props }: { label: string } & React.InputHTMLAttributes<
   return (
     <div>
       <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-      <input className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" {...props} />
+      <input className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent transition" {...props} />
     </div>
   );
 }
@@ -107,7 +107,7 @@ function Sel({ label, children, ...props }: { label: string } & React.SelectHTML
   return (
     <div>
       <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-      <select className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition" {...props}>
+      <select className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent transition" {...props}>
         {children}
       </select>
     </div>
@@ -289,7 +289,7 @@ export default function AdminPage() {
           action={
             <button
               onClick={carregarMonitor}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Atualizar
             </button>
@@ -438,7 +438,7 @@ export default function AdminPage() {
                       placeholder="Filtrar logs..."
                       className="text-xs px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 w-40"
                     />
-                    <button onClick={copiarLogs} className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors">
+                    <button onClick={copiarLogs} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-indigo-800 transition-colors">
                       <Copy className="w-3.5 h-3.5" /> {copiado ? "Copiado!" : "Copiar"}
                     </button>
                   </div>
@@ -457,7 +457,7 @@ export default function AdminPage() {
                           <tr key={l.id} className={ehErroLog(l) ? "bg-red-50/70" : "hover:bg-slate-100"}>
                             <td className="py-1 px-3 whitespace-nowrap text-slate-400">{fmtData(l.ts)}</td>
                             <td className="py-1 px-2 whitespace-nowrap">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${ehErroLog(l) ? "bg-red-100 text-red-700" : "bg-indigo-100 text-indigo-700"}`}>
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${ehErroLog(l) ? "bg-red-100 text-red-700" : "bg-indigo-100 text-[#032650]"}`}>
                                 {l.evento}
                               </span>
                             </td>
@@ -490,7 +490,7 @@ export default function AdminPage() {
               )}
               <button
                 onClick={() => { setMostrarFormUsuario(!mostrarFormUsuario); setUsuarioErro(null); }}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
               >
                 <UserPlus className="w-3.5 h-3.5" /> Novo usuário
               </button>
@@ -519,7 +519,7 @@ export default function AdminPage() {
               <button
                 onClick={handleCriarUsuario}
                 disabled={criandoUsuario}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-semibold hover:bg-[#032650] disabled:opacity-60 transition-colors"
               >
                 {criandoUsuario ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
                 {criandoUsuario ? "Criando..." : "Criar usuário"}
@@ -575,7 +575,7 @@ export default function AdminPage() {
           title="Sugestões e feedbacks"
           icon={MessageCircle}
           action={
-            <button onClick={carregarFeedbacks} className="inline-flex items-center gap-1.5 text-xs font-medium text-indigo-600 hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+            <button onClick={carregarFeedbacks} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
               <RefreshCw className="w-3.5 h-3.5" /> Atualizar
             </button>
           }
@@ -598,13 +598,13 @@ export default function AdminPage() {
                 {listaFeedbacks.length === 0 ? (
                   <tr><td colSpan={6} className="py-8 text-center text-xs text-slate-400">Nenhuma sugestão ainda</td></tr>
                 ) : listaFeedbacks.map(f => (
-                  <tr key={f.id} className={`hover:bg-slate-50 transition-colors ${!f.lido ? "bg-indigo-50/30" : ""}`}>
+                  <tr key={f.id} className={`hover:bg-slate-50 transition-colors ${!f.lido ? "bg-[#eef2f8]/30" : ""}`}>
                     <td className="py-2.5 px-4 text-slate-700 text-xs font-medium">{f.usuarioNome}</td>
                     <td className="py-2.5 px-4 text-slate-600 text-xs max-w-xs">{f.mensagem}</td>
                     <td className="py-2.5 px-4 text-slate-400 text-xs font-mono">{f.pagina || "—"}</td>
                     <td className="py-2.5 px-4 text-slate-400 text-xs">{new Date(f.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
                     <td className="py-2.5 px-4">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded border ${f.lido ? "bg-slate-50 text-slate-500 border-slate-200" : "bg-indigo-50 text-indigo-700 border-indigo-200"}`}>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded border ${f.lido ? "bg-slate-50 text-slate-500 border-slate-200" : "bg-[#eef2f8] text-[#032650] border-[#d5dce8]"}`}>
                         {f.lido ? "Lido" : "Novo"}
                       </span>
                     </td>
@@ -652,7 +652,7 @@ export default function AdminPage() {
             <button
               onClick={salvarConfig}
               disabled={salvandoConfig}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-60 transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#032650] text-white text-sm font-semibold hover:bg-[#032650] disabled:opacity-60 transition-colors"
             >
               {salvandoConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {salvandoConfig ? "Salvando..." : "Salvar configurações"}

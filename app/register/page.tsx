@@ -22,7 +22,7 @@ function Field({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition pr-10"
+          className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent transition pr-10"
         />
         {isPassword && (
           <button
@@ -41,8 +41,8 @@ function Field({
 function SectionTitle({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
     <div className="flex items-center gap-2 pt-2">
-      <div className="w-6 h-6 rounded-md bg-indigo-50 flex items-center justify-center">
-        <Icon className="w-3.5 h-3.5 text-indigo-600" />
+      <div className="w-6 h-6 rounded-md bg-[#C9A227]/15 flex items-center justify-center">
+        <Icon className="w-3.5 h-3.5 text-[#C9A227]" />
       </div>
       <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</span>
     </div>
@@ -90,24 +90,22 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-5/12 bg-indigo-700 flex-col justify-between p-12 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-5/12 bg-[#032650] flex-col justify-between p-12 relative overflow-hidden">
         <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-white rounded-full -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-white rounded-full translate-y-1/2 -translate-x-1/2" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-[#C9A227] rounded-full -translate-y-1/2 translate-x-1/2" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#C9A227] rounded-full translate-y-1/2 -translate-x-1/2" />
         </div>
 
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-            <ShieldCheck className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-white font-bold text-xl tracking-tight">Estima.IA</span>
+          <img src="/logo-lex.png" alt="LEX Licitações" className="w-11 h-11 object-contain" />
+          <span className="text-white font-bold text-xl tracking-tight">LEX Licitações</span>
         </div>
 
         <div className="relative z-10">
           <h2 className="text-3xl font-bold text-white leading-tight mb-4">
             Cadastre seu órgão<br />e comece a pesquisar<br />preços com IA
           </h2>
-          <p className="text-indigo-200 text-sm leading-relaxed max-w-xs">
+          <p className="text-[#C9A227] text-sm leading-relaxed max-w-xs">
             Crie sua conta gratuita e tenha acesso a pesquisas de preços automatizadas, relatórios e evidências conformes com a legislação.
           </p>
 
@@ -118,9 +116,9 @@ export default function RegisterPage() {
               "Conformidade com a IN SEGES 65/2021",
               "Histórico de pesquisas e evidências",
             ].map((item) => (
-              <li key={item} className="flex items-start gap-2.5 text-sm text-indigo-100">
+              <li key={item} className="flex items-start gap-2.5 text-sm text-[#e8d9a8]">
                 <span className="mt-0.5 w-4 h-4 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#C9A227]" />
                 </span>
                 {item}
               </li>
@@ -128,8 +126,8 @@ export default function RegisterPage() {
           </ul>
         </div>
 
-        <p className="relative z-10 text-indigo-300 text-xs">
-          © {new Date().getFullYear()} Estima.IA — Uso exclusivo de servidores públicos
+        <p className="relative z-10 text-[#C9A227]/80 text-xs">
+          © {new Date().getFullYear()} LEX Licitações — Uso exclusivo de servidores públicos
         </p>
       </div>
 
@@ -138,10 +136,10 @@ export default function RegisterPage() {
         <div className="w-full max-w-md py-8">
           {/* Mobile logo */}
           <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center">
+            <div className="w-9 h-9 bg-[#032650] rounded-xl flex items-center justify-center">
               <ShieldCheck className="w-5 h-5 text-white" />
             </div>
-            <span className="font-bold text-slate-800 text-lg">Estima.IA</span>
+            <span className="font-bold text-slate-800 text-lg">LEX Licitações</span>
           </div>
 
           <h1 className="text-2xl font-bold text-slate-800 mb-1">Criar conta</h1>
@@ -176,7 +174,7 @@ export default function RegisterPage() {
               <select
                 value={form.esfera}
                 onChange={(e) => set("esfera")(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent transition"
               >
                 <option value="federal">Federal</option>
                 <option value="estadual">Estadual</option>
@@ -188,7 +186,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-indigo-600 text-white rounded-lg text-sm font-semibold hover:bg-indigo-700 active:bg-indigo-800 disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 mt-2"
+              className="w-full py-2.5 bg-[#032650] text-white rounded-lg text-sm font-semibold hover:bg-[#042f5e] active:bg-[#032650] disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 mt-2"
             >
               {loading ? (
                 <><Loader2 className="w-4 h-4 animate-spin" /> Cadastrando...</>
@@ -198,7 +196,7 @@ export default function RegisterPage() {
 
           <p className="mt-6 text-center text-sm text-slate-500">
             Já tem conta?{" "}
-            <a href="/login" className="text-indigo-600 font-medium hover:text-indigo-800 transition-colors">
+            <a href="/login" className="text-[#032650] font-medium hover:text-[#042f5e] transition-colors">
               Entrar
             </a>
           </p>

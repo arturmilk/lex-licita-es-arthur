@@ -40,7 +40,7 @@ export default function ProcessosPage() {
         </div>
         <Link
           href="/pesquisa/nova"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-medium hover:bg-[#032650] transition-colors"
         >
           <Plus className="w-4 h-4" /> Nova pesquisa
         </Link>
@@ -64,7 +64,7 @@ export default function ProcessosPage() {
               <p className="text-sm font-medium text-slate-600">Nenhum processo encontrado</p>
               <p className="text-xs text-slate-400 mt-1">Os processos são criados automaticamente ao iniciar uma pesquisa</p>
             </div>
-            <Link href="/pesquisa/nova" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors">
+            <Link href="/pesquisa/nova" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-medium hover:bg-[#032650] transition-colors">
               <Plus className="w-4 h-4" /> Iniciar pesquisa
             </Link>
           </div>
@@ -83,7 +83,7 @@ export default function ProcessosPage() {
                     <p className="text-sm text-slate-800 mb-1" title={r.objeto}>{r.objeto}</p>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-slate-500">{r.unidade || "—"} · {new Date(r.updatedAt).toLocaleDateString("pt-BR")}</span>
-                      <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 shrink-0">
+                      <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-indigo-800 shrink-0">
                         Guiar <ChevronRight size={12} />
                       </Link>
                     </div>
@@ -114,7 +114,7 @@ export default function ProcessosPage() {
                         </td>
                         <td className="py-2.5 px-4 text-slate-500 text-xs">{new Date(r.updatedAt).toLocaleDateString("pt-BR")}</td>
                         <td className="py-2.5 px-4">
-                          <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800">
+                          <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-indigo-800">
                             Guiar <ChevronRight size={12} />
                           </Link>
                         </td>

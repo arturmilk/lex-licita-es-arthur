@@ -276,7 +276,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <Link href="/painel" className="inline-flex items-center gap-1 text-sm text-indigo-600 hover:text-indigo-800 mb-4">
+      <Link href="/painel" className="inline-flex items-center gap-1 text-sm text-[#032650] hover:text-indigo-800 mb-4">
         <ArrowLeft size={14} /> Voltar ao painel
       </Link>
 
@@ -296,7 +296,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
             <React.Fragment key={t.id}>
               <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border ${
                 t.status === "concluida" ? "bg-green-50 text-green-700 border-green-200"
-                : t.status === "em_andamento" ? "bg-indigo-600 text-white border-indigo-600"
+                : t.status === "em_andamento" ? "bg-[#032650] text-white border-indigo-600"
                 : "bg-white text-slate-400 border-slate-200"
               }`}>
                 {t.status === "concluida" ? <CheckCircle2 size={12} /> : t.status === "em_andamento" ? <Circle size={12} /> : <Circle size={12} className="opacity-40" />}
@@ -310,7 +310,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
 
       {/* Etapa atual */}
       {atual ? (
-        <div className="rounded-2xl border-2 border-indigo-200 bg-white p-6 shadow-sm mb-6">
+        <div className="rounded-2xl border-2 border-[#d5dce8] bg-white p-6 shadow-sm mb-6">
           <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-1">Etapa atual</p>
           <h2 className="text-lg font-bold text-slate-800 mb-1">{atual.titulo}</h2>
           <p className="text-sm text-slate-600 mb-4">{atual.descricao || atual.instrucao}</p>
@@ -421,7 +421,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                             type="button"
                             onClick={carregarSugestoesDotacao}
                             disabled={carregandoDotacao}
-                            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1 rounded-lg cursor-pointer"
+                            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#032650] hover:text-indigo-800 bg-[#eef2f8] hover:bg-indigo-100 px-2.5 py-1 rounded-lg cursor-pointer"
                           >
                             {carregandoDotacao ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
                             Sugerir com base no objeto
@@ -435,10 +435,10 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                                   key={i}
                                   type="button"
                                   onClick={() => setCamposEtapa({ ...camposEtapa, dotacaoOrcamentaria: s.classificacao })}
-                                  className="w-full text-left rounded-lg border border-indigo-100 hover:border-indigo-300 bg-indigo-50/40 hover:bg-indigo-50 px-2.5 py-1.5 cursor-pointer transition-colors"
+                                  className="w-full text-left rounded-lg border border-[#d5dce8] hover:border-indigo-300 bg-[#eef2f8]/40 hover:bg-[#eef2f8] px-2.5 py-1.5 cursor-pointer transition-colors"
                                 >
                                   <span className="flex items-center justify-between gap-2">
-                                    <span className="font-mono text-[11px] font-semibold text-indigo-700">{s.classificacao}</span>
+                                    <span className="font-mono text-[11px] font-semibold text-[#032650]">{s.classificacao}</span>
                                     <span className="text-[10px] font-bold text-indigo-400">{s.compatibilidade}%</span>
                                   </span>
                                   <span className="block text-[10px] text-slate-500">{s.descricao}</span>
@@ -462,7 +462,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           <button
             onClick={avancar}
             disabled={avancando}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#032650] text-white text-sm font-semibold hover:bg-[#032650] disabled:opacity-50 cursor-pointer"
           >
             {avancando ? <Loader2 size={14} className="animate-spin" /> : <CheckSquare size={14} />}
             Concluir etapa e avançar
@@ -480,7 +480,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
       {/* Minutas */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
         <div className="flex items-center gap-2 mb-3">
-          <Wand2 size={16} className="text-indigo-600" />
+          <Wand2 size={16} className="text-[#032650]" />
           <h3 className="font-semibold text-slate-800 text-sm">Gerar minuta de documento</h3>
         </div>
         <div className="flex flex-wrap gap-2 mb-3">
@@ -489,7 +489,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
               key={t}
               onClick={() => setTipoMinuta(t)}
               className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
-                tipoMinuta === t ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-slate-600 border-slate-300 hover:border-indigo-400"
+                tipoMinuta === t ? "bg-[#032650] text-white border-indigo-600" : "bg-white text-slate-600 border-slate-300 hover:border-indigo-400"
               }`}
             >
               {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -506,7 +506,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           <button
             onClick={gerarMin}
             disabled={gerandoMinuta}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-100 text-indigo-700 text-sm font-semibold hover:bg-indigo-200 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-100 text-[#032650] text-sm font-semibold hover:bg-indigo-200 disabled:opacity-50 cursor-pointer"
           >
             {gerandoMinuta ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
             Gerar minuta (modelo)
@@ -514,7 +514,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           <button
             onClick={gerarMinIA}
             disabled={gerandoMinIA}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r bg-[#032650] to-purple-600 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
           >
             {gerandoMinIA ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
             Escrever com IA

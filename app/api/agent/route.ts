@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   return NextResponse.json({
-    name: "Estima.IA Agent API",
+    name: "LEX Licitações Agent API",
     version: "2.0",
     description: "API para integração com agentes de IA para pesquisa de preços de licitações públicas",
     authentication: "Bearer token via header Authorization ou X-API-Key header",

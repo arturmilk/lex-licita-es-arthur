@@ -40,7 +40,7 @@ export default function MeAjuda({ contexto, dados }: Props) {
       {/* Botão flutuante */}
       <button
         onClick={() => setAberto(!aberto)}
-        className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-indigo-600 text-white px-4 py-3 shadow-lg hover:bg-indigo-700 transition-colors cursor-pointer"
+        className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-[#032650] text-white px-4 py-3 shadow-lg hover:bg-[#032650] transition-colors cursor-pointer"
         title="Me ajuda"
       >
         {aberto ? <X size={18} /> : <LifeBuoy size={18} />}
@@ -50,7 +50,7 @@ export default function MeAjuda({ contexto, dados }: Props) {
       {/* Painel */}
       {aberto && (
         <div className="fixed bottom-20 right-5 z-50 w-[380px] max-w-[90vw] rounded-2xl bg-white border border-slate-200 shadow-2xl overflow-hidden">
-          <div className="bg-indigo-600 px-4 py-3 flex items-center gap-2">
+          <div className="bg-[#032650] px-4 py-3 flex items-center gap-2">
             <Sparkles size={16} className="text-indigo-200" />
             <div>
               <p className="text-white font-semibold text-sm">Assistente contextual</p>
@@ -68,7 +68,7 @@ export default function MeAjuda({ contexto, dados }: Props) {
             <button
               onClick={perguntar}
               disabled={carregando || pergunta.trim().length < 3}
-              className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50 cursor-pointer"
+              className="mt-2 w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[#032650] text-white text-sm font-semibold hover:bg-[#032650] disabled:opacity-50 cursor-pointer"
             >
               {carregando ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
               Perguntar

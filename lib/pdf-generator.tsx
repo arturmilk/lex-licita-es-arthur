@@ -44,7 +44,7 @@ export function RelatorioPDFDocument(props: any) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.header}>Estima.IA - Relatorio de Pesquisa de Precos</Text>
+        <Text style={styles.header}>LEX Licitações - Relatorio de Pesquisa de Precos</Text>
         <Text style={styles.subheader}>Processo n {processo.numero}</Text>
 
         <View style={styles.metaBox}>
@@ -243,7 +243,7 @@ metodo efetivo = ${metodo}`}
           </Text>
         </View>
 
-        <Text style={styles.footer}>Documento gerado automaticamente pela Estima.IA em {new Date().toLocaleDateString("pt-BR")} | Responsavel: {responsavel || processo.responsavel}</Text>
+        <Text style={styles.footer}>Documento gerado automaticamente pela LEX Licitações em {new Date().toLocaleDateString("pt-BR")} | Responsavel: {responsavel || processo.responsavel}</Text>
       </Page>
     </Document>
   );

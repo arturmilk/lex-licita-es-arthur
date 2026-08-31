@@ -25,7 +25,7 @@ export interface CatItem {
 
 async function get(url: string): Promise<any> {
   const res = await fetch(url, {
-    headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (Estima.IA)" },
+    headers: { Accept: "application/json", "User-Agent": "Mozilla/5.0 (LEX Licitações)" },
     signal: AbortSignal.timeout(20_000),
   });
   if (!res.ok) throw new Error(`API ${res.status}`);

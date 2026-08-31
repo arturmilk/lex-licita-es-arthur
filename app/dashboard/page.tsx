@@ -37,7 +37,7 @@ export default function DashboardPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold text-slate-800">Dashboard</h1>
-        <Link href="/pesquisa/nova" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors">
+        <Link href="/pesquisa/nova" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-medium hover:bg-[#032650] transition-colors">
           <Plus className="w-4 h-4" /> Nova pesquisa
         </Link>
       </div>
@@ -60,7 +60,7 @@ export default function DashboardPage() {
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-base font-semibold text-slate-800">Pesquisas recentes</h2>
-          <Link href="/pesquisas" className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1 font-medium">
+          <Link href="/pesquisas" className="text-sm text-[#032650] hover:text-indigo-800 flex items-center gap-1 font-medium">
             Ver todas <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
@@ -72,7 +72,7 @@ export default function DashboardPage() {
         ) : data.pesquisasRecentes.length === 0 ? (
           <div className="py-16 text-center">
             <p className="text-sm text-slate-500 mb-4">Nenhuma pesquisa realizada ainda.</p>
-            <Link href="/pesquisa/nova" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700">
+            <Link href="/pesquisa/nova" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-medium hover:bg-[#032650]">
               <Plus className="w-4 h-4" /> Iniciar primeira pesquisa
             </Link>
           </div>
@@ -117,7 +117,7 @@ export default function DashboardPage() {
 function StatCard({ icon: Icon, label, value, loading, color }: {
   icon: React.ElementType; label: string; value: string; loading?: boolean; color?: "green" | "indigo";
 }) {
-  const iconCls = color === "green" ? "bg-green-100 text-green-600" : color === "indigo" ? "bg-indigo-100 text-indigo-600" : "bg-slate-100 text-slate-600";
+  const iconCls = color === "green" ? "bg-green-100 text-green-600" : color === "indigo" ? "bg-indigo-100 text-[#032650]" : "bg-slate-100 text-slate-600";
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
       <div className="flex items-center gap-3 mb-3">

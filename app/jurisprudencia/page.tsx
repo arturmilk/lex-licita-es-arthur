@@ -53,7 +53,7 @@ export default function JurisprudenciaPage() {
         <button
           onClick={buscar}
           disabled={buscando}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 cursor-pointer disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#032650] text-white text-sm font-semibold hover:bg-[#032650] cursor-pointer disabled:opacity-50"
         >
           {buscando ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
           Buscar julgados
@@ -75,11 +75,11 @@ export default function JurisprudenciaPage() {
             {resultados.length} julgado(s) encontrados para "{termo}"
           </p>
           {resultados.map((j, i) => (
-            <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-indigo-200 transition-colors">
+            <div key={i} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm hover:border-[#d5dce8] transition-colors">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${j.tribunal === "tcu" ? "bg-indigo-100 text-indigo-700" : "bg-rose-100 text-rose-700"}`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${j.tribunal === "tcu" ? "bg-indigo-100 text-[#032650]" : "bg-rose-100 text-rose-700"}`}>
                       {j.tribunal === "tcu" ? "TCU" : "TCE-RO"}
                     </span>
                     <p className="text-sm font-bold text-slate-800">Acórdão {j.numero}</p>

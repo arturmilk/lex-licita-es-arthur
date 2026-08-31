@@ -1,5 +1,5 @@
 /**
- * Serviço de IA do Estima.IA — usado para:
+ * Serviço de IA do LEX Licitações — usado para:
  *  1. Escrita assistida de documentos administrativos (minutas)
  *  2. Leitura e resumo de documentos (PDF/processos)
  *  3. Assistente contextual "Me ajuda"
@@ -168,7 +168,7 @@ export async function meAjuda(opts: {
   dadosAdicionais?: string;
 }): Promise<string> {
   const system = [
-    "Você é o assistente contextual do Estima.IA, um sistema de gestão de processos para servidores públicos.",
+    "Você é o assistente contextual do LEX Licitações, um sistema de gestão de processos para servidores públicos.",
     "O servidor pediu ajuda DENTRO do sistema, em uma tela específica.",
     "Responda de forma prática e direta: o que ele deve fazer AGORA, passo a passo.",
     "Se a pergunta envolver legislação, cite a fonte. Se envolver o sistema, explique onde clicar.",
