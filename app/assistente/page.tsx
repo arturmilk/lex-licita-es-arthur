@@ -112,6 +112,24 @@ export default function ChatGuiadoPage() {
     }
   };
 
+  // ── AGENTE HISTORIADOR: padrões do órgão + briefing de antecipação ──
+  const [briefingHist, setBriefingHist] = useState<any | null>(null);
+  const [carregandoBriefing, setCarregandoBriefing] = useState(false);
+
+  const carregarBriefing = async () => {
+    setCarregandoBriefing(true);
+    setBriefingHist(null);
+    try {
+      const { briefingHistoriador } = await import("@/lib/actions-chat");
+      const r = await briefingHistoriador();
+      setBriefingHist(r);
+    } catch (e: any) {
+      setErro(String(e?.message || e));
+    } finally {
+      setCarregandoBriefing(false);
+    }
+  };
+
   const abrirConversa = async (id: string) => {
     try {
       const r = await carregarConversaChat(id);
@@ -374,7 +392,37 @@ export default function ChatGuiadoPage() {
                 <button onClick={() => setMostrarHistorico(true)} className="text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-full cursor-pointer">
                   🕘 Ver conversas anteriores
                 </button>
+                {/* AGENTE HISTORIADOR: padrões do órgão */}
+                <button
+                  onClick={carregarBriefing}
+                  disabled={carregandoBriefing}
+                  className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 px-4 py-2 rounded-full cursor-pointer disabled:opacity-50"
+                >
+                  {carregandoBriefing ? "Analisando histórico…" : "🧠 Memória do meu órgão"}
+                </button>
               </div>
+
+              {/* Painel do Historiador */}
+              {briefingHist && (
+                <div className="mt-6 w-full max-w-md rounded-2xl border border-amber-200 bg-amber-50/60 p-5 text-left">
+                  <p className="text-[11px] font-bold text-amber-700 uppercase tracking-wide mb-2">🧠 Agente Historiador — o que o seu órgão costuma fazer</p>
+                  {briefingHist.briefing ? (
+                    <div className="text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{briefingHist.briefing}</div>
+                  ) : (
+                    <p className="text-xs text-slate-500">
+                      Ainda sem histórico suficiente no órgão. Conforme você fizer contratações, o Historiador aprende seus padrões (objetos recorrentes, documentos que faltam, fontes preferidas) e antecipa o trabalho.
+                    </p>
+                  )}
+                  {briefingHist.padroes?.totalProcessos > 0 && (
+                    <div className="mt-3 pt-3 border-t border-amber-200 text-[11px] text-slate-500">
+                      <p>{briefingHist.padroes.totalProcessos} processo(s) · {briefingHist.padroes.totalConversas} conversa(s) analisadas</p>
+                      {briefingHist.padroes.documentosFaltantes?.length > 0 && (
+                        <p className="mt-1">Sempre faltam: {briefingHist.padroes.documentosFaltantes.map((d: any) => `${d.doc} (${d.vezes}x)`).join(", ")}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ) : (conversa.mensagens?.length || 0) === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center">

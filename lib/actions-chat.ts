@@ -49,6 +49,121 @@ export async function registrarMemoria(chave: string, valor: string) {
   }
 }
 
+/**
+ * AGENTE HISTORIADOR: analisa o histórico de contratações do órgão
+ * (processos + conversas) e devolve padrões que ANTECIPAM o trabalho:
+ * objetos mais recorrentes, documentos que sempre faltam, valores típicos,
+ * e sugestões de auto-preenchimento para a próxima contratação.
+ */
+export async function historiarPadroesOrgao() {
+  const { orgaoId } = await sessao();
+  const [procs, conversas, memorias] = await Promise.all([
+    db.select({ objeto: processos.objeto, createdAt: processos.createdAt, status: processos.status })
+      .from(processos).where(eq(processos.orgaoId, orgaoId)).orderBy(processos.createdAt).limit(50),
+    db.select({ titulo: conversasChat.titulo, etapaAtual: conversasChat.etapaAtual, statusDocumentos: conversasChat.statusDocumentos })
+      .from(conversasChat).where(eq(conversasChat.orgaoId, orgaoId)).limit(50),
+    db.select().from(memoriaOrgao).where(eq(memoriaOrgao.orgaoId, orgaoId)),
+  ]);
+
+  const padroes = {
+    totalProcessos: procs.length,
+    totalConversas: conversas.length,
+    objetosRecorrentes: [] as { objeto: string; vezes: number }[],
+    documentosFaltantes: [] as { doc: string; vezes: number }[],
+    fontesPreferidas: [] as { fonte: string; vezes: number }[],
+    ultimoObjeto: procs.length > 0 ? procs[procs.length - 1].objeto : null,
+  };
+
+  // Objetos recorrentes (por prefixo de 30 chars)
+  const contagemObjetos: Record<string, number> = {};
+  for (const p of procs) {
+    const chave = (p.objeto || "").slice(0, 30).toLowerCase();
+    if (chave.length > 5) contagemObjetos[chave] = (contagemObjetos[chave] || 0) + 1;
+  }
+  padroes.objetosRecorrentes = Object.entries(contagemObjetos)
+    .map(([objeto, vezes]) => ({ objeto, vezes }))
+    .sort((a, b) => b.vezes - a.vezes).slice(0, 5);
+
+  // Documentos que sempre faltam (das conversas — status "falta")
+  const contagemDocs: Record<string, number> = {};
+  for (const c of conversas) {
+    const docs = (c.statusDocumentos as any)?.documentos || {};
+    for (const [chave, v] of Object.entries(docs)) {
+      if ((v as any)?.status === "falta") contagemDocs[chave] = (contagemDocs[chave] || 0) + 1;
+    }
+  }
+  padroes.documentosFaltantes = Object.entries(contagemDocs)
+    .map(([doc, vezes]) => ({ doc, vezes }))
+    .sort((a, b) => b.vezes - a.vezes).slice(0, 5);
+
+  // Fontes de preço preferidas (memória)
+  const contagemFontes: Record<string, number> = {};
+  for (const m of memorias) {
+    if (m.chave === "fonte_preco") contagemFontes[m.valor] = (contagemFontes[m.valor] || 0) + 1;
+  }
+  padroes.fontesPreferidas = Object.entries(contagemFontes)
+    .map(([fonte, vezes]) => ({ fonte, vezes }))
+    .sort((a, b) => b.vezes - a.vezes).slice(0, 5);
+
+  return padroes;
+}
+
+/**
+ * AGENTE HISTORIADOR (IA): a partir dos padrões estatísticos + memórias,
+ * escreve um briefing de auto-preenchimento para a próxima contratação.
+ */
+export async function briefingHistoriador() {
+  const padroes = await historiarPadroesOrgao();
+  const memorias = await lerMemoriaOrgao();
+
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  if (!apiKey || padroes.totalProcessos + padroes.totalConversas === 0) {
+    return {
+      padroes,
+      briefing: null,
+      memorias,
+    };
+  }
+
+  const system = `Você é o AGENTE HISTORIADOR de um sistema de licitações públicas (Lei 14.133/2021).
+
+Com base nos padrões históricos do órgão abaixo, escreva um BRIEFING curto (máximo 200 palavras) para ANTECIPAR o trabalho do servidor na próxima contratação:
+1. O que este órgão costuma contratar (objetos recorrentes).
+2. Quais documentos SEMPRE faltam — avise para já vir preparado.
+3. Qual fonte de preço ele prefere.
+4. Uma sugestão prática de auto-preenchimento.
+Responda em português claro, sem emojis, em bullets curtos.`;
+
+  const user = `Padrões do órgão:
+- Processos registrados: ${padroes.totalProcessos}
+- Objetos recorrentes: ${padroes.objetosRecorrentes.map(o => `${o.objeto} (${o.vezes}x)`).join(", ") || "nenhum repetido"}
+- Documentos que mais faltam: ${padroes.documentosFaltantes.map(d => `${d.doc} (${d.vezes}x)`).join(", ") || "nenhum"}
+- Fontes preferidas: ${padroes.fontesPreferidas.map(f => `${f.fonte} (${f.vezes}x)`).join(", ") || "nenhuma registrada"}
+- Memórias atuais: ${Object.entries(memorias).map(([k, v]) => `${k}=${v}`).join("; ") || "nenhuma"}`;
+
+  try {
+    const res = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "deepseek-chat",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        temperature: 0.3,
+        max_tokens: 500,
+      }),
+      signal: AbortSignal.timeout(40_000),
+    });
+    const data = await res.json().catch(() => null);
+    const briefing = data?.choices?.[0]?.message?.content || null;
+    return { padroes, briefing, memorias };
+  } catch {
+    return { padroes, briefing: null, memorias };
+  }
+}
+
 /** Cria uma nova conversa (capa do chat). */
 export async function novaConversaChat() {
   const { orgaoId, userId } = await sessao();
@@ -105,6 +220,7 @@ export async function enviarMensagemChat(conversaId: string, texto: string) {
     docColeta: estadoSalvo.docColeta,   // coleta guiada (PC/ETP campo a campo)
     catmat: estadoSalvo.catmat,
     minuta: estadoSalvo.minuta,
+    documentosGerados: estadoSalvo.documentosGerados,  // Redator encadeado (PC→ETP)
   };
 
   // Mensagem do servidor
