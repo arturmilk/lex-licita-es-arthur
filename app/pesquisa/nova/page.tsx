@@ -187,6 +187,8 @@ export default function NovaPesquisaPage() {
   const nextStep = useCallback(() => setStep(s => Math.min(s + 1, totalSteps)), []);
   const prevStep = useCallback(() => setStep(s => Math.max(s - 1, 1)), []);
   const goToStep = useCallback((s: number) => { if (s >= 1 && s <= totalSteps) setStep(s); }, []);
+  // Volta para a etapa de Resultados (9) para aceitar referências
+  const nextStepToResultados = useCallback(() => setStep(9), []);
 
   // ── Itens (acordeão) ────────────────────────────────────────────────────────
   const [expandido, setExpandido] = useState<Record<string, boolean>>({});
@@ -1876,8 +1878,15 @@ export default function NovaPesquisaPage() {
 
               {/* Ações */}
               {resultados.length > 0 && (
-                <div className="mt-4 pt-4 border-t border-slate-200 flex items-center gap-3">
+                <div className="mt-4 pt-4 border-t border-slate-200 flex items-center gap-3 flex-wrap">
                   <Btn onClick={() => goToStep(8)}>← Configurações</Btn>
+                  <button
+                    onClick={() => { calcular(); goToStep(12); }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer"
+                    title="Calcula com as referências aceitas e abre o quadro comparativo com o valor estimado"
+                  >
+                    <Calculator size={13} /> 🧮 Calcular direto (quadro comparativo)
+                  </button>
                   <Btn primary onClick={() => { const r = calcular(); nextStep(); if (r) gerarConteudoIA(r.stats, r.nAceitas); }} icon={<BarChart3 size={14}/>}>
                     Calcular e analisar
                   </Btn>
@@ -2103,93 +2112,6 @@ export default function NovaPesquisaPage() {
                 <p className="text-xs font-semibold text-blue-400 uppercase tracking-wide mb-1">Justificativa automática</p>
                 {justificativaIA || `O preço foi formado com base em ${estatisticas?.n} registros do PNCP, utilizando o método da ${config.metodo.replace(/_/g, " ")}.`}
               </div>
-
-              {/* ── CALCULAR DIRETO: quadro comparativo + explicação da média ── */}
-              <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/40 overflow-hidden">
-                <div className="flex items-center justify-between px-4 py-3 bg-emerald-600 text-white">
-                  <div className="flex items-center gap-2">
-                    <Calculator size={15} />
-                    <p className="text-sm font-bold">Calcular direto — quadro comparativo</p>
-                  </div>
-                  <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full">agente automático</span>
-                </div>
-                <div className="p-4">
-                  {(() => {
-                    const aceitas = resultados.filter(r => r.status_avaliacao === "aceito" && (r.valor_unitario != null || r.valor_total != null));
-                    if (aceitas.length === 0) return <p className="text-xs text-slate-500">Aceite referências na etapa Resultados para gerar o quadro comparativo.</p>;
-                    return (
-                      <div className="space-y-4">
-                        {/* Quadro comparativo */}
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-xs">
-                            <thead>
-                              <tr className="bg-emerald-100 text-emerald-900">
-                                <th className="px-3 py-2 text-left font-semibold rounded-tl-lg">Nº</th>
-                                <th className="px-3 py-2 text-left font-semibold">Órgão / Fonte</th>
-                                <th className="px-3 py-2 text-left font-semibold">Descrição</th>
-                                <th className="px-3 py-2 text-right font-semibold">Valor unitário</th>
-                                <th className="px-3 py-2 text-right font-semibold">Qtd</th>
-                                <th className="px-3 py-2 text-right font-semibold rounded-tr-lg">Peso no cálculo</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-emerald-100">
-                              {aceitas.map((r, i) => {
-                                const v = (r.valor_unitario ?? r.valor_total) as number;
-                                const q = r.quantidade ?? 1;
-                                return (
-                                  <tr key={r.id || i} className="bg-white hover:bg-emerald-50/50">
-                                    <td className="px-3 py-2 font-mono text-slate-500">{i + 1}</td>
-                                    <td className="px-3 py-2 text-slate-700">{r.orgao || "—"}</td>
-                                    <td className="px-3 py-2 text-slate-500 max-w-[180px] truncate" title={r.descricao}>{r.descricao?.slice(0, 40) || "—"}</td>
-                                    <td className="px-3 py-2 text-right font-semibold text-slate-800 tabular-nums">{formatarMoeda(v)}</td>
-                                    <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{q}</td>
-                                    <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{config.metodo === "media_ponderada" ? (v * q).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—"}</td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                        {/* Explicação da média */}
-                        <div className="rounded-lg bg-white border border-emerald-100 p-3 text-xs text-slate-700 leading-relaxed">
-                          <p className="font-bold text-emerald-700 mb-1.5">🧮 Como cheguei à média</p>
-                          {(() => {
-                            const vals = aceitas.map(r => (r.valor_unitario ?? r.valor_total) as number);
-                            const soma = vals.reduce((a, b) => a + b, 0);
-                            const mediaValor = soma / vals.length;
-                            const linhaValores = vals.map(v => formatarMoeda(v)).join(" + ");
-                            return (
-                              <>
-                                <p><strong>1.</strong> Somei os valores aceitos: {linhaValores} = <strong>{formatarMoeda(soma)}</strong></p>
-                                <p><strong>2.</strong> Dividi pelo nº de referências ({vals.length}): {formatarMoeda(soma)} ÷ {vals.length} = <strong>{formatarMoeda(mediaValor)}</strong></p>
-                                {estatisticas && (
-                                  <p className="mt-1 text-slate-500">
-                                    (Mediana: {formatarMoeda(estatisticas.mediana)} · Mínimo: {formatarMoeda(estatisticas.minimo)} · Máximo: {formatarMoeda(estatisticas.maximo)} · CV: {estatisticas.coeficienteVariacao.toFixed(1).replace(".", ",")}%)
-                                  </p>
-                                )}
-                              </>
-                            );
-                          })()}
-                        </div>
-                        {/* Sugestão de valor estimado */}
-                        {precoEstimado && (
-                          <div className="rounded-lg bg-emerald-600 text-white p-4 flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-100">💡 Valor estimado sugerido da contratação</p>
-                              <p className="text-xl font-bold tabular-nums">{formatarMoeda(precoEstimado.total)}</p>
-                              <p className="text-[11px] text-emerald-100">({precoEstimado.unitario ? formatarMoeda(precoEstimado.unitario) : ""} × {quantidade} {unidadeMedida}(s) · método {config.metodo.replace(/_/g, " ")})</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[10px] text-emerald-100">Total de referências</p>
-                              <p className="text-lg font-bold tabular-nums">{aceitas.length}</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
               {validacaoIA && (
                 <div className={`mt-3 rounded-lg border p-3 ${validacaoIA.valido ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}`}>
                   <div className="flex items-center gap-2">
@@ -2209,6 +2131,118 @@ export default function NovaPesquisaPage() {
               Aceite pelo menos um resultado para gerar o preço estimado.
             </div>
           )}
+
+          {/* ── CALCULAR DIRETO: SEMPRE visível — botão calcula na hora ── */}
+          <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/40 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-emerald-600 text-white flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <Calculator size={15} />
+                <p className="text-sm font-bold">🧮 Calcular direto — quadro comparativo</p>
+              </div>
+              <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full">agente automático</span>
+            </div>
+            <div className="p-4">
+              {(() => {
+                const aceitas = resultados.filter(r => r.status_avaliacao === "aceito" && (r.valor_unitario != null || r.valor_total != null));
+                if (aceitas.length === 0) {
+                  return (
+                    <div className="text-center py-4">
+                      <p className="text-xs text-slate-500 mb-3">Ainda não há referências aceitas para montar o quadro comparativo.</p>
+                      <button
+                        onClick={() => { nextStepToResultados(); }}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg cursor-pointer"
+                      >
+                        <Search size={13} /> Ir para Resultados e aceitar referências
+                      </button>
+                    </div>
+                  );
+                }
+                if (!precoEstimado) {
+                  return (
+                    <div className="text-center py-4">
+                      <p className="text-xs text-slate-500 mb-3">{aceitas.length} referência(s) aceita(s) pronta(s) para o cálculo.</p>
+                      <button
+                        onClick={() => calcular()}
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg cursor-pointer"
+                      >
+                        <Calculator size={13} /> Calcular agora
+                      </button>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-4">
+                    {/* Quadro comparativo */}
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-emerald-100 text-emerald-900">
+                            <th className="px-3 py-2 text-left font-semibold rounded-tl-lg">Nº</th>
+                            <th className="px-3 py-2 text-left font-semibold">Órgão / Fonte</th>
+                            <th className="px-3 py-2 text-left font-semibold">Descrição</th>
+                            <th className="px-3 py-2 text-right font-semibold">Valor unitário</th>
+                            <th className="px-3 py-2 text-right font-semibold">Qtd</th>
+                            <th className="px-3 py-2 text-right font-semibold rounded-tr-lg">Peso no cálculo</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-emerald-100">
+                          {aceitas.map((r, i) => {
+                            const v = (r.valor_unitario ?? r.valor_total) as number;
+                            const q = r.quantidade ?? 1;
+                            return (
+                              <tr key={r.id || i} className="bg-white hover:bg-emerald-50/50">
+                                <td className="px-3 py-2 font-mono text-slate-500">{i + 1}</td>
+                                <td className="px-3 py-2 text-slate-700">{r.orgao || "—"}</td>
+                                <td className="px-3 py-2 text-slate-500 max-w-[180px] truncate" title={r.descricao}>{r.descricao?.slice(0, 40) || "—"}</td>
+                                <td className="px-3 py-2 text-right font-semibold text-slate-800 tabular-nums">{formatarMoeda(v)}</td>
+                                <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{q}</td>
+                                <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{config.metodo === "media_ponderada" ? (v * q).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    {/* Explicação da média */}
+                    <div className="rounded-lg bg-white border border-emerald-100 p-3 text-xs text-slate-700 leading-relaxed">
+                      <p className="font-bold text-emerald-700 mb-1.5">🧮 Como cheguei à média</p>
+                      {(() => {
+                        const vals = aceitas.map(r => (r.valor_unitario ?? r.valor_total) as number);
+                        const soma = vals.reduce((a, b) => a + b, 0);
+                        const mediaValor = soma / vals.length;
+                        const linhaValores = vals.map(v => formatarMoeda(v)).join(" + ");
+                        return (
+                          <>
+                            <p><strong>1.</strong> Somei os valores aceitos: {linhaValores} = <strong>{formatarMoeda(soma)}</strong></p>
+                            <p><strong>2.</strong> Dividi pelo nº de referências ({vals.length}): {formatarMoeda(soma)} ÷ {vals.length} = <strong>{formatarMoeda(mediaValor)}</strong></p>
+                            {estatisticas && (
+                              <p className="mt-1 text-slate-500">
+                                (Mediana: {formatarMoeda(estatisticas.mediana)} · Mínimo: {formatarMoeda(estatisticas.minimo)} · Máximo: {formatarMoeda(estatisticas.maximo)} · CV: {estatisticas.coeficienteVariacao.toFixed(1).replace(".", ",")}%)
+                              </p>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                    {/* Sugestão de valor estimado */}
+                    {precoEstimado && (
+                      <div className="rounded-lg bg-emerald-600 text-white p-4 flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-100">💡 Valor estimado sugerido da contratação</p>
+                          <p className="text-xl font-bold tabular-nums">{formatarMoeda(precoEstimado.total)}</p>
+                          <p className="text-[11px] text-emerald-100">({precoEstimado.unitario ? formatarMoeda(precoEstimado.unitario) : ""} × {quantidade} {unidadeMedida}(s) · método {config.metodo.replace(/_/g, " ")})</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] text-emerald-100">Total de referências</p>
+                          <p className="text-lg font-bold tabular-nums">{aceitas.length}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
         </StepCard>
       );
 
