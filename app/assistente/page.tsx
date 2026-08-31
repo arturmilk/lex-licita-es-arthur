@@ -313,10 +313,10 @@ export default function ChatGuiadoPage() {
   };
 
   const iconeBalao = (m: Mensagem) => {
-    if (m.papel === "servidor") return <User size={13} className="text-indigo-300" />;
+    if (m.papel === "servidor") return <User size={13} className="text-[#C9A227]/70" />;
     if (m.tipo === "alerta") return <AlertTriangle size={13} className="text-amber-500" />;
     if (m.tipo === "documento") return <FileText size={13} className="text-emerald-600" />;
-    if (m.tipo === "card") return <Sparkles size={13} className="text-indigo-500" />;
+    if (m.tipo === "card") return <Sparkles size={13} className="text-[#C9A227]" />;
     return <Bot size={13} className="text-slate-400" />;
   };
 
@@ -426,7 +426,7 @@ export default function ChatGuiadoPage() {
             </div>
           ) : (conversa.mensagens?.length || 0) === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
-              <Bot size={36} className="text-indigo-300" />
+              <Bot size={36} className="text-[#C9A227]/70" />
               <p className="text-sm text-slate-400">Carregando…</p>
             </div>
           ) : (
@@ -472,7 +472,7 @@ export default function ChatGuiadoPage() {
                             }
                           }}
                           disabled={enviando}
-                          className="text-[11px] font-semibold bg-white border border-slate-300 text-slate-700 hover:border-indigo-400 hover:text-[#032650] px-2.5 py-1.5 rounded-full cursor-pointer disabled:opacity-50"
+                          className="text-[11px] font-semibold bg-white border border-slate-300 text-slate-700 hover:border-[#C9A227] hover:text-[#032650] px-2.5 py-1.5 rounded-full cursor-pointer disabled:opacity-50"
                         >
                           {op}
                         </button>
@@ -487,7 +487,7 @@ export default function ChatGuiadoPage() {
           {enviando && (
             <div className="flex justify-start">
               <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-2xl px-4 py-2.5 shadow-sm">
-                <Loader2 size={13} className="animate-spin text-indigo-500" />
+                <Loader2 size={13} className="animate-spin text-[#C9A227]" />
                 <span className="text-xs text-slate-400">pensando…</span>
               </div>
             </div>
@@ -497,7 +497,7 @@ export default function ChatGuiadoPage() {
 
         {/* Input — estilo ChatGPT: container arredondado com sombra */}
         <div className="pb-2">
-          <div className="flex items-end gap-2 rounded-3xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm focus-within:border-indigo-400 transition-colors">
+          <div className="flex items-end gap-2 rounded-3xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm focus-within:border-[#C9A227] transition-colors">
             <input
               type="file"
               accept=".pdf,.txt,.md,.docx"

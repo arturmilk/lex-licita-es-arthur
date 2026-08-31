@@ -63,7 +63,7 @@ export default function MeAjuda({ contexto, dados }: Props) {
               onChange={(e) => setPergunta(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && perguntar()}
               placeholder="Ex.: o que devo fazer nesta etapa? Qual o próximo passo?"
-              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm min-h-[70px]"
+              className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#C9A227] text-sm min-h-[70px]"
             />
             <button
               onClick={perguntar}

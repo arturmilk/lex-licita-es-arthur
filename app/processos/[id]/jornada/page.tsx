@@ -276,7 +276,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <Link href="/painel" className="inline-flex items-center gap-1 text-sm text-[#032650] hover:text-indigo-800 mb-4">
+      <Link href="/painel" className="inline-flex items-center gap-1 text-sm text-[#032650] hover:text-[#042f5e] mb-4">
         <ArrowLeft size={14} /> Voltar ao painel
       </Link>
 
@@ -296,7 +296,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
             <React.Fragment key={t.id}>
               <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border ${
                 t.status === "concluida" ? "bg-green-50 text-green-700 border-green-200"
-                : t.status === "em_andamento" ? "bg-[#032650] text-white border-indigo-600"
+                : t.status === "em_andamento" ? "bg-[#032650] text-white border-[#032650]"
                 : "bg-white text-slate-400 border-slate-200"
               }`}>
                 {t.status === "concluida" ? <CheckCircle2 size={12} /> : t.status === "em_andamento" ? <Circle size={12} /> : <Circle size={12} className="opacity-40" />}
@@ -311,7 +311,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
       {/* Etapa atual */}
       {atual ? (
         <div className="rounded-2xl border-2 border-[#d5dce8] bg-white p-6 shadow-sm mb-6">
-          <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-1">Etapa atual</p>
+          <p className="text-xs font-semibold text-[#C9A227] uppercase tracking-wide mb-1">Etapa atual</p>
           <h2 className="text-lg font-bold text-slate-800 mb-1">{atual.titulo}</h2>
           <p className="text-sm text-slate-600 mb-4">{atual.descricao || atual.instrucao}</p>
 
@@ -328,7 +328,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                         type="checkbox"
                         checked={marcado}
                         onChange={() => setDocsMarcados(marcado ? docsMarcados.filter((d) => d !== doc) : [...docsMarcados, doc])}
-                        className="accent-indigo-600"
+                        className="accent-[#032650]"
                       />
                       <span className={`text-sm ${marcado ? "text-slate-400 line-through" : "text-slate-700"}`}>{doc}</span>
                       {marcado && <CheckCircle2 size={14} className="ml-auto text-green-500" />}
@@ -380,7 +380,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                         type="date"
                         value={camposEtapa[campo] || ""}
                         onChange={(e) => setCamposEtapa({ ...camposEtapa, [campo]: e.target.value })}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#C9A227] text-sm"
                       />
                       <p className="text-[10px] text-slate-400 mt-0.5">
                         {campo === "dataAbertura" ? "Ex.: 15/10/2026 — data prevista para abertura das propostas" :
@@ -413,7 +413,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                           campo === "fundamentacaoLegal" ? "Ex.: art. 75, II da Lei 14.133/2021" :
                           `Informe ${campo}`
                         }
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#C9A227] text-sm"
                       />
                       {campo === "dotacaoOrcamentaria" && (
                         <div className="mt-1.5">
@@ -421,7 +421,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                             type="button"
                             onClick={carregarSugestoesDotacao}
                             disabled={carregandoDotacao}
-                            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#032650] hover:text-indigo-800 bg-[#eef2f8] hover:bg-indigo-100 px-2.5 py-1 rounded-lg cursor-pointer"
+                            className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-[#032650] hover:text-[#042f5e] bg-[#eef2f8] hover:bg-[#d5dce8] px-2.5 py-1 rounded-lg cursor-pointer"
                           >
                             {carregandoDotacao ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
                             Sugerir com base no objeto
@@ -435,11 +435,11 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                                   key={i}
                                   type="button"
                                   onClick={() => setCamposEtapa({ ...camposEtapa, dotacaoOrcamentaria: s.classificacao })}
-                                  className="w-full text-left rounded-lg border border-[#d5dce8] hover:border-indigo-300 bg-[#eef2f8]/40 hover:bg-[#eef2f8] px-2.5 py-1.5 cursor-pointer transition-colors"
+                                  className="w-full text-left rounded-lg border border-[#d5dce8] hover:border-[#C9A227] bg-[#eef2f8]/40 hover:bg-[#eef2f8] px-2.5 py-1.5 cursor-pointer transition-colors"
                                 >
                                   <span className="flex items-center justify-between gap-2">
                                     <span className="font-mono text-[11px] font-semibold text-[#032650]">{s.classificacao}</span>
-                                    <span className="text-[10px] font-bold text-indigo-400">{s.compatibilidade}%</span>
+                                    <span className="text-[10px] font-bold text-[#C9A227]">{s.compatibilidade}%</span>
                                   </span>
                                   <span className="block text-[10px] text-slate-500">{s.descricao}</span>
                                 </button>
@@ -489,7 +489,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
               key={t}
               onClick={() => setTipoMinuta(t)}
               className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer ${
-                tipoMinuta === t ? "bg-[#032650] text-white border-indigo-600" : "bg-white text-slate-600 border-slate-300 hover:border-indigo-400"
+                tipoMinuta === t ? "bg-[#032650] text-white border-[#032650]" : "bg-white text-slate-600 border-slate-300 hover:border-[#C9A227]"
               }`}
             >
               {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -500,13 +500,13 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           value={minutaContexto}
           onChange={(e) => setMinutaContexto(e.target.value)}
           placeholder="O que deve constar no documento? Ex.: justificar por que o prazo foi prorrogado..."
-          className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm min-h-[70px]"
+          className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#C9A227] text-sm min-h-[70px]"
         />
         <div className="flex flex-wrap items-center gap-2 mt-2">
           <button
             onClick={gerarMin}
             disabled={gerandoMinuta}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-100 text-[#032650] text-sm font-semibold hover:bg-indigo-200 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#eef2f8] text-[#032650] text-sm font-semibold hover:bg-[#d5dce8] disabled:opacity-50 cursor-pointer"
           >
             {gerandoMinuta ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
             Gerar minuta (modelo)

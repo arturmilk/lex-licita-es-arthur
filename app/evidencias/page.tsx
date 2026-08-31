@@ -60,7 +60,7 @@ export default function EvidenciasPage() {
       {/* Links do PNCP aceitos */}
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden mb-6">
         <div className="flex items-center gap-2 px-6 py-4 border-b border-slate-100">
-          <Link2 className="w-5 h-5 text-indigo-600" />
+          <Link2 className="w-5 h-5 text-[#032650]" />
           <h2 className="text-base font-semibold text-slate-800">Links de referências aceitas</h2>
         </div>
         <div className="px-6 py-2 text-xs text-slate-400 border-b border-slate-50">
@@ -89,7 +89,7 @@ export default function EvidenciasPage() {
                     <td className="py-2.5 px-4 font-mono text-xs">{e.processoNumero || "—"}</td>
                     <td className="py-2.5 px-4 text-slate-600 max-w-[220px] truncate" title={e.pesquisaObjeto}>{e.pesquisaObjeto}</td>
                     <td className="py-2.5 px-4">
-                      <a href={e.url!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-medium">
+                      <a href={e.url!} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[#032650] hover:text-[#042f5e] text-xs font-medium">
                         <ExternalLink className="w-3 h-3" /> Abrir
                       </a>
                     </td>
@@ -142,7 +142,7 @@ export default function EvidenciasPage() {
                     <td className="py-2.5 px-4 text-slate-500 text-xs">{fmtData(e.createdAt)}</td>
                     <td className="py-2.5 px-4 flex items-center gap-2">
                       {e.url && (
-                        <a href={e.url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded hover:bg-indigo-50 text-indigo-400 hover:text-indigo-600 transition-colors" title="Abrir">
+                        <a href={e.url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded hover:bg-[#eef2f8] text-[#C9A227] hover:text-[#032650] transition-colors" title="Abrir">
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
                       )}

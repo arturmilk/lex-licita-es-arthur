@@ -109,7 +109,7 @@ export default function ProcessosPage() {
                     <p className="text-sm text-slate-800 mb-1" title={r.objeto}>{r.objeto}</p>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-slate-500">{r.unidade || "—"} · {new Date(r.updatedAt).toLocaleDateString("pt-BR")}</span>
-                      <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-indigo-800 shrink-0">
+                      <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-[#042f5e] shrink-0">
                         Guiar <ChevronRight size={12} />
                       </Link>
                     </div>
@@ -140,7 +140,7 @@ export default function ProcessosPage() {
                         </td>
                         <td className="py-2.5 px-4 text-slate-500 text-xs">{new Date(r.updatedAt).toLocaleDateString("pt-BR")}</td>
                         <td className="py-2.5 px-4">
-                          <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-indigo-800">
+                          <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-[#042f5e]">
                             Guiar <ChevronRight size={12} />
                           </Link>
                         </td>

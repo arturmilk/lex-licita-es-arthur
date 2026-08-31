@@ -289,7 +289,7 @@ export default function AdminPage() {
           action={
             <button
               onClick={carregarMonitor}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-[#042f5e] px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Atualizar
             </button>
@@ -436,9 +436,9 @@ export default function AdminPage() {
                       value={filtroLogs}
                       onChange={(e) => setFiltroLogs(e.target.value)}
                       placeholder="Filtrar logs..."
-                      className="text-xs px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-indigo-400 w-40"
+                      className="text-xs px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#C9A227] w-40"
                     />
-                    <button onClick={copiarLogs} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-indigo-800 transition-colors">
+                    <button onClick={copiarLogs} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-[#042f5e] transition-colors">
                       <Copy className="w-3.5 h-3.5" /> {copiado ? "Copiado!" : "Copiar"}
                     </button>
                   </div>
@@ -457,7 +457,7 @@ export default function AdminPage() {
                           <tr key={l.id} className={ehErroLog(l) ? "bg-red-50/70" : "hover:bg-slate-100"}>
                             <td className="py-1 px-3 whitespace-nowrap text-slate-400">{fmtData(l.ts)}</td>
                             <td className="py-1 px-2 whitespace-nowrap">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${ehErroLog(l) ? "bg-red-100 text-red-700" : "bg-indigo-100 text-[#032650]"}`}>
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${ehErroLog(l) ? "bg-red-100 text-red-700" : "bg-[#eef2f8] text-[#032650]"}`}>
                                 {l.evento}
                               </span>
                             </td>
@@ -490,7 +490,7 @@ export default function AdminPage() {
               )}
               <button
                 onClick={() => { setMostrarFormUsuario(!mostrarFormUsuario); setUsuarioErro(null); }}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-[#042f5e] px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
               >
                 <UserPlus className="w-3.5 h-3.5" /> Novo usuário
               </button>
@@ -575,7 +575,7 @@ export default function AdminPage() {
           title="Sugestões e feedbacks"
           icon={MessageCircle}
           action={
-            <button onClick={carregarFeedbacks} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-indigo-800 px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
+            <button onClick={carregarFeedbacks} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-[#042f5e] px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
               <RefreshCw className="w-3.5 h-3.5" /> Atualizar
             </button>
           }

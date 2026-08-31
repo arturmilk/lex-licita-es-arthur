@@ -41,27 +41,28 @@ export default function BuscaPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-xl font-bold text-slate-800 mb-1">🔍 Busca inteligente</h1>
+      <h1 className="text-xl font-bold text-slate-800 mb-1">Busca inteligente</h1>
       <p className="text-sm text-slate-500 mb-6">Encontre processos, documentos, normas e informações em linguagem natural.</p>
 
       {erro && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{erro}</div>}
 
       <div className="grid md:grid-cols-2 gap-4 mb-6">
         {/* Busca inteligente */}
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <Search size={16} className="text-indigo-600" />
-            <h3 className="font-semibold text-slate-800 text-sm">Buscar no sistema</h3>
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+          <div className="flex items-center gap-2 px-4 py-3 bg-[#032650]">
+            <Search size={15} className="text-[#C9A227]" />
+            <h3 className="font-semibold text-white text-sm">Buscar no sistema</h3>
           </div>
+          <div className="p-4">
           <div className="flex gap-2">
             <input
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && pesquisar()}
               placeholder="Ex.: processos de aquisição parados há mais de 10 dias"
-              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
+              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#C9A227] text-sm"
             />
-            <button onClick={pesquisar} disabled={buscando} className="px-3 py-2 rounded-lg bg-slate-700 text-white text-xs font-semibold hover:bg-slate-800 cursor-pointer disabled:opacity-50">
+            <button onClick={pesquisar} disabled={buscando} className="px-3 py-2 rounded-lg bg-[#032650] text-white text-xs font-semibold hover:bg-[#042f5e] cursor-pointer disabled:opacity-50">
               {buscando ? <Loader2 size={13} className="animate-spin" /> : "Buscar"}
             </button>
           </div>
@@ -81,8 +82,8 @@ export default function BuscaPage() {
                 <div>
                   <p className="font-semibold text-slate-600 mb-1">Normas ({resultadoBusca.normas.length})</p>
                   {resultadoBusca.normas.map((n: any) => (
-                    <div key={n.id} className="px-3 py-1.5 rounded bg-indigo-50 text-indigo-800">
-                      <span className="font-semibold">{n.titulo}</span> — {n.conteudo.slice(0, 100)}… <span className="text-indigo-400">({n.fonte})</span>
+                    <div key={n.id} className="px-3 py-1.5 rounded bg-[#eef2f8] text-[#042f5e]">
+                      <span className="font-semibold">{n.titulo}</span> — {n.conteudo.slice(0, 100)}… <span className="text-[#C9A227]">({n.fonte})</span>
                     </div>
                   ))}
                 </div>
@@ -106,23 +107,25 @@ export default function BuscaPage() {
               )}
             </div>
           )}
+          </div>
         </div>
 
         {/* Legislação */}
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex items-center gap-2 mb-2">
-            <BookOpen size={16} className="text-indigo-600" />
-            <h3 className="font-semibold text-slate-800 text-sm">Pergunte sobre a legislação</h3>
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
+          <div className="flex items-center gap-2 px-4 py-3 bg-[#032650]">
+            <BookOpen size={15} className="text-[#C9A227]" />
+            <h3 className="font-semibold text-white text-sm">Pergunte sobre a legislação</h3>
           </div>
+          <div className="p-4">
           <div className="flex gap-2">
             <input
               value={perguntaLei}
               onChange={(e) => setPerguntaLei(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && perguntarLei()}
               placeholder="Ex.: qual o prazo para licitação na modalidade convite?"
-              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
+              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#C9A227] text-sm"
             />
-            <button onClick={perguntarLei} disabled={perguntandoLei} className="px-3 py-2 rounded-lg bg-indigo-100 text-indigo-700 text-xs font-semibold hover:bg-indigo-200 cursor-pointer disabled:opacity-50">
+            <button onClick={perguntarLei} disabled={perguntandoLei} className="px-3 py-2 rounded-lg bg-[#eef2f8] text-[#032650] text-xs font-semibold hover:bg-[#d5dce8] cursor-pointer disabled:opacity-50">
               {perguntandoLei ? <Loader2 size={13} className="animate-spin" /> : "Perguntar"}
             </button>
           </div>
@@ -130,13 +133,14 @@ export default function BuscaPage() {
             <div className="mt-3 space-y-2 text-xs">
               {legis.length === 0 && <p className="text-slate-400">Nenhuma norma encontrada para essa pergunta.</p>}
               {legis.map((n, i) => (
-                <div key={i} className="px-3 py-2 rounded bg-indigo-50 text-indigo-900">
-                  <p className="font-semibold">{n.titulo} <span className="text-indigo-400 font-normal">· {n.fonte}</span></p>
-                  <p className="mt-0.5 text-indigo-700/80">{n.conteudo}</p>
+                <div key={i} className="px-3 py-2 rounded bg-[#eef2f8] text-[#032650]">
+                  <p className="font-semibold">{n.titulo} <span className="text-[#032650]/50 font-normal">· {n.fonte}</span></p>
+                  <p className="mt-0.5 text-[#032650]/80">{n.conteudo}</p>
                 </div>
               ))}
             </div>
           )}
+          </div>
         </div>
       </div>
     </div>

@@ -31,7 +31,7 @@ export default function PainelGestorPage() {
           {/* KPIs */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "Total de tarefas", valor: dados.totalTarefas, icon: BarChart3, cor: "text-indigo-600 bg-indigo-50" },
+              { label: "Total de tarefas", valor: dados.totalTarefas, icon: BarChart3, cor: "text-[#032650] bg-[#eef2f8]" },
               { label: "Atrasadas", valor: dados.atrasadas.length, icon: AlertTriangle, cor: "text-red-600 bg-red-50" },
               { label: "Aguardando outro", valor: dados.aguardandoOutro.length, icon: Users, cor: "text-purple-600 bg-purple-50" },
               { label: "Paradas 5+ dias", valor: dados.paradas.length, icon: Clock, cor: "text-amber-600 bg-amber-50" },
@@ -60,7 +60,7 @@ export default function PainelGestorPage() {
           {/* Carga por servidor */}
           <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="flex items-center gap-2 font-semibold text-slate-800 text-sm mb-3">
-              <Users size={15} className="text-indigo-600" /> Carga de trabalho por servidor
+              <Users size={15} className="text-[#032650]" /> Carga de trabalho por servidor
             </h3>
             {dados.carga.length === 0 ? (
               <p className="text-sm text-slate-400 py-3">Nenhum servidor com tarefas ativas.</p>
@@ -73,7 +73,7 @@ export default function PainelGestorPage() {
                       <p className="text-xs text-slate-500">{c.cargo || "Servidor"}</p>
                     </div>
                     <div className="flex items-center gap-3 text-xs">
-                      <span className="text-indigo-600 font-semibold">{c.ativas} ativas</span>
+                      <span className="text-[#032650] font-semibold">{c.ativas} ativas</span>
                       <span className="text-green-600 font-semibold">{c.concluidas} concluídas</span>
                       {c.atrasadas > 0 && <span className="text-red-600 font-semibold">{c.atrasadas} atrasadas</span>}
                     </div>

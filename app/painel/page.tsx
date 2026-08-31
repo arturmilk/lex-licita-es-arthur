@@ -96,7 +96,7 @@ export default function PainelPage() {
           <h1 className="text-2xl font-bold text-slate-800">Painel de trabalho</h1>
           <p className="text-sm text-slate-500">O que você precisa fazer hoje, sem procurar em menus.</p>
         </div>
-        <Link href="/processos" className="inline-flex items-center gap-1.5 text-sm text-[#032650] hover:text-indigo-800 font-medium">
+        <Link href="/processos" className="inline-flex items-center gap-1.5 text-sm text-[#032650] hover:text-[#042f5e] font-medium">
           Ver processos <ArrowRight size={14} />
         </Link>
       </div>
@@ -104,7 +104,7 @@ export default function PainelPage() {
       {erro && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{erro}</div>}
 
       {/* ============ O QUE VOCÊ PRECISA FAZER? (coração do sistema) ============ */}
-      <div className="mb-6 rounded-2xl border-2 border-[#d5dce8] bg-gradient-to-br from-indigo-50 to-white p-5 shadow-sm">
+      <div className="mb-6 rounded-2xl border-2 border-[#d5dce8] bg-gradient-to-br from-[#eef2f8] to-white p-5 shadow-sm">
         <div className="flex items-center gap-2 mb-2">
           <Sparkles size={18} className="text-[#032650]" />
           <h2 className="font-bold text-indigo-900">O que você precisa fazer?</h2>
@@ -118,7 +118,7 @@ export default function PainelPage() {
             onChange={(e) => setIntencao(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && detectar()}
             placeholder="Ex.: Preciso iniciar uma contratação de manutenção de ar-condicionado"
-            className="flex-1 px-4 py-2.5 rounded-xl border-2 border-[#d5dce8] focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 text-sm bg-white"
+            className="flex-1 px-4 py-2.5 rounded-xl border-2 border-[#d5dce8] focus:outline-none focus:border-[#C9A227] focus:ring-4 focus:ring-indigo-50 text-sm bg-white"
           />
           <button
             onClick={detectar}
@@ -133,13 +133,13 @@ export default function PainelPage() {
         {/* Sugestões de tipo de processo */}
         {sugestoes && (
           <div className="mt-4 space-y-2">
-            <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">Identifiquei o procedimento. Confirme:</p>
+            <p className="text-xs font-semibold text-[#C9A227] uppercase tracking-wide">Identifiquei o procedimento. Confirme:</p>
             {sugestoes.map((s) => (
               <button
                 key={s.tipoProcessoId}
                 onClick={() => criar(s.tipoProcessoId)}
                 disabled={criando}
-                className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white border border-[#d5dce8] hover:border-indigo-400 hover:bg-[#eef2f8] transition-colors text-left cursor-pointer"
+                className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white border border-[#d5dce8] hover:border-[#C9A227] hover:bg-[#eef2f8] transition-colors text-left cursor-pointer"
               >
                 <div>
                   <p className="font-semibold text-slate-800">{s.nomeTipo}</p>
@@ -147,7 +147,7 @@ export default function PainelPage() {
                     Confiança: {Math.round(s.confianca * 100)}% · palavras: {s.palavrasChave.join(", ") || "geral"}
                   </p>
                 </div>
-                {criando ? <Loader2 size={16} className="animate-spin text-indigo-500" /> : <ArrowRight size={16} className="text-indigo-500" />}
+                {criando ? <Loader2 size={16} className="animate-spin text-[#C9A227]" /> : <ArrowRight size={16} className="text-[#C9A227]" />}
               </button>
             ))}
           </div>

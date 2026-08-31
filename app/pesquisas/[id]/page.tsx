@@ -89,7 +89,7 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
                         <td className="py-2 px-3">{i.unidadeMedida || "un"}</td>
                         <td className="py-2 px-3">
                           {i.itemEdital ? (
-                            <a href={`https://pncp.gov.br/app/editais?q=${encodeURIComponent(i.itemEdital)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-medium whitespace-nowrap">
+                            <a href={`https://pncp.gov.br/app/editais?q=${encodeURIComponent(i.itemEdital)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[#032650] hover:text-[#042f5e] text-xs font-medium whitespace-nowrap">
                               {i.itemEdital} <ExternalLink className="w-3 h-3" />
                             </a>
                           ) : <span className="text-xs text-neutral-400">—</span>}
@@ -117,7 +117,7 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
               </div>
             )}
             {dados.meEpp?.aplicar && (
-              <div className="mt-4 rounded-lg bg-indigo-50 border border-indigo-200 p-4 text-sm text-indigo-800">
+              <div className="mt-4 rounded-lg bg-[#eef2f8] border border-[#d5dce8] p-4 text-sm text-[#042f5e]">
                 <strong>ME/EPP (LC 123/2006):</strong>{" "}
                 {dados.meEpp.tipo === "exclusividade" ? "exclusividade" : "reserva de 25%"} —{" "}
                 {fmtMoeda(dados.meEpp.valorReservado)} reservados · base legal: {dados.meEpp.baseLegal || "LC 123/2006, art. 48"}
@@ -189,7 +189,7 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
                       <td className="py-2 px-3 text-xs font-mono text-neutral-500">{r.cnpj || "—"}</td>
                       <td className="py-2 px-3">
                         {r.linkEdital ? (
-                          <a href={r.linkEdital} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-xs font-medium whitespace-nowrap">
+                          <a href={r.linkEdital} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[#032650] hover:text-[#042f5e] text-xs font-medium whitespace-nowrap">
                             <ExternalLink className="w-3 h-3" /> Ver
                           </a>
                         ) : (

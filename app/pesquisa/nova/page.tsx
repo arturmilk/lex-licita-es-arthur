@@ -1054,7 +1054,7 @@ export default function NovaPesquisaPage() {
               </div>
             )}
             {formaParcelamento === "lote" && (
-              <div className="p-3 rounded-lg bg-[#eef2f8] border border-[#d5dce8] text-sm text-indigo-800">
+              <div className="p-3 rounded-lg bg-[#eef2f8] border border-[#d5dce8] text-sm text-[#042f5e]">
                 <strong>Por lote:</strong> cada lote da próxima etapa terá quantidade e unidade próprias (ex.: Lote 1 — notebooks, Lote 2 — monitores).
               </div>
             )}
@@ -1113,7 +1113,7 @@ export default function NovaPesquisaPage() {
                         {formaParcelamento === "lote" ? `Lote ${idx + 1}` : `Item ${idx + 1}`}: {rotulo}
                       </span>
                       {formaParcelamento === "lote" ? (
-                        <span className="text-xs text-indigo-500 font-medium bg-[#eef2f8] px-2 py-0.5 rounded-full">
+                        <span className="text-xs text-[#C9A227] font-medium bg-[#eef2f8] px-2 py-0.5 rounded-full">
                           {(item.subitens || []).length} {(item.subitens || []).length === 1 ? "item" : "itens"}
                         </span>
                       ) : (item.quantidade > 0 || item.unidadeMedida) && (
@@ -1202,7 +1202,7 @@ export default function NovaPesquisaPage() {
                               ))}
                             </div>
                             <button type="button" onClick={() => addSubItem(idx)}
-                              className="mt-2 inline-flex items-center gap-1.5 text-xs text-[#032650] hover:text-indigo-800 font-semibold">
+                              className="mt-2 inline-flex items-center gap-1.5 text-xs text-[#032650] hover:text-[#042f5e] font-semibold">
                               <span className="w-4 h-4 rounded-full border-2 border-current flex items-center justify-center text-[10px] font-bold leading-none">+</span>
                               Adicionar item ao lote
                             </button>
@@ -1256,7 +1256,7 @@ export default function NovaPesquisaPage() {
                                   type="checkbox"
                                   checked={item.obrigatorio ?? true}
                                   onChange={e => updateItem(idx, "obrigatorio", e.target.checked)}
-                                  className="accent-indigo-600"
+                                  className="accent-[#032650]"
                                 />
                                 Obrigatório
                               </label>
@@ -1272,7 +1272,7 @@ export default function NovaPesquisaPage() {
           </div>
 
           {formaParcelamento === "global" && itens.length >= 1 ? null : (
-            <button type="button" onClick={addItem} className="mt-3 inline-flex items-center gap-1.5 text-sm text-[#032650] hover:text-indigo-800 font-medium">
+            <button type="button" onClick={addItem} className="mt-3 inline-flex items-center gap-1.5 text-sm text-[#032650] hover:text-[#042f5e] font-medium">
               <span className="w-4 h-4 rounded-full border-2 border-current flex items-center justify-center text-xs font-bold leading-none">+</span>
               {formaParcelamento === "lote" ? "Adicionar lote" : "Adicionar item"}
             </button>
@@ -1416,7 +1416,7 @@ export default function NovaPesquisaPage() {
                   "border-orange-200 bg-orange-50/40"
                 }`}>
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                    f.cor === "indigo" ? "bg-indigo-100 text-[#032650]" :
+                    f.cor === "indigo" ? "bg-[#eef2f8] text-[#032650]" :
                     f.cor === "teal"   ? "bg-teal-100 text-teal-600" :
                     "bg-orange-100 text-orange-600"
                   }`}>{f.icon}</div>
@@ -1460,7 +1460,7 @@ export default function NovaPesquisaPage() {
                 <div className="flex flex-wrap gap-2">
                   {caracteristicasIA.map((c, i) => (
                     <span key={i} className="inline-flex items-center gap-1 bg-white border border-[#d5dce8] text-[#032650] text-xs font-medium px-2.5 py-1 rounded-full">
-                      <span className="text-indigo-400 font-semibold">{c.caracteristica}:</span> {c.valor}
+                      <span className="text-[#C9A227] font-semibold">{c.caracteristica}:</span> {c.valor}
                     </span>
                   ))}
                 </div>
@@ -1479,7 +1479,7 @@ export default function NovaPesquisaPage() {
                 <div className="space-y-2">
                   {itens.map((e, i) => (
                     <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 border border-slate-100">
-                      <span className="shrink-0 w-6 h-6 rounded-full bg-indigo-100 text-[#032650] text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                      <span className="shrink-0 w-6 h-6 rounded-full bg-[#eef2f8] text-[#032650] text-xs font-bold flex items-center justify-center">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-700">{e.descricao || `Item ${i + 1}`}</p>
                         {e.especificacao && <p className="text-xs text-slate-500 mt-0.5 leading-snug">{e.especificacao}</p>}
@@ -1489,7 +1489,7 @@ export default function NovaPesquisaPage() {
                           )}
                           {e.itemEdital && <span className="font-mono">edital: {e.itemEdital}</span>}
                           {formaParcelamento === "lote" && (e.subitens || []).length > 0 && (
-                            <span className="text-indigo-500 font-medium">{(e.subitens || []).length} {(e.subitens || []).length === 1 ? "item" : "itens"}</span>
+                            <span className="text-[#C9A227] font-medium">{(e.subitens || []).length} {(e.subitens || []).length === 1 ? "item" : "itens"}</span>
                           )}
                         </div>
                         {formaParcelamento === "lote" && (e.subitens || []).length > 0 && (
@@ -1743,7 +1743,7 @@ export default function NovaPesquisaPage() {
                       <thead>
                         <tr className="bg-slate-800 text-slate-200">
                           <th className="px-2 py-2.5 text-center w-8 border-r border-slate-700">
-                            <input type="checkbox" className="rounded accent-indigo-500 cursor-pointer"
+                            <input type="checkbox" className="rounded accent-[#032650] cursor-pointer"
                               checked={filtrados.length > 0 && filtrados.every(r => selecionados.has(r.id))}
                               onChange={e => {
                                 setSelecionados(prev => {
@@ -1788,7 +1788,7 @@ export default function NovaPesquisaPage() {
                               idx % 2 === 0 ? "bg-white border-slate-100 hover:bg-[#eef2f8]/20" : "bg-slate-50/60 border-slate-100 hover:bg-[#eef2f8]/20"
                             }`}>
                               <td className="px-2 py-2 text-center border-r border-slate-100">
-                                <input type="checkbox" className="rounded accent-indigo-500 cursor-pointer"
+                                <input type="checkbox" className="rounded accent-[#032650] cursor-pointer"
                                   checked={selecionados.has(r.id)}
                                   onChange={e => {
                                     setSelecionados(prev => {
@@ -1881,7 +1881,7 @@ export default function NovaPesquisaPage() {
                     value={textoFiltro}
                     onChange={e => setTextoFiltro(e.target.value)}
                     placeholder="Buscar por descrição, órgão, nº PNCP, modalidade, localização…"
-                    className="w-full pl-8 pr-3 py-2 text-sm border-2 border-slate-200 rounded-xl focus:outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-colors bg-slate-50 placeholder:text-slate-400"
+                    className="w-full pl-8 pr-3 py-2 text-sm border-2 border-slate-200 rounded-xl focus:outline-none focus:border-[#C9A227] focus:ring-4 focus:ring-[#C9A227]/20 transition-colors bg-slate-50 placeholder:text-slate-400"
                   />
                   {textoFiltro && (
                     <button onClick={() => setTextoFiltro("")}
@@ -1918,10 +1918,10 @@ export default function NovaPesquisaPage() {
                 <button type="button" onClick={() => setSituFiltro("ia")}
                   className={`px-3 py-1 rounded-lg text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
                     situFiltro === "ia"
-                      ? "bg-[#032650] text-white border-indigo-600"
+                      ? "bg-[#032650] text-white border-[#032650]"
                       : iaAnalisando
-                        ? "bg-white text-indigo-400 border-[#d5dce8] cursor-wait"
-                        : "bg-white text-[#032650] border-indigo-300 hover:border-indigo-500"
+                        ? "bg-white text-[#C9A227] border-[#d5dce8] cursor-wait"
+                        : "bg-white text-[#032650] border-[#C9A227] hover:border-[#032650]"
                   }`}>
                   {iaAnalisando
                     ? <><Loader2 size={10} className="animate-spin"/> Analisando…</>
@@ -1931,7 +1931,7 @@ export default function NovaPesquisaPage() {
                 <select
                   value={regiaoFiltro}
                   onChange={e => setRegiaoFiltro(e.target.value)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 focus:outline-none focus:border-indigo-400 cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 focus:outline-none focus:border-[#C9A227] cursor-pointer"
                   title="Filtrar por região (inferida da localização do edital)"
                 >
                   <option value="todas">🌎 Todas as regiões</option>
@@ -1945,7 +1945,7 @@ export default function NovaPesquisaPage() {
                 <select
                   value={ordenacao}
                   onChange={e => setOrdenacao(e.target.value as any)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 focus:outline-none focus:border-indigo-400 cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 focus:outline-none focus:border-[#C9A227] cursor-pointer"
                   title="Ordenar resultados"
                 >
                   <option value="relevancia">Relevância</option>
@@ -2002,7 +2002,7 @@ export default function NovaPesquisaPage() {
                         <div key={itemId} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
                           <div className="flex items-center gap-2 min-w-0">
                             {prog.status === "buscando" ? (
-                              <Loader2 size={13} className="animate-spin text-indigo-500 shrink-0" />
+                              <Loader2 size={13} className="animate-spin text-[#C9A227] shrink-0" />
                             ) : prog.status === "ok" ? (
                               <CheckCircle2 size={13} className="text-green-600 shrink-0" />
                             ) : (
@@ -2043,7 +2043,7 @@ export default function NovaPesquisaPage() {
                     {parametrosBusca.map((p, i) => (
                       <div key={i} className="text-[11px] text-slate-600">
                         <span className="font-semibold text-slate-700">{p.rotulo}:</span>{" "}
-                        <span className="font-mono text-indigo-800">{p.termo}</span>
+                        <span className="font-mono text-[#042f5e]">{p.termo}</span>
                         {p.filtros && <span className="text-slate-400"> · priorizando: {p.filtros}</span>}
                         {p.parametros && <span className="text-slate-300"> — {p.parametros}</span>}
                       </div>
@@ -2059,7 +2059,7 @@ export default function NovaPesquisaPage() {
               )}
               {pesquisando ? (
                 <div className="flex flex-col items-center justify-center py-24 gap-4">
-                  <Loader2 className="w-10 h-10 animate-spin text-indigo-500" />
+                  <Loader2 className="w-10 h-10 animate-spin text-[#C9A227]" />
                   <p className="text-sm text-slate-500">Consultando o PNCP…</p>
                 </div>
               ) : erroPesquisa ? (
@@ -2163,7 +2163,7 @@ export default function NovaPesquisaPage() {
             <div className="mt-6 rounded-xl border border-[#d5dce8] bg-[#eef2f8]/50 p-5">
               <div className="flex items-center gap-2 mb-1">
                 <BarChart3 size={16} className="text-[#032650]" />
-                <p className="text-sm font-semibold text-indigo-900">Análise crítica das referências</p>
+                <p className="text-sm font-semibold text-[#032650]">Análise crítica das referências</p>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
                   analiseCritica.forcaDispersao === "baixa" ? "bg-green-100 text-green-700"
                   : analiseCritica.forcaDispersao === "media" ? "bg-amber-100 text-amber-700"
@@ -2187,11 +2187,11 @@ export default function NovaPesquisaPage() {
               </div>
               {analiseCritica.sugestaoJustificativa && (
                 <div className="mt-3 rounded-lg bg-white border border-[#d5dce8] p-3">
-                  <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide mb-1">Sugestão para a justificativa</p>
+                  <p className="text-[10px] font-semibold text-[#C9A227] uppercase tracking-wide mb-1">Sugestão para a justificativa</p>
                   <p className="text-xs text-slate-700 leading-relaxed">{analiseCritica.sugestaoJustificativa}</p>
                   <button
                     onClick={() => { navigator.clipboard.writeText(analiseCritica.sugestaoJustificativa); alert("Sugestão copiada para a área de transferência."); }}
-                    className="mt-2 inline-flex items-center gap-1 text-[11px] text-[#032650] hover:text-indigo-800 font-medium cursor-pointer"
+                    className="mt-2 inline-flex items-center gap-1 text-[11px] text-[#032650] hover:text-[#042f5e] font-medium cursor-pointer"
                   >
                     <ClipboardList size={12} /> Copiar sugestão
                   </button>
@@ -2295,13 +2295,13 @@ export default function NovaPesquisaPage() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="rounded-xl border-2 border-[#d5dce8] bg-[#eef2f8] p-4 text-center">
-                  <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide mb-1">Valor unitário estimado</p>
+                  <p className="text-xs font-semibold text-[#C9A227] uppercase tracking-wide mb-1">Valor unitário estimado</p>
                   <p className="text-2xl font-bold text-[#032650] tabular-nums">{formatarMoeda(precoEstimado.unitario)}</p>
                 </div>
                 <div className="rounded-xl border-2 border-[#d5dce8] bg-[#eef2f8] p-4 text-center">
-                  <p className="text-xs font-semibold text-indigo-400 uppercase tracking-wide mb-1">Valor total estimado</p>
+                  <p className="text-xs font-semibold text-[#C9A227] uppercase tracking-wide mb-1">Valor total estimado</p>
                   <p className="text-2xl font-bold text-[#032650] tabular-nums">{formatarMoeda(precoEstimado.total)}</p>
-                  <p className="text-xs text-indigo-400 mt-1">{quantidade} {unidadeMedida}(s)</p>
+                  <p className="text-xs text-[#C9A227] mt-1">{quantidade} {unidadeMedida}(s)</p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Método aplicado</p>
@@ -2572,10 +2572,10 @@ export default function NovaPesquisaPage() {
                 ["media_ponderada", "Média ponderada", "Média com peso pela quantidade de cada referência"],
               ] as [MetodoCalculo, string, string][]).map(([valor, rotulo, ajuda]) => (
                 <label key={valor} className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                  config.metodo === valor ? "border-indigo-400 bg-[#eef2f8]" : "border-slate-200 bg-white hover:border-slate-300"
+                  config.metodo === valor ? "border-[#C9A227] bg-[#eef2f8]" : "border-slate-200 bg-white hover:border-slate-300"
                 }`}>
                   <input
-                    type="radio" name="metodo-relatorio" className="mt-0.5 accent-indigo-600"
+                    type="radio" name="metodo-relatorio" className="mt-0.5 accent-[#032650]"
                     checked={config.metodo === valor}
                     onChange={() => setConfig({ ...config, metodo: valor })}
                   />
@@ -2604,7 +2604,7 @@ export default function NovaPesquisaPage() {
               ] as [keyof typeof parametrosRelatorio, string][]).map(([campo, rotulo]) => (
                 <label key={campo} className="flex items-center gap-2 p-3 rounded-lg border border-slate-200 bg-white cursor-pointer hover:border-slate-300 transition-colors">
                   <input
-                    type="checkbox" className="accent-indigo-600"
+                    type="checkbox" className="accent-[#032650]"
                     checked={parametrosRelatorio[campo]}
                     onChange={e => setParametrosRelatorio({ ...parametrosRelatorio, [campo]: e.target.checked })}
                   />
@@ -2620,7 +2620,7 @@ export default function NovaPesquisaPage() {
               <>
                 <div className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-white">
                   <input
-                    type="checkbox" className="mt-0.5 accent-indigo-600"
+                    type="checkbox" className="mt-0.5 accent-[#032650]"
                     checked={meEpp.aplicar}
                     onChange={e => setMeEpp({ ...meEpp, aplicar: e.target.checked })}
                   />
@@ -2774,7 +2774,7 @@ export default function NovaPesquisaPage() {
             );
           })}
 
-          <div className="p-3 rounded-lg bg-[#eef2f8] border border-[#d5dce8] text-xs text-indigo-800 leading-relaxed">
+          <div className="p-3 rounded-lg bg-[#eef2f8] border border-[#d5dce8] text-xs text-[#042f5e] leading-relaxed">
             <strong>Diferencial:</strong> a decomposição de custos com mão de obra de dedicação exclusiva permite justificar o
             preço frente ao mercado e embasar a negociação — recurso que concorrentes como o Banco de Preços não oferecem.
             Tudo é incluído no relatório final.
@@ -2808,9 +2808,9 @@ export default function NovaPesquisaPage() {
               <ul className="space-y-2">
                 {linksAceitos.map((link, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
-                    <ExternalLink className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <ExternalLink className="w-3.5 h-3.5 text-[#C9A227] shrink-0" />
                     {link.url
-                      ? <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-[#032650] hover:text-indigo-800 font-medium truncate">{link.nome}</a>
+                      ? <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-[#032650] hover:text-[#042f5e] font-medium truncate">{link.nome}</a>
                       : <span className="text-slate-500">{link.nome}</span>}
                   </li>
                 ))}
@@ -2965,7 +2965,7 @@ export default function NovaPesquisaPage() {
                   isAtual
                     ? "bg-[#032650] text-white"
                     : isConcluida
-                    ? "bg-[#eef2f8] text-[#032650] hover:bg-indigo-100"
+                    ? "bg-[#eef2f8] text-[#032650] hover:bg-[#eef2f8]"
                     : "text-slate-400 hover:bg-slate-50"
                 }`}
               >
@@ -3128,7 +3128,7 @@ function Btn({
 }) {
   const base = "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border shadow-sm active:scale-[0.98]";
   const style = primary
-    ? "bg-[#032650] text-white border-indigo-700 hover:bg-[#032650] shadow-indigo-200"
+    ? "bg-[#032650] text-white border-[#032650] hover:bg-[#032650] shadow-[#032650]/10"
     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300";
   return (
     <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${style} disabled:opacity-40 disabled:cursor-not-allowed`}>
@@ -3158,7 +3158,7 @@ function StatBox({ label, value, badge }: { label: string; value: string; badge?
 
 function InfoBox({ children, color = "slate", className = "" }: { children: React.ReactNode; color?: "indigo" | "green" | "red" | "amber" | "slate"; className?: string }) {
   const colors = {
-    indigo: "bg-[#eef2f8] border-[#d5dce8] text-indigo-800",
+    indigo: "bg-[#eef2f8] border-[#d5dce8] text-[#042f5e]",
     green: "bg-green-50 border-green-200 text-green-800",
     red: "bg-red-50 border-red-200 text-red-800",
     amber: "bg-amber-50 border-amber-200 text-amber-800",

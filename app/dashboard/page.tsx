@@ -76,7 +76,7 @@ export default function DashboardPage() {
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
         <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
           <h2 className="text-base font-semibold text-slate-800">Pesquisas recentes</h2>
-          <Link href="/pesquisas" className="text-sm text-[#032650] hover:text-indigo-800 flex items-center gap-1 font-medium">
+          <Link href="/pesquisas" className="text-sm text-[#032650] hover:text-[#042f5e] flex items-center gap-1 font-medium">
             Ver todas <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

@@ -37,7 +37,7 @@ export default function JurisprudenciaPage() {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <h1 className="text-xl font-bold text-slate-800 mb-1">⚖️ Jurisprudência (TCU / TCE-RO)</h1>
+      <h1 className="text-xl font-bold text-slate-800 mb-1">Jurisprudência (TCU / TCE-RO)</h1>
       <p className="text-sm text-slate-500 mb-6">
         Busque acórdãos sobre um assunto ou objeto — servem de parâmetro para fundamentar o edital, a justificativa e recursos.
       </p>
@@ -48,12 +48,12 @@ export default function JurisprudenciaPage() {
           onChange={(e) => setTermo(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && buscar()}
           placeholder="Ex.: exigência de atestados, prazo de entrega, cláusula restritiva, ar-condicionado..."
-          className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-400 text-sm"
+          className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-[#C9A227] text-sm"
         />
         <button
           onClick={buscar}
           disabled={buscando}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#032650] text-white text-sm font-semibold hover:bg-[#032650] cursor-pointer disabled:opacity-50"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#032650] text-white text-sm font-semibold hover:bg-[#042f5e] cursor-pointer disabled:opacity-50"
         >
           {buscando ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
           Buscar julgados
@@ -64,7 +64,7 @@ export default function JurisprudenciaPage() {
 
       {buscando && (
         <div className="flex items-center justify-center py-16 gap-3">
-          <Loader2 size={24} className="animate-spin text-indigo-500" />
+          <Loader2 size={24} className="animate-spin text-[#032650]" />
           <p className="text-sm text-slate-500">Consultando TCU e TCE-RO…</p>
         </div>
       )}
@@ -79,7 +79,7 @@ export default function JurisprudenciaPage() {
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${j.tribunal === "tcu" ? "bg-indigo-100 text-[#032650]" : "bg-rose-100 text-rose-700"}`}>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${j.tribunal === "tcu" ? "bg-[#eef2f8] text-[#032650]" : "bg-rose-100 text-rose-700"}`}>
                       {j.tribunal === "tcu" ? "TCU" : "TCE-RO"}
                     </span>
                     <p className="text-sm font-bold text-slate-800">Acórdão {j.numero}</p>
