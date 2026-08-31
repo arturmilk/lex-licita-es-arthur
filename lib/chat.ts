@@ -39,6 +39,7 @@ export interface EstadoChat {
     ordem: string[];                   // ordem dos campos restantes
     campoAtual?: string;               // campo sendo perguntado agora
   };
+  documentosGerados?: Record<string, Record<string, string>>;  // AGENTE REDATOR: campos coletados por documento (encadeia PC→ETP→TR)
 }
 
 /** Campos guiados por documento — pergunta, explicação e opções sugeridas. */
@@ -294,19 +295,38 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       // BOTÃO "📄 Criar com modelo AGU": inicia a COLETA GUIADA de campos
       if (t.includes("criar com modelo agu") || t.includes("criar com o modelo") || t.includes("gerar modelo")) {
         const camposDef = CAMPOS_DOCUMENTO[doc.chave] || [];
+        // AGENTE REDATOR: herda campos já respondidos em documentos anteriores
+        // (ex.: quantidade/unidade/prazo/local do PC são reutilizados no ETP)
+        const anteriores = estado.documentosGerados || {};
+        const camposHerdeiros: Record<string, string> = {};
+        const ordemFiltrada = camposDef.filter(c => {
+          const herdado = Object.values(anteriores).some(docCampos => docCampos[c.chave]);
+          if (herdado) {
+            const valor = Object.values(anteriores).map(d => d[c.chave]).find(Boolean);
+            if (valor) camposHerdeiros[c.chave] = valor;
+            return false; // já respondido — não pergunta de novo
+          }
+          return true;
+        });
         estado.docColeta = {
           docChave: doc.chave,
-          campos: {},
-          ordem: camposDef.map(c => c.chave),
+          campos: camposHerdeiros,
+          ordem: ordemFiltrada.map(c => c.chave),
         };
         estado.etapa = "coleta_doc";
-        const primeiro = camposDef[0];
+        const primeiro = ordemFiltrada[0];
+        const herdou = Object.keys(camposHerdeiros).length > 0;
         msg.push({
           id: ID(), papel: "sistema", tipo: "card", etapa: "coleta_doc",
-          conteudo: `📄 **${doc.nome}** — vamos montar com o modelo AGU, **campo por campo** para ficar completo!\n\n🟡 **Pergunta 1/${camposDef.length}:** ${primeiro.pergunta}\n\n💡 ${primeiro.explicacao}\n\n*(pode digitar a resposta, escolher uma opção ou pular — eu completo com o padrão)*`,
-          opcoes: [...(primeiro.opcoes || []), "⏭️ Pular (usar padrão)"],
+          conteudo: `📄 **${doc.nome}** — vamos montar com o modelo AGU, **campo por campo** para ficar completo!${herdou ? `\n\n🧠 *O Redator já aproveitou do documento anterior: ${Object.entries(camposHerdeiros).map(([k, v]) => `${k}=${v}`).join(", ")}.*` : ""}\n\n${ordemFiltrada.length === 0 ? "Todos os campos já estão preenchidos! Gerando o documento…" : `🟡 **Pergunta 1/${ordemFiltrada.length}:** ${primeiro.pergunta}\n\n💡 ${primeiro.explicacao}\n\n*(pode digitar a resposta, escolher uma opção ou pular — eu completo com o padrão)*`}`,
+          opcoes: ordemFiltrada.length === 0 ? [] : [...(primeiro.opcoes || []), "⏭️ Pular (usar padrão)"],
           criadaEm: new Date().toISOString(),
         });
+        // Se todos os campos foram herdados, gera direto (sem perguntar)
+        if (ordemFiltrada.length === 0) {
+          const r = await responder("", estado, memorias);
+          return { mensagens: [...msg, ...r.mensagens], estado: r.estado };
+        }
         return { mensagens: msg, estado };
       }
 
@@ -495,6 +515,11 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
           criadaEm: new Date().toISOString(),
         });
       }
+      // AGENTE REDATOR: guarda os campos coletados para encadear no próximo documento
+      estado.documentosGerados = {
+        ...(estado.documentosGerados || {}),
+        [coleta.docChave]: { ...coleta.campos },
+      };
       // Avança para o próximo documento
       const proximoDoc = FLUXO_DOCUMENTOS[FLUXO_DOCUMENTOS.indexOf(doc!) + 1];
       if (proximoDoc) {

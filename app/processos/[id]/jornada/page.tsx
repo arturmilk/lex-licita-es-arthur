@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, Circle, Loader2, FileText, History, ShieldAlert, Wand2, ChevronRight, CheckSquare, Sparkles, FileUp, Scale, Plus } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Circle, Loader2, FileText, History, ShieldAlert, ShieldCheck, Wand2, ChevronRight, CheckSquare, Sparkles, FileUp, Scale, Plus } from "lucide-react";
 import { obterTarefasDoProcesso, avancarEtapa, obterHistorico, gerarMinuta, listarMinutas, escreverComIA, obterJornada, sugerirDotacaoOrcamentaria, buscarJulgadosDoProcesso, adicionarJulgado, listarJulgados, alternarJulgadoUsado, removerJulgado, listarModelosDocumento, preencherModeloDocumento } from "@/lib/actions-intencao";
 
 export default function JornadaPage({ params }: { params: { id: string } }) {
@@ -33,6 +33,9 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
   const [preenchendoModelo, setPreenchendoModelo] = useState(false);
   const [conteudoModeloPreenchido, setConteudoModeloPreenchido] = useState<string | null>(null);
   const [julgadosUsados, setJulgadosUsados] = useState(0);
+  // ── AGENTE REVISOR: validação do processo antes de publicar ──
+  const [revisaoIA, setRevisaoIA] = useState<string | null>(null);
+  const [revisando, setRevisando] = useState(false);
 
   const carregar = async () => {
     const ts = await obterTarefasDoProcesso(params.id);
@@ -195,6 +198,26 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
       setErro(String(e?.message || e));
     } finally {
       setGerandoMinIA(false);
+    }
+  }
+
+  // ── AGENTE REVISOR: lê o processo e aponta pendências ──
+  async function revisarProcesso() {
+    setRevisando(true);
+    setRevisaoIA(null);
+    try {
+      const resp = await fetch("/api/ia/revisor", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ processoId: params.id }),
+        signal: AbortSignal.timeout(50_000),
+      });
+      const data = await resp.json().catch(() => null);
+      setRevisaoIA(data?.revisao || "Não consegui revisar o processo agora.");
+    } catch {
+      setRevisaoIA("Não consegui revisar o processo agora. Tente novamente.");
+    } finally {
+      setRevisando(false);
     }
   }
 
@@ -662,6 +685,32 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
               rows={16}
               className="w-full font-mono text-[11px] leading-relaxed text-slate-700 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-violet-400"
             />
+          </div>
+        )}
+      </div>
+
+      {/* AGENTE REVISOR: valida o processo antes de publicar */}
+      <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
+        <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
+          <div className="flex items-center gap-2">
+            <ShieldCheck size={16} className="text-emerald-600" />
+            <h3 className="font-semibold text-slate-800 text-sm">Agente Revisor — pronto para publicar?</h3>
+          </div>
+          <button
+            onClick={revisarProcesso}
+            disabled={revisando}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-lg cursor-pointer disabled:opacity-50"
+          >
+            {revisando ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
+            {revisando ? "Revisando o processo…" : revisaoIA ? "Revisar novamente" : "Revisar o processo completo"}
+          </button>
+        </div>
+        <p className="text-xs text-slate-500 mb-3">
+          O agente lê o processo inteiro (dados, tarefas, minutas, julgados) e aponta inconsistências, riscos jurídicos e o que falta antes de publicar — como um assessor revisando antes de assinar.
+        </p>
+        {revisaoIA && (
+          <div className="mt-3 rounded-lg bg-slate-50 border border-slate-200 p-4 text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
+            {revisaoIA}
           </div>
         )}
       </div>
