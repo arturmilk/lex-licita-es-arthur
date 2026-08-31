@@ -5,12 +5,12 @@ import { gerarJustificativa } from "@/lib/openclaw-client";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { estatisticas, metodo, quantidade, referenciasAceitas } = body;
+    const { estatisticas, metodo, quantidade, referenciasAceitas, referencias } = body;
     if (!estatisticas || !metodo) {
       return NextResponse.json({ error: "estatisticas e metodo são obrigatórios" }, { status: 400 });
     }
     const inicio = Date.now();
-    const resultado = await gerarJustificativa(estatisticas, metodo, quantidade ?? 1, referenciasAceitas ?? estatisticas.n ?? 0);
+    const resultado = await gerarJustificativa(estatisticas, metodo, quantidade ?? 1, referenciasAceitas ?? estatisticas.n ?? 0, referencias);
     const { logEvento } = await import("@/lib/logger");
     logEvento("ia_justificativa", { ok: true, ms: Date.now() - inicio });
     return NextResponse.json(resultado);

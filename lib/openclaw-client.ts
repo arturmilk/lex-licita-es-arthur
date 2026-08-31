@@ -181,7 +181,8 @@ export async function gerarJustificativa(
   },
   metodo: string,
   quantidade: number,
-  referenciasAceitas: number
+  referenciasAceitas: number,
+  referencias?: { orgao?: string; valor?: number | null }[]
 ) {
   const systemPrompt = `Você é o Agente Justificador da LEX Licitações, redator técnico-jurídico especializado em contratações públicas brasileiras (Lei 14.133/2021, Decreto 10.024/2019).
 
@@ -208,6 +209,7 @@ Regras de redação:
 Método: ${metodo}
 Quantidade a contratar: ${quantidade} unidades
 Referências aceitas: ${referenciasAceitas}
+${referencias && referencias.length > 0 ? `Referências utilizadas no quadro comparativo:\n${referencias.map((r, i) => `  ${i + 1}. ${r.orgao || "Órgão"} — R$ ${(r.valor ?? 0).toFixed(2)}`).join("\n")}` : ""}
 
 Estatísticas:
 - N amostral: ${estatisticas.n} referências

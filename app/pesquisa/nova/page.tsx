@@ -716,10 +716,13 @@ export default function NovaPesquisaPage() {
     setJustificativaIA(null);
     setValidacaoIA(null);
     try {
+      // Inclui as referências reais usadas no quadro (órgão + valor) para a justificativa
+      const refsQuadro = (usadosCalcularDireto.length > 0 ? usadosCalcularDireto : resultados.filter(r => r.status_avaliacao === "aceito"))
+        .map(r => ({ orgao: r.orgao, valor: r.valor_unitario ?? r.valor_total }));
       const res = await fetch("/api/ia/justificativa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estatisticas: stats, metodo: config.metodo, quantidade, referenciasAceitas: nAceitas }),
+        body: JSON.stringify({ estatisticas: stats, metodo: config.metodo, quantidade, referenciasAceitas: nAceitas, referencias: refsQuadro }),
       });
       if (!res.ok) throw new Error(`Erro ${res.status}: ${await res.text()}`);
       const data = await res.json();
@@ -876,6 +879,10 @@ export default function NovaPesquisaPage() {
     notas.push(` Método aplicado: ${metodoEfetivo.replace(/_/g, " ")} — preço de referência unitário ${formatarMoeda(preco.unitario)} × ${quantidade} ${unidadeMedida}(s) = ${formatarMoeda(preco.total)}.`);
     notas.push(` Dica: você pode revisar/aceitar/descartar referências na etapa anterior e recalcular — o sistema respeita suas escolhas.`);
     setNotasCalcularDireto(notas);
+
+    // 5. Gera a JUSTIFICATIVA automaticamente (ordem correta: quadro → justificativa → relatório)
+    // Assim o relatório final já sai com a justificativa técnica, sem depender da etapa 10.
+    gerarConteudoIA(stats, amostra.length);
   };
 
   const linksAceitos = resultados.filter(r => r.status_avaliacao === "aceito").map(r => ({ nome: r.documento_origem, url: r.link_origem, tipo: "link" as const }));
@@ -2523,6 +2530,33 @@ export default function NovaPesquisaPage() {
                         ) : (
                           <div className="p-3 text-[11px] text-slate-500">
                             Clique em <strong>Explicar diferenças</strong> para o agente analisar por que os preços variam (região, quantidade, época) — sempre com base nos dados reais das referências.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* JUSTIFICATIVA TÉCNICA — gerada automaticamente após o quadro (ordem correta) */}
+                    {precoEstimado && (
+                      <div className="rounded-lg border border-blue-200 bg-blue-50/50 overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 bg-[#032650] text-white flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <FileText size={13} />
+                            <p className="text-xs font-bold">Justificativa técnica do preço estimado</p>
+                          </div>
+                          <button
+                            onClick={() => gerarConteudoIA(estatisticas, usadosCalcularDireto.length || nAceitos)}
+                            disabled={iaLoading}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold bg-white text-[#032650] hover:bg-slate-100 px-2.5 py-1 rounded-lg cursor-pointer disabled:opacity-50"
+                          >
+                            {iaLoading ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                            {iaLoading ? "Gerando…" : justificativaIA ? "Regenerar" : "Gerar justificativa"}
+                          </button>
+                        </div>
+                        {justificativaIA ? (
+                          <div className="p-3 text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{justificativaIA}</div>
+                        ) : (
+                          <div className="p-3 text-[11px] text-slate-500">
+                            {iaLoading ? "Gerando justificativa com base no quadro comparativo…" : "A justificativa e gerada automaticamente apos o quadro e sai no relatorio final."}
                           </div>
                         )}
                       </div>
