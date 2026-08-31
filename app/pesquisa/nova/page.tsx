@@ -2172,7 +2172,12 @@ export default function NovaPesquisaPage() {
                 }
                 return (
                   <div className="space-y-4">
-                    {/* Quadro comparativo */}
+                    {/* Referência legal IN 126/2023-TJRO */}
+                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-800 leading-relaxed">
+                      ⚖️ <strong>Base legal:</strong> <strong>Instrução nº 126/2023-TJRO</strong> (art. 3º, III e VII; art. 8º; art. 11) — pesquisa de preços para bens e serviços de qualquer natureza no TJRO.
+                    </div>
+
+                    {/* Quadro comparativo — com classificação IN 126 */}
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead>
@@ -2182,59 +2187,111 @@ export default function NovaPesquisaPage() {
                             <th className="px-3 py-2 text-left font-semibold">Descrição</th>
                             <th className="px-3 py-2 text-right font-semibold">Valor unitário</th>
                             <th className="px-3 py-2 text-right font-semibold">Qtd</th>
-                            <th className="px-3 py-2 text-right font-semibold rounded-tr-lg">Peso no cálculo</th>
+                            <th className="px-3 py-2 text-left font-semibold rounded-tr-lg">Classificação (IN 126)</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-emerald-100">
                           {aceitas.map((r, i) => {
                             const v = (r.valor_unitario ?? r.valor_total) as number;
                             const q = r.quantidade ?? 1;
+                            const classif = classificarPrecoIN126(v, aceitas.map(a => (a.valor_unitario ?? a.valor_total) as number));
                             return (
-                              <tr key={r.id || i} className="bg-white hover:bg-emerald-50/50">
+                              <tr key={r.id || i} className={`bg-white hover:bg-emerald-50/50 ${classif.tipo !== "válido" ? "opacity-60" : ""}`}>
                                 <td className="px-3 py-2 font-mono text-slate-500">{i + 1}</td>
                                 <td className="px-3 py-2 text-slate-700">{r.orgao || "—"}</td>
-                                <td className="px-3 py-2 text-slate-500 max-w-[180px] truncate" title={r.descricao}>{r.descricao?.slice(0, 40) || "—"}</td>
+                                <td className="px-3 py-2 text-slate-500 max-w-[160px] truncate" title={r.descricao}>{r.descricao?.slice(0, 40) || "—"}</td>
                                 <td className="px-3 py-2 text-right font-semibold text-slate-800 tabular-nums">{formatarMoeda(v)}</td>
                                 <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{q}</td>
-                                <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{config.metodo === "media_ponderada" ? (v * q).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) : "—"}</td>
+                                <td className="px-3 py-2">
+                                  {classif.tipo === "válido" ? (
+                                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700">✓ válido</span>
+                                  ) : (
+                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${classif.tipo === "inexequível" ? "bg-red-100 text-red-700" : classif.tipo === "sobrepreço" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>
+                                      ⚠ {classif.tipo} ({classif.pct}% da média)
+                                    </span>
+                                  )}
+                                </td>
                               </tr>
                             );
                           })}
                         </tbody>
                       </table>
                     </div>
-                    {/* Explicação da média */}
+
+                    {/* Preços desconsiderados (art. 11 §2º) */}
+                    {(() => {
+                      const vals = aceitas.map(r => (r.valor_unitario ?? r.valor_total) as number);
+                      const desconsiderados = aceitas.filter(r => classificarPrecoIN126((r.valor_unitario ?? r.valor_total) as number, vals).tipo !== "válido");
+                      const validos = vals.filter(v => classificarPrecoIN126(v, vals).tipo === "válido");
+                      if (desconsiderados.length > 0) {
+                        return (
+                          <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-800 leading-relaxed">
+                            <p className="font-bold mb-1">🚫 Preços desconsiderados (art. 11, §2º da IN 126/2023-TJRO)</p>
+                            {desconsiderados.map((r, i) => {
+                              const v = (r.valor_unitario ?? r.valor_total) as number;
+                              const c = classificarPrecoIN126(v, vals);
+                              return (
+                                <p key={i} className="ml-2">• {formatarMoeda(v)} — {r.orgao || "—"}: <strong>{c.tipo === "inexequível" ? "preço inexequível (muito abaixo da média de mercado)" : "sobrepreço (expressivamente superior ao mercado)"}</strong> — art. 3º, {c.tipo === "inexequível" ? "IV" : "VII"}.</p>
+                              );
+                            })}
+                            <p className="mt-1 text-red-700/80 italic">Justificativa automática gerada — validar com a autoridade competente antes de usar.</p>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                    {/* Menos de 3 preços válidos (art. 11 §1º) */}
+                    {(() => {
+                      const vals = aceitas.map(r => (r.valor_unitario ?? r.valor_total) as number);
+                      const validos = vals.filter(v => classificarPrecoIN126(v, vals).tipo === "válido");
+                      if (validos.length > 0 && validos.length < 3) {
+                        return (
+                          <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800 leading-relaxed">
+                            ⚠️ <strong>Atenção (art. 11, §1º da IN 126/2023-TJRO):</strong> o cálculo exige <strong>3 ou mais preços válidos</strong>. Atualmente há <strong>{validos.length}</strong>. O mapa de formação de preços pode conter menos de 3, <strong>desde que justificado e ratificado pela autoridade competente</strong>.
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                    {/* Explicação da média conforme IN 126 */}
                     <div className="rounded-lg bg-white border border-emerald-100 p-3 text-xs text-slate-700 leading-relaxed">
-                      <p className="font-bold text-emerald-700 mb-1.5">🧮 Como cheguei à média</p>
+                      <p className="font-bold text-emerald-700 mb-1.5">🧮 Como cheguei ao preço de referência (art. 11 da IN 126/2023-TJRO)</p>
                       {(() => {
                         const vals = aceitas.map(r => (r.valor_unitario ?? r.valor_total) as number);
-                        const soma = vals.reduce((a, b) => a + b, 0);
-                        const mediaValor = soma / vals.length;
-                        const linhaValores = vals.map(v => formatarMoeda(v)).join(" + ");
+                        const validos = vals.filter(v => classificarPrecoIN126(v, vals).tipo === "válido");
+                        const desconsiderados = vals.filter(v => classificarPrecoIN126(v, vals).tipo !== "válido");
+                        const base = validos.length >= 3 ? validos : vals;
+                        const soma = base.reduce((a, b) => a + b, 0);
+                        const mediaValor = soma / base.length;
+                        const linhaValores = base.map(v => formatarMoeda(v)).join(" + ");
                         return (
                           <>
-                            <p><strong>1.</strong> Somei os valores aceitos: {linhaValores} = <strong>{formatarMoeda(soma)}</strong></p>
-                            <p><strong>2.</strong> Dividi pelo nº de referências ({vals.length}): {formatarMoeda(soma)} ÷ {vals.length} = <strong>{formatarMoeda(mediaValor)}</strong></p>
-                            {estatisticas && (
-                              <p className="mt-1 text-slate-500">
-                                (Mediana: {formatarMoeda(estatisticas.mediana)} · Mínimo: {formatarMoeda(estatisticas.minimo)} · Máximo: {formatarMoeda(estatisticas.maximo)} · CV: {estatisticas.coeficienteVariacao.toFixed(1).replace(".", ",")}%)
-                              </p>
+                            {desconsiderados.length > 0 && (
+                              <p><strong>1.</strong> Desconsiderei os preços inexequíveis/sobrepreços ({desconsiderados.map(formatarMoeda).join(", ")}) — art. 11, §2º.</p>
                             )}
+                            <p><strong>{desconsiderados.length > 0 ? "2" : "1"}.</strong> Somei os preços válidos: {linhaValores} = <strong>{formatarMoeda(soma)}</strong></p>
+                            <p><strong>{desconsiderados.length > 0 ? "3" : "2"}.</strong> Dividi pelo nº de referências válidas ({base.length}): {formatarMoeda(soma)} ÷ {base.length} = <strong>{formatarMoeda(mediaValor)}</strong></p>
+                            <p className="mt-1 text-slate-500">
+                              Método aplicado: <strong>{(metodoEfetivo || config.metodo).replace(/_/g, " ")}</strong> · Mediana: {formatarMoeda(estatisticas?.mediana || mediaValor)} · CV: {estatisticas?.coeficienteVariacao.toFixed(1).replace(".", ",") || "—"}%
+                            </p>
                           </>
                         );
                       })()}
                     </div>
+
                     {/* Sugestão de valor estimado */}
                     {precoEstimado && (
                       <div className="rounded-lg bg-emerald-600 text-white p-4 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-100">💡 Valor estimado sugerido da contratação</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-100">💡 Valor estimado sugerido da contratação (art. 11 IN 126)</p>
                           <p className="text-xl font-bold tabular-nums">{formatarMoeda(precoEstimado.total)}</p>
                           <p className="text-[11px] text-emerald-100">({precoEstimado.unitario ? formatarMoeda(precoEstimado.unitario) : ""} × {quantidade} {unidadeMedida}(s) · método {config.metodo.replace(/_/g, " ")})</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] text-emerald-100">Total de referências</p>
-                          <p className="text-lg font-bold tabular-nums">{aceitas.length}</p>
+                          <p className="text-[10px] text-emerald-100">Preços válidos</p>
+                          <p className="text-lg font-bold tabular-nums">{aceitas.filter(r => classificarPrecoIN126((r.valor_unitario ?? r.valor_total) as number, aceitas.map(a => (a.valor_unitario ?? a.valor_total) as number)).tipo === "válido").length}</p>
                         </div>
                       </div>
                     )}
@@ -2868,4 +2925,24 @@ function InfoBox({ children, color = "slate", className = "" }: { children: Reac
       {children}
     </div>
   );
+}
+
+/**
+ * Classifica um preço conforme a IN 126/2023-TJRO:
+ *  - art. 3º, IV: preço inexequível = muito abaixo da média praticada no mercado
+ *  - art. 3º, VII: sobrepreço = expressivamente superior aos preços de referência
+ *  - art. 11, §2º: preços inconsistentes/inexequíveis/sobrepreços devem ser desprezados
+ *
+ * Regra determinística (base de cálculo): inexequível < 50% da média;
+ * sobrepreço > 150% da média. Limites conservadores — a validação final
+ * é da autoridade competente.
+ */
+function classificarPrecoIN126(valor: number, todos: number[]): { tipo: "válido" | "inexequível" | "sobrepreço"; pct: number } {
+  if (todos.length === 0) return { tipo: "válido", pct: 100 };
+  const media = todos.reduce((a, b) => a + b, 0) / todos.length;
+  if (media === 0) return { tipo: "válido", pct: 100 };
+  const pct = (valor / media) * 100;
+  if (pct < 50) return { tipo: "inexequível", pct: Math.round(pct) };
+  if (pct > 150) return { tipo: "sobrepreço", pct: Math.round(pct) };
+  return { tipo: "válido", pct: Math.round(pct) };
 }
