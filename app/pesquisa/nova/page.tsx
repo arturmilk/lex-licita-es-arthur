@@ -170,6 +170,9 @@ export default function NovaPesquisaPage() {
   const [regiaoFiltro, setRegiaoFiltro] = useState("todas");
   const [parametrosBusca, setParametrosBusca] = useState<{ rotulo: string; termo: string; filtros: string; parametros: string }[] | null>(null);
   const [filtrosPorItem, setFiltrosPorItem] = useState<Record<string, string>>({});
+  // ── AGENTE PESQUISADOR: progresso por item (multi-itens simultâneos) ──
+  const [progressoItens, setProgressoItens] = useState<Record<string, { status: "buscando" | "ok" | "falha"; total?: number; erro?: string }>>({});
+  const [refazendoItem, setRefazendoItem] = useState<string | null>(null);
   const [ordenacao, setOrdenacao] = useState<"relevancia" | "valor_asc" | "valor_desc" | "data_desc">("relevancia");
 
   // Período → dias (usado tanto na 1ª busca quanto na paginação)
@@ -189,6 +192,46 @@ export default function NovaPesquisaPage() {
   const goToStep = useCallback((s: number) => { if (s >= 1 && s <= totalSteps) setStep(s); }, []);
   // Volta para a etapa de Resultados (9) para aceitar referências
   const nextStepToResultados = useCallback(() => setStep(9), []);
+
+  // ── AGENTE PESQUISADOR: refaz a busca de UM item específico (sem refazer os outros) ──
+  const refazerItem = async (itemId: string) => {
+    setRefazendoItem(itemId);
+    setProgressoItens(prev => ({ ...prev, [itemId]: { status: "buscando" } }));
+    try {
+      const termo = termoPorItem[itemId] || objetoDesc;
+      const TAM = 50;
+      const resp = await fetch(`/api/pncp?termo=${encodeURIComponent(termo)}&fontes=pncp,compras_gov,contratos_govbr&tamanhoPagina=${TAM}`, { signal: AbortSignal.timeout(40_000) });
+      const data = await resp.json().catch(() => null);
+      const items: any[] = data?.items || [];
+      const total: number = data?.total ?? items.length;
+      const novos: ResultadoPNCP[] = items.map((it, idx) => ({
+        id: `${itemId}-${idx}`,
+        fonte: it.fonte || "pncp",
+        itemId,
+        orgao: it.orgao || "Órgão público",
+        descricao: it.descricao || "",
+        quantidade: it.quantidade ?? null,
+        data: it.dataContrato || "",
+        valor_unitario: it.valorUnitario ?? null,
+        valor_total: it.valorTotal ?? null,
+        localizacao: it.localizacao || "",
+        similaridade: it.similaridade ?? 0,
+        documento_origem: it.documentoOrigem || "",
+        link_origem: it.linkEdital || "",
+        status_avaliacao: "pendente" as const,
+        dadosBrutos: it.dadosBrutos || {},
+      }));
+      setResultados(prev => [...prev.filter(r => r.itemId !== itemId), ...novos]);
+      setTotalPorItem(prev => ({ ...prev, [itemId]: total }));
+      setTotalPagsPorItem(prev => ({ ...prev, [itemId]: Math.max(1, Math.ceil(total / TAM)) }));
+      setPaginaPorItem(prev => ({ ...prev, [itemId]: 1 }));
+      setProgressoItens(prev => ({ ...prev, [itemId]: { status: "ok", total } }));
+    } catch {
+      setProgressoItens(prev => ({ ...prev, [itemId]: { status: "falha", erro: "Falha na conexão" } }));
+    } finally {
+      setRefazendoItem(null);
+    }
+  };
 
   // ── Itens (acordeão) ────────────────────────────────────────────────────────
   const [expandido, setExpandido] = useState<Record<string, boolean>>({});
@@ -410,6 +453,10 @@ export default function NovaPesquisaPage() {
     // entra automaticamente (pncp-search.ts).
     const TAM = 50;
     const fontesMulti = "pncp,compras_gov,contratos_govbr";
+    // AGENTE PESQUISADOR: marca todos como "buscando" e busca em paralelo
+    const progInicial: Record<string, { status: "buscando" }> = {};
+    for (const a of alvos) progInicial[a.itemId] = { status: "buscando" };
+    setProgressoItens(progInicial);
     const buscas = alvos.map(alvo =>
       fetch(`/api/pncp?termo=${encodeURIComponent(alvo.termo)}&fontes=${fontesMulti}&tamanhoPagina=${TAM}`, { signal: AbortSignal.timeout(40_000) })
         .then(async r => ({ alvo, data: await r.json().catch(() => null) }))
@@ -425,10 +472,19 @@ export default function NovaPesquisaPage() {
       const rotulos = new Map(alvos.map(a => [a.itemId, a.rotulo]));
 
       for (const resp of respostas) {
-        if (resp.status !== "fulfilled" || !resp.value?.data) continue;
+        if (resp.status !== "fulfilled" || !resp.value?.data) {
+          // AGENTE PESQUISADOR: marca falha e segue com os outros itens
+          if (resp.status === "fulfilled") {
+            setProgressoItens(prev => ({ ...prev, [resp.value.alvo.itemId]: { status: "falha", erro: "Não retornou dados" } }));
+          }
+          continue;
+        }
         const { alvo, data } = resp.value;
         const items: any[] = data.items || [];
         const total: number = data.total ?? items.length;
+
+        // AGENTE PESQUISADOR: marca o item como concluído
+        setProgressoItens(prev => ({ ...prev, [alvo.itemId]: { status: "ok", total } }));
 
         novoTotal[alvo.itemId] = total;
         novoPags[alvo.itemId] = Math.max(1, Math.ceil(total / TAM));
@@ -735,6 +791,44 @@ export default function NovaPesquisaPage() {
   // (maior similaridade primeiro), calcula e deixa notas explicativas.
   const [notasCalcularDireto, setNotasCalcularDireto] = useState<string[] | null>(null);
   const [usadosCalcularDireto, setUsadosCalcularDireto] = useState<ResultadoPNCP[]>([]);
+  // ── AGENTE AUDITOR: estados da análise de diferenças ──
+  const [auditoriaIA, setAuditoriaIA] = useState<string | null>(null);
+  const [auditoriaCarregando, setAuditoriaCarregando] = useState(false);
+  // ── AGENTE AUDITOR: explica POR QUE os preços diferem (região, qtd, época) ──
+  const explicarDiferencas = async () => {
+    const fonte = usadosCalcularDireto.length > 0 ? usadosCalcularDireto : resultados.filter(r => (r.valor_unitario != null || r.valor_total != null));
+    if (fonte.length < 2) return;
+    setAuditoriaCarregando(true);
+    setAuditoriaIA(null);
+    try {
+      const resp = await fetch("/api/ia/auditoria", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          objeto: objetoDesc,
+          quantidade,
+          unidadeMedida,
+          localEntrega,
+          referencias: fonte.map(r => ({
+            orgao: r.orgao,
+            descricao: r.descricao?.slice(0, 80),
+            valor: r.valor_unitario ?? r.valor_total,
+            quantidade: r.quantidade,
+            data: r.data?.slice(0, 10),
+            localizacao: r.localizacao,
+            similaridade: r.similaridade,
+          })),
+        }),
+        signal: AbortSignal.timeout(45_000),
+      });
+      const data = await resp.json().catch(() => null);
+      setAuditoriaIA(data?.analise || "Não consegui gerar a análise agora.");
+    } catch {
+      setAuditoriaIA("Não consegui gerar a análise agora. Tente novamente.");
+    } finally {
+      setAuditoriaCarregando(false);
+    }
+  };
 
   const calcularDireto = () => {
     // 1. Pega TODOS os resultados com valor (aceitos ou não)
@@ -1886,6 +1980,59 @@ export default function NovaPesquisaPage() {
 
             {/* Conteúdo */}
             <div className="px-6 lg:px-8 py-6">
+              {/* AGENTE PESQUISADOR: progresso dos itens pesquisados em paralelo */}
+              {Object.keys(progressoItens).length > 0 && (
+                <div className="mb-4 rounded-lg border border-slate-200 bg-white p-4">
+                  <div className="flex items-center justify-between mb-2.5">
+                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                      Agente Pesquisador — itens em andamento
+                    </p>
+                    {Object.values(progressoItens).some(p => p.status === "buscando") && (
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-indigo-600">
+                        <Loader2 size={11} className="animate-spin" /> pesquisando em paralelo…
+                      </span>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {Object.entries(progressoItens).map(([itemId, prog]) => {
+                      const rotulo = parametrosBusca?.find(p => p.rotulo === (itemId === "global" ? objetoDesc.slice(0, 60) : itens.find(i => i.id === itemId)?.descricao?.slice(0, 60)))?.rotulo
+                        || itens.find(i => i.id === itemId)?.descricao?.slice(0, 60)
+                        || (itemId === "global" ? objetoDesc.slice(0, 60) : itemId);
+                      return (
+                        <div key={itemId} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            {prog.status === "buscando" ? (
+                              <Loader2 size={13} className="animate-spin text-indigo-500 shrink-0" />
+                            ) : prog.status === "ok" ? (
+                              <CheckCircle2 size={13} className="text-green-600 shrink-0" />
+                            ) : (
+                              <AlertCircle size={13} className="text-red-500 shrink-0" />
+                            )}
+                            <span className="text-xs font-semibold text-slate-700 truncate">{rotulo}</span>
+                            {prog.status === "ok" && (
+                              <span className="text-[11px] text-slate-500 shrink-0">— {prog.total?.toLocaleString("pt-BR")} editais</span>
+                            )}
+                            {prog.status === "falha" && (
+                              <span className="text-[11px] text-red-500 shrink-0">— {prog.erro || "falhou"}</span>
+                            )}
+                          </div>
+                          {prog.status === "falha" && (
+                            <button
+                              onClick={() => refazerItem(itemId)}
+                              disabled={refazendoItem === itemId}
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 px-2.5 py-1 rounded-lg cursor-pointer disabled:opacity-50 shrink-0"
+                            >
+                              {refazendoItem === itemId ? <Loader2 size={10} className="animate-spin" /> : <RefreshCw size={10} />}
+                              Refazer item
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Parâmetros que o agente juntou na busca */}
               {parametrosBusca && parametrosBusca.length > 0 && (
                 <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/40 px-4 py-3">
@@ -2352,6 +2499,33 @@ export default function NovaPesquisaPage() {
                       </div>
                     )}
                       </>
+                    )}
+
+                    {/* AGENTE AUDITOR: explica as diferenças de preço */}
+                    {precoEstimado && (
+                      <div className="rounded-lg border border-violet-200 bg-violet-50/50 overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 bg-violet-600 text-white flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <BarChart3 size={13} />
+                            <p className="text-xs font-bold">Agente Auditor — por que os preços diferem</p>
+                          </div>
+                          <button
+                            onClick={explicarDiferencas}
+                            disabled={auditoriaCarregando}
+                            className="inline-flex items-center gap-1 text-[11px] font-bold bg-white text-violet-700 hover:bg-violet-50 px-2.5 py-1 rounded-lg cursor-pointer disabled:opacity-50"
+                          >
+                            {auditoriaCarregando ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                            {auditoriaCarregando ? "Analisando…" : auditoriaIA ? "Reanalisar" : "Explicar diferenças"}
+                          </button>
+                        </div>
+                        {auditoriaIA ? (
+                          <div className="p-3 text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">{auditoriaIA}</div>
+                        ) : (
+                          <div className="p-3 text-[11px] text-slate-500">
+                            Clique em <strong>Explicar diferenças</strong> para o agente analisar por que os preços variam (região, quantidade, época) — sempre com base nos dados reais das referências.
+                          </div>
+                        )}
+                      </div>
                     )}
 
                     {/* NOTAS EXPLICATIVAS — embaixo (transparência do agente) */}
