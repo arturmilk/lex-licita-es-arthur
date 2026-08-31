@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Loader2, FileText, Plus, ChevronRight } from "lucide-react";
+import { Loader2, FileText, Plus, ChevronRight, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { listarProcessos } from "@/lib/actions";
+import { listarProcessos, apagarProcesso } from "@/lib/actions";
 
 interface ProcessoRow {
   id: string;
@@ -24,12 +24,26 @@ const STATUS_CFG: Record<string, { label: string; cls: string }> = {
 export default function ProcessosPage() {
   const [rows, setRows] = useState<ProcessoRow[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [apagando, setApagando] = useState<string | null>(null);
 
   useEffect(() => {
     listarProcessos()
       .then((r) => setRows(r as unknown as ProcessoRow[]))
       .catch((e) => setErro(String(e?.message || e)));
   }, []);
+
+  async function apagar(id: string) {
+    if (!window.confirm("Tem certeza que deseja apagar este processo? Todas as tarefas, minutas, julgados, pesquisas e conversas vinculadas também serão removidas. Esta ação não pode ser desfeita.")) return;
+    setApagando(id);
+    try {
+      await apagarProcesso(id);
+      setRows(await listarProcessos() as unknown as ProcessoRow[]);
+    } catch (e: any) {
+      setErro(String(e?.message || e));
+    } finally {
+      setApagando(null);
+    }
+  }
 
   return (
     <div>
@@ -109,9 +123,19 @@ export default function ProcessosPage() {
                     <p className="text-sm text-slate-800 mb-1" title={r.objeto}>{r.objeto}</p>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-slate-500">{r.unidade || "—"} · {new Date(r.updatedAt).toLocaleDateString("pt-BR")}</span>
-                      <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-[#042f5e] shrink-0">
-                        Guiar <ChevronRight size={12} />
-                      </Link>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          onClick={() => apagar(r.id)}
+                          disabled={apagando === r.id}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg cursor-pointer disabled:opacity-50 transition-colors"
+                          title="Apagar processo"
+                        >
+                          {apagando === r.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                        </button>
+                        <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-[#042f5e]">
+                          Guiar <ChevronRight size={12} />
+                        </Link>
+                      </div>
                     </div>
                   </div>
                 );
@@ -140,9 +164,20 @@ export default function ProcessosPage() {
                         </td>
                         <td className="py-2.5 px-4 text-slate-500 text-xs">{new Date(r.updatedAt).toLocaleDateString("pt-BR")}</td>
                         <td className="py-2.5 px-4">
-                          <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-[#042f5e]">
-                            Guiar <ChevronRight size={12} />
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-[#042f5e]">
+                              Guiar <ChevronRight size={12} />
+                            </Link>
+                            <button
+                              onClick={() => apagar(r.id)}
+                              disabled={apagando === r.id}
+                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg cursor-pointer disabled:opacity-50 transition-colors"
+                              title="Apagar processo"
+                            >
+                              {apagando === r.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                              Apagar
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

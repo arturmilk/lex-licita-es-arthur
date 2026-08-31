@@ -9,6 +9,8 @@ import {
   evidencias,
   configuracoes,
   usuarios,
+  minutas,
+  conversasChat,
 } from "@/lib/db/schema";
 import { eq, desc, inArray, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -304,6 +306,26 @@ export async function apagarPesquisa(id: string) {
     .limit(1);
   if (!pesquisa) throw new Error("Pesquisa não encontrada");
   await db.delete(pesquisas).where(eq(pesquisas.id, id));
+}
+
+/** Apaga um processo do órgão e todos os vínculos (tarefas, histórico, minutas, julgados, pesquisas, conversas). */
+export async function apagarProcesso(id: string) {
+  const session = await auth();
+  if (!session) throw new Error("Não autorizado");
+  const orgaoId = (session.user as any).orgaoId;
+  // Garante que o processo pertence ao órgão do usuário
+  const [proc] = await db
+    .select({ id: processos.id })
+    .from(processos)
+    .where(and(eq(processos.id, id), eq(processos.orgaoId, orgaoId)))
+    .limit(1);
+  if (!proc) throw new Error("Processo não encontrado");
+
+  // Remove vínculos que usam onDelete "set null" (não cascateiam automaticamente)
+  await db.delete(minutas).where(eq(minutas.processoId, id));
+  await db.delete(conversasChat).where(eq(conversasChat.processoId, id));
+  // Tarefas, histórico, julgados e pesquisas têm cascade — o delete do processo remove em cascata
+  await db.delete(processos).where(eq(processos.id, id));
 }
 
 export async function listarDashboard() {
