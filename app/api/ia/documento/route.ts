@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resumirDocumento } from "@/lib/ia";
+import { resumirDocumento, extrairDadosDocumento } from "@/lib/ia";
 
 export const maxDuration = 120;
 
 /**
- * POST /api/ia/documento
- * Recebe um arquivo (PDF/TXT) e devolve o resumo estruturado pela IA:
- * o que aconteceu, o que importa, o que falta, prazos e ação necessária.
+ * POST /api/ia/documento — AGENTE LEITOR
+ * Recebe um arquivo (PDF/TXT) e devolve:
+ * 1) resumo estruturado (o que aconteceu, o que importa, o que falta, prazos, ação);
+ * 2) dados ESTRUTURADOS extraídos (tipo de documento, órgão, objeto, valores,
+ *    datas, campos) — para preencher o processo automaticamente.
  */
 export async function POST(req: NextRequest) {
   try {
@@ -38,7 +40,8 @@ export async function POST(req: NextRequest) {
     }
 
     const resumo = await resumirDocumento(texto);
-    return NextResponse.json({ nome, texto: texto.slice(0, 12000), resumo });
+    const dados = await extrairDadosDocumento(texto);
+    return NextResponse.json({ nome, texto: texto.slice(0, 12000), resumo, dados });
   } catch (e: any) {
     return NextResponse.json({ erro: e?.message || "Falha ao processar documento" }, { status: 500 });
   }

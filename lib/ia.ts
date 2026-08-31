@@ -112,6 +112,53 @@ export async function resumirDocumento(texto: string): Promise<{
 }
 
 /**
+ * AGENTE LEITOR (evoluído): extrai dados ESTRUTURADOS de documentos anexados
+ * (pedido de compra, ETP, proposta, contrato) — valores, datas, quantidades,
+ * órgão, tipo de documento — para preencher o processo automaticamente.
+ */
+export async function extrairDadosDocumento(texto: string): Promise<{
+  tipoDocumento: string;
+  orgao: string;
+  objeto: string;
+  valores: { descricao: string; valorUnitario: number | null; valorTotal: number | null; quantidade: number | null; unidade: string }[];
+  datas: { descricao: string; data: string }[];
+  campos: Record<string, string>;
+}> {
+  const fallback: ReturnType<typeof Object.create> & { tipoDocumento: string; orgao: string; objeto: string; valores: []; datas: []; campos: Record<string, string> } = {
+    tipoDocumento: "não identificado",
+    orgao: "",
+    objeto: "",
+    valores: [],
+    datas: [],
+    campos: {},
+  };
+  try {
+    const system = [
+      "Você é o AGENTE LEITOR de um sistema de licitações públicas (Lei 14.133/2021).",
+      "Leia o documento administrativo fornecido e EXTRAIA os dados estruturados para preencher um processo de contratação.",
+      "Responda APENAS com JSON válido com esta estrutura:",
+      '{"tipoDocumento": "ex.: Pedido de Compra, ETP, Proposta, Contrato, Termo de Referência", "orgao": "órgão/UG mencionado", "objeto": "objeto da contratação resumido", "valores": [{"descricao": "item", "valorUnitario": 1234.56 ou null, "valorTotal": 1234.56 ou null, "quantidade": 5 ou null, "unidade": "unidade de medida"}], "datas": [{"descricao": "o que é a data", "data": "AAAA-MM-DD ou null"}], "campos": {"numeroProcesso": "se houver", "dotacao": "se houver", "prazo": "se houver", "modalidade": "se houver"}}',
+      "Regras: NUNCA invente valores — use null quando não encontrar. Converta R$ 1.234,56 para 1234.56. Preencha datas no formato AAAA-MM-DD.",
+    ].join("\n");
+    const user = `Documento:\n\n${texto.slice(0, 15000)}`;
+    const resposta = await chat([{ role: "system", content: system }, { role: "user", content: user }], 0.1);
+    const inicio = resposta.indexOf("{");
+    const fim = resposta.lastIndexOf("}");
+    const json = JSON.parse(resposta.slice(inicio, fim + 1));
+    return {
+      tipoDocumento: json.tipoDocumento || fallback.tipoDocumento,
+      orgao: json.orgao || "",
+      objeto: json.objeto || "",
+      valores: Array.isArray(json.valores) ? json.valores : [],
+      datas: Array.isArray(json.datas) ? json.datas : [],
+      campos: json.campos || {},
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * 3. Assistente contextual "Me ajuda": entende onde o servidor está
  * (página, processo, etapa atual) e responde com orientação prática.
  */
