@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { tiposProcesso, etapasProcesso, tarefas, alertas, historicoProcesso, processos, baseConhecimento, usuarios, orgaos } from "./db/schema";
-import { eq, and, desc, ilike, or } from "drizzle-orm";
+import { eq, and, desc, ilike, or, isNotNull } from "drizzle-orm";
 
 /**
  * Núcleo do sistema orientado à intenção.
@@ -127,7 +127,14 @@ export async function iniciarProcessoPorIntencao(opts: {
 /** Painel do servidor: tarefas de hoje, atrasadas, pendências, aguardando outros. */
 export async function painelServidor(usuarioId: string, orgaoId: string) {
   const agora = new Date();
-  const tarefasDoUsuario = await db.select().from(tarefas).where(eq(tarefas.responsavelId, usuarioId));
+  // Só tarefas de PROCESSOS REAIS (exclui templates de jornada sem processo vinculado)
+  const tarefasDoUsuario = await db
+    .select()
+    .from(tarefas)
+    .where(and(
+      eq(tarefas.responsavelId, usuarioId),
+      isNotNull(tarefas.processoId),
+    ));
 
   const tarefasHoje = tarefasDoUsuario.filter((t) => {
     if (t.status === "concluida") return false;
@@ -166,7 +173,9 @@ export async function painelServidor(usuarioId: string, orgaoId: string) {
 /** Gera alertas inteligentes para o órgão. */
 export async function gerarAlertas(orgaoId: string): Promise<number> {
   const agora = new Date();
-  const tarefasAtivas = await db.select().from(tarefas).where(eq(tarefas.orgaoId, orgaoId));
+  // Só tarefas de processos reais (exclui templates de jornada)
+  const tarefasAtivas = await db.select().from(tarefas)
+    .where(and(eq(tarefas.orgaoId, orgaoId), isNotNull(tarefas.processoId)));
   let criados = 0;
 
   for (const t of tarefasAtivas) {
