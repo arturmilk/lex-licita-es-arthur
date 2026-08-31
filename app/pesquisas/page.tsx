@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { Search, Loader2, Plus } from "lucide-react";
+import { Search, Loader2, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
-import { listarPesquisas } from "@/lib/actions";
+import { listarPesquisas, apagarPesquisa } from "@/lib/actions";
 
 interface PesquisaRow {
   id: string;
@@ -25,12 +25,26 @@ const STATUS_CFG: Record<string, { label: string; cls: string }> = {
 export default function PesquisasPage() {
   const [rows, setRows] = useState<PesquisaRow[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [apagando, setApagando] = useState<string | null>(null);
 
   useEffect(() => {
     listarPesquisas()
       .then((r) => setRows(r as unknown as PesquisaRow[]))
       .catch((e) => setErro(String(e?.message || e)));
   }, []);
+
+  async function apagar(id: string) {
+    if (!window.confirm("Tem certeza que deseja apagar esta pesquisa? Os resultados vinculados também serão removidos. Esta ação não pode ser desfeita.")) return;
+    setApagando(id);
+    try {
+      await apagarPesquisa(id);
+      setRows(await listarPesquisas() as unknown as PesquisaRow[]);
+    } catch (e: any) {
+      setErro(String(e?.message || e));
+    } finally {
+      setApagando(null);
+    }
+  }
 
   const fmt = (v: string | null) =>
     v == null ? "—" : `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
@@ -106,7 +120,7 @@ export default function PesquisasPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  {["Processo", "Objeto", "Refs. aceitas", "Preço estimado", "Status", "Data"].map(h => (
+                  {["Processo", "Objeto", "Refs. aceitas", "Preço estimado", "Status", "Data", "Ação"].map(h => (
                     <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
                   ))}
                 </tr>
@@ -126,6 +140,17 @@ export default function PesquisasPage() {
                         <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium ${st.cls}`}>{st.label}</span>
                       </td>
                       <td className="py-2.5 px-4 text-slate-500 text-xs">{fmtData(r.createdAt)}</td>
+                      <td className="py-2.5 px-4">
+                        <button
+                          onClick={() => apagar(r.id)}
+                          disabled={apagando === r.id}
+                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2.5 py-1 rounded-lg cursor-pointer disabled:opacity-50 transition-colors"
+                          title="Apagar pesquisa e resultados vinculados"
+                        >
+                          {apagando === r.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                          Apagar
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}

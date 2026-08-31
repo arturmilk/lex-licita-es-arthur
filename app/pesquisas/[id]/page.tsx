@@ -1,7 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, Loader2, ExternalLink, Check } from "lucide-react";
-import { buscarPesquisa } from "@/lib/actions";
+import { ArrowLeft, Loader2, ExternalLink, Check, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { buscarPesquisa, apagarPesquisa } from "@/lib/actions";
 
 function fmtMoeda(v: number | null | undefined) {
   if (v == null || isNaN(Number(v))) return "—";
@@ -29,12 +30,26 @@ interface ResultadoRow {
 export default function PesquisaDetalhePage({ params }: { params: { id: string } }) {
   const [dados, setDados] = useState<any | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [apagando, setApagando] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     buscarPesquisa(params.id)
       .then(setDados)
       .catch((e) => setErro(String(e?.message || e)));
   }, [params.id]);
+
+  async function apagar() {
+    if (!window.confirm("Tem certeza que deseja apagar esta pesquisa? Os resultados vinculados também serão removidos. Esta ação não pode ser desfeita.")) return;
+    setApagando(true);
+    try {
+      await apagarPesquisa(params.id);
+      router.push("/pesquisas");
+    } catch (e: any) {
+      setErro(String(e?.message || e));
+      setApagando(false);
+    }
+  }
 
   const fmt = (v: string | null | number | undefined) =>
     v == null ? "—" : `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -46,6 +61,14 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
       </button>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-medium">Pesquisa: {params.id.slice(0, 8)}</h1>
+        <button
+          onClick={apagar}
+          disabled={apagando}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-lg cursor-pointer disabled:opacity-50 transition-colors"
+        >
+          {apagando ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+          {apagando ? "Apagando…" : "Apagar pesquisa"}
+        </button>
       </div>
       {erro && <p className="text-sm text-red-600 mb-3">Erro: {erro}</p>}
       {!dados && !erro && (

@@ -290,6 +290,22 @@ export async function removerEvidencia(id: string) {
   await db.delete(evidencias).where(eq(evidencias.id, id));
 }
 
+/** Apaga uma pesquisa do órgão (resultados vinculados são removidos em cascata). */
+export async function apagarPesquisa(id: string) {
+  const session = await auth();
+  if (!session) throw new Error("Não autorizado");
+  const orgaoId = (session.user as any).orgaoId;
+  // Garante que a pesquisa pertence ao órgão do usuário
+  const [pesquisa] = await db
+    .select({ id: pesquisas.id })
+    .from(pesquisas)
+    .innerJoin(processos, eq(pesquisas.processoId, processos.id))
+    .where(and(eq(pesquisas.id, id), eq(processos.orgaoId, orgaoId)))
+    .limit(1);
+  if (!pesquisa) throw new Error("Pesquisa não encontrada");
+  await db.delete(pesquisas).where(eq(pesquisas.id, id));
+}
+
 export async function listarDashboard() {
   const session = await auth();
   if (!session) throw new Error("Não autorizado");
