@@ -47,7 +47,9 @@ function LoginForm() {
 
         {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <img src="/logo-lex.png" alt="LEX Licitações" className="w-11 h-11 object-contain" />
+          <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm ring-1 ring-white/20">
+            <img src="/logo-lex.png" alt="LEX Licitações" className="w-10 h-10 object-contain" />
+          </div>
           <span className="text-white font-bold text-xl tracking-tight">LEX Licitações</span>
         </div>
 
@@ -75,7 +77,7 @@ function LoginForm() {
         </div>
 
         <p className="relative z-10 text-[#C9A227]/80 text-xs">
-          © {new Date().getFullYear()} LEX Licitações — Uso exclusivo de servidores públicos
+          © {new Date().getFullYear()} LEX Licitações — um produto NOVAGENTE.
         </p>
       </div>
 
