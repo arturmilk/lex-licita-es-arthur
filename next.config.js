@@ -4,7 +4,13 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     serverActions: {
-      allowedOrigins: ["iesa.novagente.com.br", "licita.novagente.com.br", "localhost:3000"],
+      allowedOrigins: [
+        "lexlicitacoes.novagente.com.br",
+        "iesa.novagente.com.br",
+        "licita.novagente.com.br",
+        "localhost:3000",
+        "localhost:3002",
+      ],
     },
   },
 };
