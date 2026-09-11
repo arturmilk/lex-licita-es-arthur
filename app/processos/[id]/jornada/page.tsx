@@ -274,8 +274,12 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
   const docsNecessarios = (etapaModelo as any)?.documentosNecessarios || [];
   const precisaAssinatura = (etapaModelo as any)?.validacoes?.some((v: any) => v.tipo === "assinatura");
 
+  const totalEtapas = tarefas?.length || 0;
+  const etapasConcluidas = tarefas?.filter((t: any) => t.status === "concluida").length || 0;
+  const percentualProgresso = totalEtapas ? Math.round((etapasConcluidas / totalEtapas) * 100) : 0;
+
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-7xl mx-auto px-4 py-8">
       <Link href="/painel" className="inline-flex items-center gap-1 text-sm text-[#032650] hover:text-[#042f5e] mb-4">
         <ArrowLeft size={14} /> Voltar ao painel
       </Link>
@@ -289,25 +293,73 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
         </div>
       </div>
 
-      {/* Progresso */}
-      {tarefas && (
-        <div className="mb-6 flex items-center gap-1.5 flex-wrap">
-          {tarefas.map((t, i) => (
-            <React.Fragment key={t.id}>
-              <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border ${
-                t.status === "concluida" ? "bg-green-50 text-green-700 border-green-200"
-                : t.status === "em_andamento" ? "bg-[#032650] text-white border-[#032650]"
-                : "bg-white text-slate-400 border-slate-200"
-              }`}>
-                {t.status === "concluida" ? <CheckCircle2 size={12} /> : t.status === "em_andamento" ? <Circle size={12} /> : <Circle size={12} className="opacity-40" />}
-                {i + 1}. {t.titulo}
+      <div className="grid grid-cols-1 lg:grid-cols-[290px_minmax(0,1fr)] gap-6 items-start">
+        <aside className="lg:sticky lg:top-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+          <div className="p-5 border-b border-slate-100 bg-slate-50/70">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-[#032650]/55">Acompanhamento</p>
+                <h2 className="text-base font-bold text-slate-800 mt-1">Rito do processo</h2>
               </div>
-              {i < tarefas.length - 1 && <ChevronRight size={12} className="text-slate-300" />}
-            </React.Fragment>
-          ))}
-        </div>
-      )}
+              <span className="rounded-full bg-[#eef2f8] px-2.5 py-1 text-[11px] font-bold text-[#032650]">{percentualProgresso}%</span>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">{etapasConcluidas} de {totalEtapas} etapas concluídas</p>
+            <div className="mt-3 h-2 rounded-full bg-slate-200 overflow-hidden">
+              <div className="h-full rounded-full bg-[#032650] transition-all duration-500" style={{ width: `${percentualProgresso}%` }} />
+            </div>
+          </div>
 
+          <div className="p-4 max-h-[calc(100vh-220px)] overflow-y-auto">
+            {tarefas === null ? (
+              <div className="flex items-center gap-2 py-4 px-2 text-xs text-slate-400">
+                <Loader2 size={14} className="animate-spin" /> Carregando rito...
+              </div>
+            ) : tarefas.length === 0 ? (
+              <p className="text-xs text-slate-400 py-4 px-2">Nenhuma etapa cadastrada.</p>
+            ) : (
+              <div className="relative">
+                <div className="absolute left-[15px] top-4 bottom-4 w-px bg-slate-200" />
+                <div className="space-y-2">
+                  {tarefas.map((t: any, i: number) => {
+                    const concluida = t.status === "concluida";
+                    const emAndamento = t.status === "em_andamento" || atual?.id === t.id;
+                    return (
+                      <div key={t.id} className={`relative flex gap-3 rounded-xl px-2.5 py-3 ${emAndamento ? "bg-[#eef2f8] ring-1 ring-[#c7d2e3]" : ""}`}>
+                        <div className={`relative z-10 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
+                          concluida ? "border-emerald-500 bg-emerald-500 text-white" :
+                          emAndamento ? "border-[#032650] bg-[#032650] text-white" :
+                          "border-slate-200 bg-white text-slate-300"
+                        }`}>
+                          {concluida ? <CheckCircle2 size={15} /> : <span className="text-[10px] font-bold">{i + 1}</span>}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-xs leading-snug ${
+                            concluida ? "font-medium text-slate-400 line-through decoration-slate-400" :
+                            emAndamento ? "font-bold text-[#032650]" :
+                            "font-medium text-slate-500"
+                          }`}>{t.titulo}</p>
+                          {concluida && <span className="mt-1 inline-block text-[10px] font-semibold text-emerald-600">Concluída</span>}
+                          {emAndamento && !concluida && (
+                            <span className="mt-1 inline-flex rounded-full bg-[#032650] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">Você está aqui</span>
+                          )}
+                          {!concluida && !emAndamento && <span className="mt-1 inline-block text-[10px] text-slate-400">Próxima etapa</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {tarefas && tarefas.length > 0 && etapasConcluidas === totalEtapas && (
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center">
+                <CheckCircle2 size={18} className="mx-auto text-emerald-600 mb-1" />
+                <p className="text-xs font-bold text-emerald-700">Rito concluído</p>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        <main className="min-w-0">
       {/* Etapa atual */}
       {atual ? (
         <div className="rounded-2xl border-2 border-[#d5dce8] bg-white p-6 shadow-sm mb-6">
@@ -842,6 +894,8 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
             ))}
           </div>
         )}
+      </div>
+        </main>
       </div>
     </div>
   );

@@ -1,18 +1,18 @@
 "use client";
 import React, { useState } from "react";
-import { Layers, LayoutDashboard, Plus, FileText, Search, BarChart3, Paperclip, Settings, LogOut, Menu, X, Home, Users, Sparkles, MessageCircle, Scale } from "lucide-react";
+import { Layers, LayoutDashboard, Plus, FileText, Search, BarChart3, Paperclip, Settings, LogOut, Menu, X, Home, Users, Sparkles, MessageCircle, Scale, History } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { sair } from "@/lib/auth-actions";
 
 const navItems = [
   // ── INÍCIO ──
-  { href: "/painel", icon: Home, label: "Painel de trabalho", roles: ["pesquisador", "gestor", "administrador"], grupo: "Início" },
   { href: "/assistente", icon: MessageCircle, label: "Assistente", roles: ["pesquisador", "gestor", "administrador"], grupo: "Início" },
+  { href: "/procedimentos", icon: Layers, label: "Procedimentos", roles: ["pesquisador", "gestor", "administrador"], grupo: "Início" },
+  { href: "/painel", icon: Home, label: "O que tenho pra fazer hoje", roles: ["pesquisador", "gestor", "administrador"], grupo: "Início" },
   // ── TRABALHAR ──
-  { href: "/pesquisa/nova", icon: Plus, label: "Nova pesquisa", roles: ["pesquisador", "gestor", "administrador"], grupo: "Trabalhar" },
-  { href: "/processos", icon: FileText, label: "Processos", roles: ["pesquisador", "gestor", "administrador"], grupo: "Trabalhar" },
-  { href: "/pesquisas", icon: Search, label: "Pesquisas", roles: ["pesquisador", "gestor", "administrador"], grupo: "Trabalhar" },
+  { href: "/pesquisa/nova", icon: Plus, label: "Pesquisa de preço", roles: ["pesquisador", "gestor", "administrador"], grupo: "Trabalhar" },
+  { href: "/historicos", icon: History, label: "Históricos", roles: ["pesquisador", "gestor", "administrador"], grupo: "Trabalhar" },
   // ── CONSULTAR ──
   { href: "/busca", icon: Search, label: "Busca inteligente", roles: ["pesquisador", "gestor", "administrador"], grupo: "Consultar" },
   { href: "/jurisprudencia", icon: Scale, label: "Jurisprudência", roles: ["pesquisador", "gestor", "administrador"], grupo: "Consultar" },

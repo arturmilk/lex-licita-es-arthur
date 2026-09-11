@@ -2,7 +2,7 @@
 
 import { auth } from "@/auth";
 import { db } from "@/lib/db";
-import { conversasChat, memoriaOrgao, processos } from "@/lib/db/schema";
+import { conversasChat, memoriaOrgao, processos, baseConhecimento } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { estadoInicial, responder, mensagemAbertura, type EstadoChat } from "@/lib/chat";
 
@@ -11,6 +11,35 @@ async function sessao() {
   if (!session) throw new Error("Não autorizado");
   const user = session.user as any;
   return { userId: user.id as string, orgaoId: user.orgaoId as string, nome: user.nome as string };
+}
+
+/**
+ * Procura processos anteriores com objeto semanticamente próximo usando os
+ * termos do próprio objeto. É uma memória de apoio: serve para antecipar
+ * perguntas, nunca para copiar decisões da contratação anterior.
+ */
+async function buscarHistoricoSemelhante(orgaoId: string, referencia: string) {
+  const stop = new Set(["para", "como", "uma", "uns", "umas", "com", "sem", "que", "dos", "das", "por", "pelo", "pela", "preciso", "quero"]);
+  const termos = (v: string) => new Set(
+    (v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ").split(/\s+/)
+      .filter(x => x.length >= 4 && !stop.has(x))
+  );
+  const base = termos(referencia);
+  if (base.size === 0) return [] as { numero: string; objeto: string; status: string; score: number }[];
+
+  const rows = await db.select({ numero: processos.numero, objeto: processos.objeto, status: processos.status })
+    .from(processos).where(eq(processos.orgaoId, orgaoId)).limit(80);
+
+  return rows.map(r => {
+    const alvo = termos(r.objeto || "");
+    const comuns = Array.from(base).filter(t => alvo.has(t)).length;
+    const score = comuns / Math.max(1, Math.min(base.size, alvo.size || 1));
+    return { numero: r.numero, objeto: r.objeto, status: String(r.status), score };
+  })
+    .filter(r => r.score >= 0.45)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
 }
 
 /** Lê as preferências aprendidas do órgão (memória) + dados do cadastro. */
@@ -165,15 +194,15 @@ Responda em português claro, sem emojis, em bullets curtos.`;
 }
 
 /** Cria uma nova conversa (capa do chat). */
-export async function novaConversaChat() {
+export async function novaConversaChat(modo?: string) {
   const { orgaoId, userId } = await sessao();
   const memorias = await lerMemoriaOrgao();
-  const abertura = mensagemAbertura(Object.keys(memorias).length > 0, memorias);
+  const abertura = mensagemAbertura(Object.keys(memorias).length > 0, memorias, modo);
   const [conversa] = await db.insert(conversasChat).values({
     orgaoId, usuarioId: userId,
     mensagens: [abertura],
-    statusDocumentos: {},
-    etapaAtual: "intencao",
+    statusDocumentos: modo ? { modoSolicitado: modo, modoIndice: 0, modoRespostas: {} } : {},
+    etapaAtual: modo ? "modo_guiado" : "intencao",
   }).returning();
   return { conversa, memorias };
 }
@@ -214,6 +243,7 @@ export async function enviarMensagemChat(conversaId: string, texto: string) {
     objeto: estadoSalvo.objeto,
     tipoProcesso: estadoSalvo.tipoProcesso,
     ug: estadoSalvo.ug,
+    descoberta: estadoSalvo.descoberta,
     documentoAtual: estadoSalvo.documentoAtual,
     documentos: estadoSalvo.documentos || {},
     perguntaAtual: estadoSalvo.perguntaAtual,
@@ -221,7 +251,24 @@ export async function enviarMensagemChat(conversaId: string, texto: string) {
     catmat: estadoSalvo.catmat,
     minuta: estadoSalvo.minuta,
     documentosGerados: estadoSalvo.documentosGerados,  // Redator encadeado (PC→ETP)
+    modoSolicitado: estadoSalvo.modoSolicitado,
+    modoIndice: estadoSalvo.modoIndice,
+    modoRespostas: estadoSalvo.modoRespostas || {},
   };
+
+  // Memória contextual: procura contratações anteriores parecidas enquanto
+  // ainda estamos entendendo o objeto. O LEX usa como referência, não como regra.
+  if (estado.etapa === "intencao" || estado.etapa === "descoberta") {
+    try {
+      const similares = await buscarHistoricoSemelhante(orgaoId, estado.objeto || texto);
+      if (similares.length) {
+        memorias.historico_qtd = String(similares.length);
+        memorias.historico_semelhante = similares
+          .map(s => `${s.numero}: ${s.objeto.slice(0, 180)} [${s.status}]`)
+          .join(" | ");
+      }
+    } catch { /* histórico nunca bloqueia o atendimento */ }
+  }
 
   // Mensagem do servidor
   const msgServidor = {
@@ -268,4 +315,152 @@ export async function criarProcessoDaConversa(conversaId: string, tipoProcessoId
     .where(eq(conversasChat.id, conversaId));
 
   return processo;
+}
+
+
+/**
+ * Melhora UMA seção de um documento com base na documentação interna do LEX
+ * e, quando pertinente, em referências reais de controle. Nunca inventa fatos do órgão.
+ */
+export async function melhorarTrechoDocumento(
+  conversaId: string,
+  trecho: string,
+  complemento = "",
+  tituloSecao = "Seção do documento",
+  tipoDocumento = "documento",
+) {
+  const { orgaoId } = await sessao();
+  const [conversa] = await db.select().from(conversasChat)
+    .where(and(eq(conversasChat.id, conversaId), eq(conversasChat.orgaoId, orgaoId))).limit(1);
+  if (!conversa) throw new Error("Conversa não encontrada");
+  if (!trecho?.trim()) throw new Error("Trecho vazio");
+
+  const estado = (conversa.statusDocumentos as any) || {};
+  const consulta = `${tituloSecao} ${trecho} ${complemento}`.slice(0, 5000);
+  const stop = new Set(["para", "como", "uma", "com", "sem", "que", "dos", "das", "por", "pela", "pelo", "este", "esta", "isso", "documento", "seção", "secao"]);
+  const toks = (v: string) => new Set(
+    (v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ").split(/\s+/)
+      .filter(x => x.length >= 4 && !stop.has(x))
+  );
+  const q = toks(consulta);
+
+  let guiaEtp = "";
+  if (tipoDocumento === "etp") {
+    try {
+      const { CAMPOS_ETP } = await import("@/lib/etp-model");
+      const alvo = toks(tituloSecao);
+      const relacionados = CAMPOS_ETP.map(c => {
+        const ct = toks(`${c.titulo} ${c.chave}`);
+        const score = Array.from(alvo).filter(t => ct.has(t)).length;
+        return { c, score };
+      }).sort((a,b)=>b.score-a.score).filter(x=>x.score>0).slice(0,3).map(x=>x.c);
+      const nl = String.fromCharCode(10);
+      guiaEtp = relacionados.length
+        ? relacionados.map(c => `- ${c.titulo}: ${c.explicacao} | Fundamento: ${c.fundamento} | ${c.obrigatorio ? "elemento mínimo obrigatório" : "avaliar e justificar se não aplicável"}`).join(nl)
+        : CAMPOS_ETP.map(c => `- ${c.titulo}: ${c.fundamento}`).join(nl);
+    } catch { guiaEtp = ""; }
+  }
+
+  // Base institucional: normas, procedimentos, modelos e regras internas.
+  const rows = await db.select().from(baseConhecimento).limit(120);
+  const disponiveis = rows.filter((r: any) => !r.orgaoId || r.orgaoId === orgaoId);
+  const docs = disponiveis.map((r: any) => {
+    const alvo = toks(`${r.titulo} ${r.conteudo} ${(r.tags || []).join(" ")}`);
+    const comuns = Array.from(q).filter(t => alvo.has(t)).length;
+    let bonus = 0;
+    if (/pre[cç]o|estimativa|valor|catmat|catser/i.test(consulta) && /art\.?.?\s*23|pesquisa de pre[cç]os|valor estimado/i.test(`${r.titulo} ${r.conteudo}`)) bonus += 5;
+    if (/planejamento|pca|necessidade|dfd|formaliza/i.test(consulta) && /planejamento|demanda|contrata/i.test(`${r.titulo} ${r.conteudo}`)) bonus += 3;
+    return { r, score: comuns + bonus };
+  }).sort((a, b) => b.score - a.score).filter(x => x.score > 0).slice(0, 6);
+
+  let julgados: any[] = [];
+  if (/justific|planejamento|necessidade|pre[cç]o|estimativa|pesquisa|risco|economic/i.test(consulta)) {
+    try {
+      const { buscarTCU } = await import("@/lib/julgados");
+      const termo = /pre[cç]o|estimativa|pesquisa/i.test(consulta)
+        ? "pesquisa de preços planejamento contratação"
+        : "planejamento contratação necessidade justificativa";
+      julgados = await buscarTCU(termo, 3);
+    } catch { julgados = []; }
+  }
+
+  const fontesInternas = docs.map(({ r }: any) => ({ titulo: r.titulo, fonte: r.fonte || "Base LEX", conteudo: String(r.conteudo || "").slice(0, 2500) }));
+  const fontesControle = julgados.map((j: any) => ({ titulo: `TCU ${j.numero}`, fonte: "TCU", conteudo: j.ementa, link: j.link }));
+
+  const { chat } = await import("@/lib/ia");
+  const texto = await chat([
+    {
+      role: "system",
+      content: `Você é o Editor Técnico do LEX Licitações, especializado em documentos da fase preparatória da Lei 14.133/2021.
+
+Sua tarefa é melhorar SOMENTE a seção recebida, mantendo o sentido e todos os dados factuais já existentes.
+
+REGRAS OBRIGATÓRIAS:
+- Incorpore o complemento do servidor de forma natural e profissional.
+- Use a documentação fornecida apenas quando for realmente pertinente.
+- Preserve números, CATMAT/CATSER, valores, quantidades, datas, nomes, prazos e fatos; não altere dados por conta própria.
+- NUNCA invente que a contratação está no PCA, que existe estoque insuficiente, consumo histórico, urgência, demanda reprimida, laudo, contrato anterior ou qualquer outro fato interno se isso não estiver no contexto.
+- Se o complemento pede demonstrar necessidade, desenvolva causalidade: situação atual → problema → impacto → resultado esperado → pertinência da solução, usando apenas fatos disponíveis.
+- Se houver lacuna essencial, mantenha [A DEFINIR] ou [A CONFIRMAR] em vez de preencher com ficção.
+- Quando usar uma norma ou acórdão, mencione a fonte com precisão e apenas para sustentar a regra/princípio correspondente; acórdão não prova fato interno do órgão.
+- Escreva texto administrativo substancial, claro e defensável. Não use elogios, marketing ou frases vazias.
+- Retorne APENAS a seção revisada, inteira, sem comentários antes ou depois.`
+    },
+    {
+      role: "user",
+      content: `SEÇÃO: ${tituloSecao}
+
+TEXTO ATUAL:
+${trecho.slice(0, 12000)}
+
+COMPLEMENTO DO SERVIDOR:
+${complemento?.trim() || "Nenhum complemento adicional; apenas melhorar tecnicamente sem criar fatos."}
+
+CONTEXTO DA CONTRATAÇÃO SALVO NO CHAT:
+Objeto: ${estado.objeto || "não informado"}
+UG: ${estado.ug || "não informada"}
+Dados: ${JSON.stringify({ descoberta: estado.descoberta, documentosGerados: estado.documentosGerados }).slice(0, 8000)}
+
+MODELO NORMATIVO DO ETP PARA ESTA SEÇÃO:
+${tipoDocumento === "etp" ? (guiaEtp || "Aplicar a IN SEGES 58/2022 e preservar lacunas factuais.") : "Não se aplica."}
+
+DOCUMENTAÇÃO INTERNA DISPONÍVEL:
+${fontesInternas.length ? fontesInternas.map((f: any) => `- ${f.titulo} (${f.fonte}): ${f.conteudo}`).join("\n") : "Nenhuma referência específica encontrada."}
+
+REFERÊNCIAS DE CONTROLE DISPONÍVEIS:
+${fontesControle.length ? fontesControle.map((f: any) => `- ${f.titulo}: ${f.conteudo} ${f.link || ""}`).join("\n") : "Nenhuma referência externa usada."}`
+    },
+  ], 0.2, 2600);
+
+  return {
+    texto,
+    fontes: [
+      ...fontesInternas.map((f: any) => ({ titulo: f.titulo, fonte: f.fonte })),
+      ...fontesControle.map((f: any) => ({ titulo: f.titulo, fonte: f.fonte, link: f.link })),
+    ],
+  };
+}
+
+/** Persiste uma versão editada do documento dentro da conversa. */
+export async function salvarDocumentoEditado(conversaId: string, texto: string, titulo = "Documento editado") {
+  const { orgaoId } = await sessao();
+  const [conversa] = await db.select().from(conversasChat)
+    .where(and(eq(conversasChat.id, conversaId), eq(conversasChat.orgaoId, orgaoId))).limit(1);
+  if (!conversa) throw new Error("Conversa não encontrada");
+  if (!texto?.trim()) throw new Error("Documento vazio");
+
+  const mensagem = {
+    id: Math.random().toString(36).slice(2, 10),
+    papel: "sistema" as const,
+    tipo: "documento" as const,
+    conteudo: `**${titulo}**\n\n${texto}`,
+    completo: texto,
+    criadaEm: new Date().toISOString(),
+  };
+  const mensagens = [...(conversa.mensagens || []), mensagem] as any;
+  await db.update(conversasChat)
+    .set({ mensagens, updatedAt: new Date() })
+    .where(eq(conversasChat.id, conversaId));
+  return mensagem;
 }

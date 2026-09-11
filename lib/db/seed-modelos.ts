@@ -40,43 +40,53 @@ PROCESSO ADMINISTRATIVO Nº {{numeroProcesso}}
 {{data}}`,
   },
   {
-    nome: "Estudo Técnico Preliminar — ETP (AGU 14.133)",
+    nome: "ETP Digital — Compras.gov / IN SEGES 58/2022",
     categoria: "etp",
-    origem: "agu",
-    descricao: "Modelo de Estudo Técnico Preliminar conforme AGU — Lei 14.133/2021 (art. 18)",
-    campos: ["objeto", "numeroProcesso", "justificativa", "julgados", "data"],
-    conteudoTemplate: `ESTUDO TÉCNICO PRELIMINAR (ETP)
+    origem: "comprasgov",
+    descricao: "Estrutura do ETP Digital atualizada para a Lei 14.133/2021 e IN SEGES 58/2022, organizada em seis blocos de trabalho.",
+    campos: ["objeto", "numeroProcesso", "orgao", "responsavel", "data"],
+    conteudoTemplate: `ESTUDO TÉCNICO PRELIMINAR — ETP
 PROCESSO ADMINISTRATIVO Nº {{numeroProcesso}}
+ÓRGÃO: {{orgao}}
+OBJETO EM ESTUDO: {{objeto}}
 
-1. DESCRIÇÃO DA NECESSIDADE
-1.1. A presente contratação atende à necessidade de: {{objeto}}.
+1. INFORMAÇÕES BÁSICAS
+1.1. Área requisitante: [A CONFIRMAR]
+1.2. Área técnica/equipe de planejamento, quando houver: [A CONFIRMAR]
+1.3. Responsáveis pela elaboração/revisão: {{responsavel}}
 
-2. REQUISITOS DA CONTRATAÇÃO
-2.1. Os requisitos necessários ao atendimento da necessidade são: qualidade, regularidade e conformidade com as especificações, conforme detalhado no Termo de Referência.
+2. NECESSIDADE
+2.1. Descrição da necessidade sob a perspectiva do interesse público: [A DESENVOLVER COM BASE NA DFD E EVIDÊNCIAS]
+2.2. Requisitos necessários e suficientes da contratação: [A DEFINIR/VALIDAR]
 
-3. ESTIMATIVA DAS QUANTIDADES
-3.1. As quantidades estimadas baseiam-se no histórico de consumo da unidade e na demanda informada pelo setor requisitante.
+3. SOLUÇÃO
+3.1. Levantamento de mercado e alternativas analisadas: [LEVANTAMENTO PENDENTE]
+3.2. Justificativa técnica e econômica da solução escolhida: [A DESENVOLVER APÓS O LEVANTAMENTO]
+3.3. Descrição da solução como um todo, incluindo manutenção e assistência técnica quando aplicável: [A DEFINIR]
+3.4. Estimativa das quantidades e memória de cálculo: [A COMPLEMENTAR COM DADOS E DOCUMENTOS DE SUPORTE]
+3.5. Estimativa do valor, preços unitários referenciais e memória de cálculo: [A PREENCHER A PARTIR DA PESQUISA DE PREÇOS]
+3.6. Justificativa para o parcelamento ou não da solução: [A ANALISAR]
+3.7. Contratações correlatas e/ou interdependentes: [A VERIFICAR]
 
-4. LEVANTAMENTO DE MERCADO
-4.1. Realizada pesquisa de preços com fontes oficiais (PNCP, Painel de Preços, contratações similares), conforme documentação anexa.
+4. PLANEJAMENTO
+4.1. Alinhamento com PCA, PLS e demais instrumentos de planejamento: [A CONFIRMAR]
+4.2. Resultados pretendidos: [A DEFINIR EM TERMOS DE ECONOMICIDADE/EFICIÊNCIA/EFICÁCIA]
+4.3. Providências prévias à contratação: [A VERIFICAR]
+4.4. Impactos ambientais e medidas mitigadoras, quando aplicáveis: [A VERIFICAR]
 
-5. JUSTIFICATIVA DA ESCOLHA DA SOLUÇÃO
-5.1. {{justificativa}}
-5.2. A solução escolhida apresenta melhor relação custo-benefício e adequação à necessidade, conforme análise de alternativas no processo.
+5. VIABILIDADE
+5.1. Posicionamento conclusivo sobre a adequação e viabilidade da contratação: [A CONCLUIR COM BASE NOS ELEMENTOS DO ESTUDO]
 
-6. ANÁLISE DE RISCOS
-6.1. Os principais riscos identificados e as medidas de mitigação:
-- Risco de atraso na entrega/execução → cláusulas de sanções e cronograma no edital;
-- Risco de superfaturamento → pesquisa de preços com mínimo de 3 referências;
-- Risco de descumprimento contratual → garantia e penalidades previstas em edital.
+6. ANEXOS E EVIDÊNCIAS
+6.1. DFD e documentos da necessidade.
+6.2. Memória de cálculo do quantitativo.
+6.3. Pesquisa de preços, preços unitários e memória de cálculo do valor.
+6.4. CATMAT/CATSER e especificações usadas na pesquisa, quando aplicáveis.
+6.5. ETPs/contratações semelhantes consultados no levantamento de mercado.
+6.6. Relatórios, inventários, laudos, cotações e demais documentos de suporte.
 
-7. RESULTADOS ESPERADOS
-7.1. Espera-se a continuidade e qualidade do serviço/bem, com preço justo e aderência à legislação.
-
-8. JULGADOS DE APOIO (parâmetro de fundamentação)
-8.1. {{julgados}}
-
-{{data}}`,
+Referência normativa: Lei nº 14.133/2021 e IN SEGES nº 58/2022.
+Data: {{data}}`,
   },
   {
     nome: "Edital de Pregão Eletrônico (AGU 14.133)",

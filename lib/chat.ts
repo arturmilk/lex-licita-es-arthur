@@ -1,3 +1,4 @@
+import { camposEtpConversa, guiaEtpParaIA } from "@/lib/etp-model";
 /**
  * Motor do chat guiado "O que vou contratar hoje?"
  *
@@ -22,12 +23,29 @@ export interface MensagemChat {
   criadaEm: string;
 }
 
+export interface PerguntaDescoberta {
+  chave: string;
+  pergunta: string;
+  motivo: string;
+  opcoes?: string[];
+}
+
+export interface DNAObjeto {
+  familia: string;
+  resumo?: string;
+  perguntas: PerguntaDescoberta[];
+  indice: number;
+  respostas: Record<string, string>;
+  lacunas: string[];
+}
+
 export interface EstadoChat {
-  etapa: string;                       // intencao | ug | documentos | coleta_doc | pesquisa | dotacao | minuta | juridico | finalizado | edital | edital_catmat | edital_pronto
+  etapa: string;                       // intencao | descoberta | ug | documentos | coleta_doc | pesquisa | dotacao | minuta | juridico | finalizado | edital | edital_catmat | edital_pronto
   objeto?: string;
   tipoProcesso?: string;
   ug?: string;
   modalidade?: string;
+  descoberta?: DNAObjeto;              // DNA do objeto + respostas da investigação inicial
   documentoAtual?: string;             // qual documento está sendo coletado
   documentos: Record<string, { status: "ok" | "falta" | "pulado"; anexadoEm?: string; implicacao?: string }>;
   perguntaAtual?: string;
@@ -40,21 +58,35 @@ export interface EstadoChat {
     campoAtual?: string;               // campo sendo perguntado agora
   };
   documentosGerados?: Record<string, Record<string, string>>;  // AGENTE REDATOR: campos coletados por documento (encadeia PC→ETP→TR)
+  modoSolicitado?: string;
+  modoIndice?: number;
+  modoRespostas?: Record<string, string>;
 }
 
 /** Campos guiados por documento — pergunta, explicação e opções sugeridas. */
-export const CAMPOS_DOCUMENTO: Record<string, { chave: string; pergunta: string; explicacao: string; opcoes?: string[] }[]> = {
+export const CAMPOS_DOCUMENTO: Record<string, { chave: string; pergunta: string; explicacao: string; opcoes?: string[]; grupo?: string; fundamento?: string }[]> = {
   pc: [
+    { chave: "necessidade", pergunta: "Qual é a **necessidade concreta** que o setor precisa resolver?", explicacao: "Descreva a situação atual e o problema real. Se isso já apareceu na conversa, o LEX reaproveita e não pergunta de novo." },
+    { chave: "resultado", pergunta: "Qual **resultado o órgão espera obter** com essa compra ou contratação?", explicacao: "Explique o que deve melhorar depois da contratação: continuidade do serviço, capacidade de atendimento, segurança, produtividade, disponibilidade etc." },
+    { chave: "atendidos", pergunta: "Quem ou quais unidades serão **beneficiados ou atendidos**?", explicacao: "Isso ajuda a demonstrar dimensão, alcance e pertinência da demanda." },
     { chave: "quantidade", pergunta: "Qual a **quantidade** necessária?", explicacao: "Ex.: 1 profissional, 500 resmas, 10 licenças. Baseia-se na demanda do setor requisitante.", opcoes: ["1 unidade", "Mês (serviço continuado)"] },
     { chave: "unidade", pergunta: "Qual a **unidade de medida**?", explicacao: "unidade, mês, resma, kg, m², hora…", opcoes: ["unidade", "mês", "resma", "kg"] },
-    { chave: "valorEstimado", pergunta: "Tem um **valor estimado** ou deixa a pesquisa de preços definir?", explicacao: "Se não souber, sem problema — a pesquisa de preços (PNCP) define o valor estimado depois." },
+    { chave: "justificativaQuantitativo", pergunta: "Como o setor chegou a essa **quantidade**?", explicacao: "Informe a base do dimensionamento: consumo histórico, número de usuários/unidades, estoque atual, expansão prevista, demanda reprimida, contrato anterior ou outro critério." },
+    { chave: "impactoNaoContratar", pergunta: "O que acontece se o órgão **não fizer essa contratação**?", explicacao: "Descreva consequências concretas: interrupção, perda de capacidade, risco operacional, atraso, desperdício, descumprimento de meta ou prejuízo ao atendimento." },
+    { chave: "evidenciasNecessidade", pergunta: "Que **evidências internas** sustentam essa necessidade?", explicacao: "Pode ser consumo anterior, estoque insuficiente, inventário, chamados, relatórios, laudos, demanda das unidades, contrato próximo do fim ou outro registro.", opcoes: ["Consumo ou histórico", "Estoque ou inventário", "Relatório ou laudo", "Demandas das unidades", "Contrato próximo do fim", "Ainda não tenho evidência"] },
+    { chave: "alinhamentoPlanejamento", pergunta: "Essa demanda está prevista no **PCA ou em outro planejamento do órgão**?", explicacao: "Se estiver, informe o instrumento/item. Se não estiver ou não souber, o documento registra a necessidade de confirmar ou incluir no planejamento, sem inventar.", opcoes: ["Sim, está no PCA", "Sim, em outro planejamento", "Não está prevista", "Não sei — precisa verificar"] },
+    { chave: "prioridade", pergunta: "Qual é a **prioridade** dessa demanda e por quê?", explicacao: "A prioridade deve decorrer do impacto e do planejamento, não apenas de uma classificação genérica.", opcoes: ["Alta", "Média", "Baixa", "Preciso avaliar"] },
+    { chave: "valorEstimado", pergunta: "Quer que o LEX faça agora a **estimativa preliminar em fontes oficiais**?", explicacao: "O LEX consulta Pesquisa de Preços do Compras.gov e PNCP, identifica referências comparáveis e registra a memória da estimativa. Se você já tiver um valor, ele será mantido para comparação.", opcoes: ["Pesquisar automaticamente nas fontes oficiais", "Já tenho um valor preliminar"] },
     { chave: "prazo", pergunta: "Qual o **prazo** desejado?", explicacao: "Ex.: 30 dias para entrega, 12 meses de vigência para serviço continuado.", opcoes: ["30 dias", "12 meses (serviço continuado)"] },
-    { chave: "localEntrega", pergunta: "Onde será a **entrega/execução**?", explicacao: "Ex.: Almoxarifado Central, Unidade Básica de Saúde X, endereço do órgão." },
+    { chave: "localEntrega", pergunta: "Onde será a **entrega ou execução**?", explicacao: "Ex.: Almoxarifado Central, Unidade Básica de Saúde X, endereço do órgão." },
   ],
-  etp: [
-    { chave: "necessidade", pergunta: "Qual a **necessidade** que a contratação atende?", explicacao: "Descreva o problema/necessidade que motiva a contratação (ex.: falta de atendimento médico na UBS)." },
-    { chave: "alternativas", pergunta: "Que **alternativas** foram consideradas?", explicacao: "Ex.: contratação direta, aditivo de contrato existente, quadro próprio, terceirização.", opcoes: ["Contratação de terceiros", "Aditivo de contrato existente", "Quadro próprio de servidores"] },
-    { chave: "riscos", pergunta: "Quer que eu **sugira os riscos** típicos (atraso, superfaturamento, descumprimento)?", explicacao: "O ETP exige análise de riscos com medidas de mitigação.", opcoes: ["Sim, sugira os riscos", "Vou informar os riscos"] },
+  etp: camposEtpConversa(),
+  tr: [
+    { chave: "escopo", pergunta: "Vamos fechar o **escopo exato** do serviço ou fornecimento. O que precisa estar incluído?", explicacao: "O TR precisa deixar claro o que a contratada deverá entregar ou executar." },
+    { chave: "requisitosTecnicos", pergunta: "Quais **requisitos técnicos mínimos** precisam ser atendidos?", explicacao: "Aqui entram desempenho, qualidade, normas, qualificações e especificações indispensáveis." },
+    { chave: "modeloExecucao", pergunta: "Como você espera que a **execução** aconteça na prática?", explicacao: "Ex.: por demanda, cronograma, visitas periódicas, entrega única ou fornecimento parcelado." },
+    { chave: "medicao", pergunta: "Como o órgão vai **medir e aceitar** o que foi entregue?", explicacao: "Definir medição e aceite evita dúvida durante a fiscalização e o pagamento." },
+    { chave: "responsabilidades", pergunta: "Há alguma **responsabilidade da contratada ou do órgão** que precisa ficar expressa?", explicacao: "Ex.: materiais, equipamentos, deslocamento, descarte, acesso ao local e apoio técnico." },
   ],
 };
 
@@ -62,13 +94,164 @@ export const CAMPOS_DOCUMENTO: Record<string, { chave: string; pergunta: string;
 // Observação: pesquisa/dotação/minuta/jurídico têm ETAPAS PRÓPRIAS no chat —
 // aqui ficam só os documentos físicos que o servidor precisa ter.
 export const FLUXO_DOCUMENTOS = [
-  { chave: "pc", nome: "Pedido de Compra (PC)", obrigatorio: true,
-    implicacao: "sem o PC autorizado a contratação não tem demanda formal — risco de anulação." },
+  { chave: "pc", nome: "DFD / Requisição de Compra", obrigatorio: true,
+    implicacao: "sem a formalização da demanda, o processo começa sem registrar claramente a necessidade do setor requisitante." },
   { chave: "etp", nome: "Estudo Técnico Preliminar (ETP)", obrigatorio: true,
-    implicacao: "sem ETP a análise jurídica pode apontar irregularidade (Lei 14.133, art. 18)." },
+    implicacao: "sem ETP, fica prejudicada a demonstração do problema, das alternativas e da solução escolhida." },
+  { chave: "tr", nome: "Termo de Referência (TR)", obrigatorio: true,
+    implicacao: "sem TR, o objeto, os requisitos, a execução, a medição e as responsabilidades podem ficar insuficientemente definidos." },
 ];
 
 const ID = () => Math.random().toString(36).slice(2, 10);
+
+
+type PerguntaModo = { chave: string; pergunta: string; motivo: string; opcoes?: string[] };
+type GuiaModo = { titulo: string; abertura: string; perguntas: PerguntaModo[]; proximos: string[] };
+
+const GUIAS_MODO: Record<string, GuiaModo> = {
+  necessidade: { titulo: "Descobrir a necessidade", abertura: "Vamos começar pelo problema real, antes de decidir a solução.", perguntas: [
+    { chave: "ponto", pergunta: "Em que situação você está agora?", motivo: "Isso define o ponto certo de partida.", opcoes: ["Tenho um problema, mas não sei a solução", "Já tenho uma ideia do que contratar", "Tenho uma demanda ou documento"] },
+    { chave: "problema", pergunta: "Qual problema ou necessidade o setor precisa resolver?", motivo: "A contratação deve nascer da necessidade real." },
+    { chave: "resultado", pergunta: "Que resultado você espera alcançar?", motivo: "O resultado esperado orienta a solução e o objeto." },
+    { chave: "atendidos", pergunta: "Quem ou qual unidade será atendida?", motivo: "Público e local de uso mudam quantidade e requisitos." },
+    { chave: "urgencia", pergunta: "Existe prazo ou urgência?", motivo: "Urgência real precisa ser registrada e justificada.", opcoes: ["É urgente", "Tem prazo definido", "Sem urgência especial", "Ainda não sei"] },
+    { chave: "documentos", pergunta: "Você já tem pedido, memorando, DFD, requisição, foto ou planilha sobre isso?", motivo: "O LEX pode reaproveitar o que já existe.", opcoes: ["Sim, tenho documento", "Tenho algumas informações", "Não tenho nada ainda"] }
+  ], proximos: ["Ir para Planejar a contratação", "Ir para Definir o objeto", "Voltar aos procedimentos"] },
+  planejamento: { titulo: "Planejar a contratação", abertura: "Vamos organizar a necessidade, as alternativas e a fase preparatória.", perguntas: [
+    { chave: "ponto", pergunta: "O que você já tem pronto?", motivo: "Assim não refazemos trabalho.", opcoes: ["Só tenho a necessidade", "Já tenho DFD/Requisição", "Já comecei o ETP", "Quero revisar o planejamento"] },
+    { chave: "contratacao", pergunta: "Qual contratação ou processo vamos planejar?", motivo: "Precisamos identificar o contexto correto." },
+    { chave: "resultado", pergunta: "Qual resultado a Administração precisa obter?", motivo: "Isso orienta alternativas, requisitos e justificativas." },
+    { chave: "quantidade", pergunta: "Você já sabe quantidade, capacidade ou volume necessário?", motivo: "O quantitativo precisa ser justificável.", opcoes: ["Sim", "Tenho uma estimativa", "Ainda preciso calcular"] },
+    { chave: "alternativas", pergunta: "Já foram consideradas alternativas?", motivo: "O ETP precisa demonstrar por que a solução faz sentido.", opcoes: ["Sim", "Tenho algumas opções", "Ainda não"] },
+    { chave: "historico", pergunta: "Existe contratação anterior semelhante?", motivo: "O histórico pode antecipar trabalho sem copiar decisões antigas.", opcoes: ["Sim", "Não", "Não sei — quero que o LEX procure"] },
+    { chave: "riscos", pergunta: "Os principais riscos já foram identificados?", motivo: "Riscos devem ser tratados antes da execução.", opcoes: ["Sim", "Tenho alguns", "Ainda não"] }
+  ], proximos: ["Ir para Definir o objeto", "Ir para Pesquisa de preços", "Voltar aos procedimentos"] },
+  objeto: { titulo: "Definir o objeto", abertura: "Vamos transformar a necessidade em algo que o mercado consiga entender e entregar.", perguntas: [
+    { chave: "natureza", pergunta: "Que tipo de contratação parece ser?", motivo: "A natureza muda especificação, medição e execução.", opcoes: ["Compra de material/bem", "Serviço", "Obra ou engenharia", "Locação", "Ainda não sei"] },
+    { chave: "descricao", pergunta: "Como você descreveria o que precisa ser contratado?", motivo: "Partimos da sua descrição e refinamos sem inventar requisito." },
+    { chave: "quantidade", pergunta: "Qual quantidade, capacidade ou volume precisa ser atendido?", motivo: "Sem dimensionamento a pesquisa de preço fica frágil." },
+    { chave: "unidade", pergunta: "Qual unidade de medida faz sentido?", motivo: "Ela precisa permitir comparar preço e medir entrega.", opcoes: ["Unidade", "Mês", "Hora", "Kg", "m²", "Outra"] },
+    { chave: "escopo", pergunta: "O que deve estar incluído e o que deve ficar fora do escopo?", motivo: "Limites claros evitam propostas incomparáveis." },
+    { chave: "requisitos", pergunta: "Existe requisito técnico ou de qualidade indispensável?", motivo: "Só entra requisito ligado diretamente à necessidade." },
+    { chave: "execucao", pergunta: "Como a entrega ou execução deve acontecer?", motivo: "Isso interfere em preço, fiscalização e obrigações.", opcoes: ["Entrega única", "Entrega parcelada", "Serviço contínuo", "Por demanda", "Ainda não definido"] },
+    { chave: "medicao", pergunta: "Como o órgão vai conferir e aceitar a entrega?", motivo: "Medição e aceite precisam estar claros antes da contratação." }
+  ], proximos: ["Ir para Pesquisa de preços", "Ir para Planejar a contratação", "Voltar aos procedimentos"] },
+  pesquisa: { titulo: "Pesquisa de preços", abertura: "Vamos preparar uma pesquisa comparável, rastreável e defensável.", perguntas: [
+    { chave: "objeto", pergunta: "Qual objeto será pesquisado?", motivo: "A descrição precisa permitir referências comparáveis." },
+    { chave: "quantidade", pergunta: "Qual quantidade e unidade de medida serão pesquisadas?", motivo: "Preço sem quantidade e unidade pode enganar." },
+    { chave: "local", pergunta: "Qual local ou região de referência?", motivo: "Frete e mercado regional podem alterar o preço." },
+    { chave: "periodo", pergunta: "Qual período de referência dos preços?", motivo: "Preço antigo demais pode não representar o mercado atual.", opcoes: ["Últimos 6 meses", "Últimos 12 meses", "Regra do órgão", "Ainda não definido"] },
+    { chave: "fontes", pergunta: "Quais fontes quer usar ou já tem?", motivo: "Combinar fontes fortalece a pesquisa.", opcoes: ["PNCP", "Contratações similares", "Cotações de fornecedores", "Notas/contratos", "Quero que o LEX sugira"] },
+    { chave: "evidencias", pergunta: "Você já tem cotações, prints, atas, notas ou contratos?", motivo: "As evidências precisam ficar vinculadas às referências.", opcoes: ["Sim", "Tenho algumas", "Ainda não"] },
+    { chave: "outliers", pergunta: "Como quer tratar valores muito fora do padrão?", motivo: "Outliers precisam de critério e justificativa.", opcoes: ["LEX identifica e sugere", "Vou revisar manualmente", "Seguir regra do órgão"] }
+  ], proximos: ["Abrir pesquisa de preços", "Ir para Definir o objeto", "Voltar aos procedimentos"] },
+  preparacao: { titulo: "Preparar a licitação", abertura: "Vamos conferir as peças e decisões antes da publicação.", perguntas: [
+    { chave: "processo", pergunta: "Qual processo ou contratação você está preparando?", motivo: "Precisamos revisar o conjunto certo de peças." },
+    { chave: "tr", pergunta: "O Termo de Referência ou projeto equivalente está pronto?", motivo: "O edital depende de um objeto técnico consistente.", opcoes: ["Sim", "Em revisão", "Ainda não"] },
+    { chave: "orcamento", pergunta: "A adequação orçamentária já foi confirmada?", motivo: "A contratação precisa ser compatível com o orçamento.", opcoes: ["Sim", "Em validação", "Ainda não"] },
+    { chave: "estrategia", pergunta: "Modalidade, julgamento e modo de disputa já foram definidos?", motivo: "Essas escolhas devem ser coerentes com o objeto.", opcoes: ["Sim", "Parcialmente", "Ainda não — quero ajuda"] },
+    { chave: "minutas", pergunta: "Edital, minuta contratual e anexos já existem?", motivo: "O LEX pode apontar o que falta.", opcoes: ["Sim", "Tenho parte", "Ainda não"] },
+    { chave: "juridico", pergunta: "A análise jurídica já aconteceu?", motivo: "Apontamentos precisam ser tratados antes da publicação quando aplicável.", opcoes: ["Sim, sem apontamentos", "Sim, com apontamentos", "Ainda não"] },
+    { chave: "publicacao", pergunta: "Em que ponto da publicação você está?", motivo: "Isso define os próximos controles.", opcoes: ["Ainda preparando", "Pronto para publicar", "Já publicado"] }
+  ], proximos: ["Ir para Selecionar o fornecedor", "Voltar aos procedimentos"] },
+  selecao: { titulo: "Selecionar o fornecedor", abertura: "Vamos acompanhar sessão, julgamento, habilitação e recursos.", perguntas: [
+    { chave: "processo", pergunta: "Qual certame ou processo vamos acompanhar?", motivo: "Isso identifica as regras e a sessão corretas." },
+    { chave: "momento", pergunta: "Em que momento da seleção você está?", motivo: "Cada fase exige controles diferentes.", opcoes: ["Sessão vai começar", "Propostas/lances", "Julgamento", "Habilitação", "Recursos", "Adjudicação/homologação"] },
+    { chave: "plataforma", pergunta: "Em qual plataforma ou portal a sessão acontece?", motivo: "Isso define onde acompanhar chat, convocações e prazos." },
+    { chave: "pendencia", pergunta: "Existe convocação, diligência ou prazo pendente?", motivo: "Pendências de sessão podem ter prazo curto.", opcoes: ["Sim", "Não", "Não sei — preciso conferir"] },
+    { chave: "habilitacao", pergunta: "A habilitação já foi conferida?", motivo: "Conferência antecipada reduz risco de retrabalho.", opcoes: ["Sim", "Parcialmente", "Ainda não"] },
+    { chave: "recursos", pergunta: "Há recurso ou contrarrazão em andamento?", motivo: "Prazos e fundamentos precisam ser acompanhados.", opcoes: ["Não", "Intenção de recurso", "Recurso", "Contrarrazão"] }
+  ], proximos: ["Ir para Contrato e execução", "Voltar aos procedimentos"] },
+  contrato: { titulo: "Contrato e execução", abertura: "Vamos cuidar da formalização, fiscalização, execução e encerramento.", perguntas: [
+    { chave: "processo", pergunta: "Qual contrato, ata ou processo vamos acompanhar?", motivo: "Precisamos identificar o instrumento correto." },
+    { chave: "fase", pergunta: "Em que fase você está?", motivo: "Formalização, execução e encerramento têm controles diferentes.", opcoes: ["Formalizando", "Início da execução", "Execução em andamento", "Alteração/prorrogação", "Encerramento"] },
+    { chave: "instrumento", pergunta: "Qual instrumento será ou foi usado?", motivo: "Contrato, ata e instrumento substitutivo têm rotinas próprias.", opcoes: ["Contrato", "Ata de Registro de Preços", "Nota de empenho/instrumento substitutivo", "Ainda não definido"] },
+    { chave: "fiscais", pergunta: "Gestor e fiscais já foram designados?", motivo: "A execução precisa de responsabilidades formais.", opcoes: ["Sim", "Parcialmente", "Ainda não"] },
+    { chave: "ocorrencias", pergunta: "Existe atraso, descumprimento, alteração ou prorrogação?", motivo: "Eventos da execução precisam ser registrados e tratados.", opcoes: ["Não", "Atraso/descumprimento", "Alteração", "Prorrogação", "Outra ocorrência"] },
+    { chave: "pagamento", pergunta: "Como está a medição, aceite e pagamento?", motivo: "Entrega, liquidação e pagamento precisam estar coerentes.", opcoes: ["Tudo regular", "Aguardando medição/aceite", "Aguardando pagamento", "Há divergência"] },
+    { chave: "encerramento", pergunta: "Há providência de encerramento pendente?", motivo: "Os registros finais fecham a trilha do processo.", opcoes: ["Não", "Recebimento definitivo", "Pendência documental", "Quero revisar o encerramento"] }
+  ], proximos: ["Voltar aos procedimentos"] }
+};
+
+function dnaFallback(objeto: string): Omit<DNAObjeto, "indice" | "respostas" | "lacunas"> {
+  const piscina = /piscina|piscinas/i.test(objeto);
+  if (piscina) {
+    return {
+      familia: "Serviço → manutenção/limpeza de piscina",
+      resumo: "Manutenção, limpeza e/ou tratamento de piscina",
+      perguntas: [
+        { chave: "necessidade", pergunta: "Essa piscina já existe e você precisa de manutenção periódica ou é um serviço pontual?", motivo: "Isso muda o dimensionamento, a vigência e a forma de execução.", opcoes: ["Manutenção periódica", "Serviço pontual"] },
+        { chave: "quantidade", pergunta: "Quantas piscinas precisam ser atendidas?", motivo: "A quantidade é a primeira base para dimensionar equipe, visitas e consumo de insumos." },
+        { chave: "dimensoes", pergunta: "Você sabe as dimensões ou o volume aproximado de cada piscina?", motivo: "Volume e dimensões influenciam produtos químicos, tempo de trabalho e capacidade de equipamentos.", opcoes: ["Sei as dimensões", "Tenho planta/foto/documento", "Não sei ainda"] },
+        { chave: "escopo", pergunta: "O serviço inclui só limpeza ou também tratamento químico da água?", motivo: "Limpeza física e tratamento químico têm insumos, rotinas e responsabilidades diferentes.", opcoes: ["Só limpeza", "Limpeza + tratamento químico"] },
+        { chave: "materiais", pergunta: "Quem deve fornecer cloro, algicida, regulador de pH e demais produtos: o órgão ou a contratada?", motivo: "Isso altera o preço, a fiscalização e as obrigações contratuais.", opcoes: ["A contratada fornece", "O órgão fornece", "Ainda não definido"] },
+        { chave: "equipamentos", pergunta: "Bomba, filtro ou sistema de circulação também precisam entrar na manutenção?", motivo: "Se esses equipamentos fizerem parte do escopo, precisamos prever rotina e qualificação técnica.", opcoes: ["Sim", "Não", "Ainda não sei"] },
+        { chave: "frequencia", pergunta: "Qual frequência você imagina para o atendimento?", motivo: "A frequência define carga de trabalho, equipe e forma de medição.", opcoes: ["Diária", "Semanal", "Quinzenal", "Por demanda"] },
+        { chave: "publicoUso", pergunta: "Quem utiliza essa piscina: crianças, atletas, pacientes, servidores ou público geral?", motivo: "O perfil de uso pode exigir cuidados operacionais e sanitários diferentes." },
+        { chave: "requisitosTecnicos", pergunta: "Existe alguma exigência sanitária, responsabilidade técnica, laudo ou regra específica do local que já conhecemos?", motivo: "Requisitos técnicos precisam ser identificados antes de escrever o TR, não inventados depois." },
+      ],
+    };
+  }
+  return {
+    familia: "Contratação pública",
+    resumo: objeto.slice(0, 160),
+    perguntas: [
+      { chave: "necessidade", pergunta: "Qual problema você precisa resolver com essa contratação?", motivo: "Primeiro precisamos separar a necessidade real da solução que veio à cabeça." },
+      { chave: "quantidade", pergunta: "Qual quantidade, capacidade ou volume você precisa atender?", motivo: "O dimensionamento evita contratar de menos ou de mais." },
+      { chave: "unidade", pergunta: "Como essa necessidade é medida na prática?", motivo: "A unidade de medida precisa fazer sentido para pesquisa de preço, execução e pagamento." },
+      { chave: "escopo", pergunta: "O que precisa estar incluído e o que deve ficar fora do escopo?", motivo: "Limites claros reduzem aditivos, dúvidas e propostas incomparáveis." },
+      { chave: "frequencia", pergunta: "É uma entrega única, serviço contínuo, periódico ou por demanda?", motivo: "A forma de execução muda o planejamento, preço e fiscalização." },
+      { chave: "prazo", pergunta: "Por quanto tempo ou em qual prazo essa necessidade precisa ser atendida?", motivo: "Prazo e vigência influenciam quantitativos, solução e custo." },
+      { chave: "localEntrega", pergunta: "Onde a entrega ou execução vai acontecer?", motivo: "Local e logística podem alterar preço, requisitos e capacidade de atendimento." },
+      { chave: "responsabilidades", pergunta: "Quem deve fornecer materiais, equipamentos, acesso, deslocamento ou apoio necessário?", motivo: "Separar responsabilidades evita custo oculto e conflito na execução." },
+      { chave: "requisitosTecnicos", pergunta: "Há algum requisito técnico, normativo ou de qualidade que seja indispensável?", motivo: "Requisito essencial deve nascer da necessidade e ser justificado." },
+    ],
+  };
+}
+
+async function montarDNAObjeto(objeto: string, tipoProcesso: string, memorias: Record<string, string>): Promise<DNAObjeto> {
+  const fallback = dnaFallback(objeto);
+  try {
+    const { chat } = await import("@/lib/ia");
+    const historico = memorias.historico_semelhante || "Nenhum processo semelhante identificado no histórico do órgão.";
+    const system = `Você é o LEX Licitações, um arquiteto de contratações públicas brasileiras. Sua função NÃO é correr para preencher ETP/TR. Primeiro descubra exatamente o que o órgão precisa contratar.
+
+Crie o DNA inicial do objeto com 6 a 10 perguntas realmente úteis e específicas para esta contratação. Pergunte uma definição por vez. As perguntas devem descobrir, quando aplicável: problema/necessidade, quantidade, dimensões/capacidade, escopo, frequência, prazo, materiais/insumos, equipamentos envolvidos, responsabilidades, perfil de uso, requisitos técnicos/sanitários, medição e riscos de execução.
+
+REGRAS:
+- Não pergunte UG, modalidade, preço ou documentos nesta etapa.
+- Não invente requisito técnico nem dado faltante; transforme a dúvida em pergunta.
+- Explique em uma frase por que cada pergunta importa.
+- Use chaves curtas e estáveis. Quando couber, prefira: necessidade, quantidade, unidade, dimensoes, escopo, frequencia, prazo, localEntrega, materiais, equipamentos, responsabilidades, publicoUso, requisitosTecnicos, medicao, riscos.
+- Considere o histórico do órgão apenas como referência; nunca assuma que a contratação atual é igual.
+- Responda APENAS JSON válido no formato: {"familia":"...","resumo":"...","perguntas":[{"chave":"...","pergunta":"...","motivo":"...","opcoes":["..."]}]}.`;
+    const user = `Objeto informado: ${objeto}\nTipo inicialmente identificado: ${tipoProcesso}\nHistórico semelhante do órgão: ${historico}`;
+    const out = await chat([{ role: "system", content: system }, { role: "user", content: user }], 0.25);
+    const m = out.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("dna_sem_json");
+    const j = JSON.parse(m[0]);
+    const perguntas = Array.isArray(j.perguntas) ? j.perguntas
+      .filter((q: any) => q && q.chave && q.pergunta && q.motivo)
+      .slice(0, 10)
+      .map((q: any) => ({
+        chave: String(q.chave).slice(0, 50),
+        pergunta: String(q.pergunta).slice(0, 500),
+        motivo: String(q.motivo).slice(0, 500),
+        opcoes: Array.isArray(q.opcoes) ? q.opcoes.map((o: any) => String(o).slice(0, 120)).slice(0, 5) : undefined,
+      })) : [];
+    if (perguntas.length < 4) throw new Error("dna_insuficiente");
+    return {
+      familia: String(j.familia || fallback.familia).slice(0, 160),
+      resumo: String(j.resumo || fallback.resumo || objeto).slice(0, 300),
+      perguntas,
+      indice: 0,
+      respostas: {},
+      lacunas: [],
+    };
+  } catch {
+    return { ...fallback, indice: 0, respostas: {}, lacunas: [] };
+  }
+}
 
 /**
  * Interpreta a resposta livre do servidor com IA — entendendo o que ele
@@ -113,19 +296,19 @@ export function estadoInicial(): EstadoChat {
 }
 
 /** O que o chat fala ao abrir (capa). */
-export function mensagemAbertura(hasMemoria: boolean, memorias?: Record<string, string>): MensagemChat {
-  let conteudo = "Olá!  Eu conduzo sua contratação do início ao fim, como se fosse um especialista ao seu lado.\n\n**O que vamos contratar hoje?** Você pode digitar, falar  ou anexar um documento  — eu identifico e começamos.";
-  if (hasMemoria && memorias) {
-    const sugs: string[] = [];
-    if (memorias.ug_preferida) sugs.push(`UG ${memorias.ug_preferida}`);
-    if (memorias.modalidade_preferida) sugs.push(memorias.modalidade_preferida);
-    if (memorias.fonte_preco) sugs.push(memorias.fonte_preco);
-    if (sugs.length) conteudo += `\n\n **Da última vez** seu órgão usou: ${sugs.join(", ")} — já deixei pré-selecionado.`;
+export function mensagemAbertura(hasMemoria: boolean, memorias?: Record<string, string>, modo?: string): MensagemChat {
+  const guia = modo ? GUIAS_MODO[modo] : undefined;
+  if (guia) {
+    const primeira = guia.perguntas[0];
+    return {
+      id: ID(), papel: "sistema", tipo: "card", etapa: "modo_guiado",
+      conteudo: `**${guia.titulo}**\n\n${guia.abertura}\n\n**${primeira.pergunta}**\n\n_Por que estou perguntando: ${primeira.motivo}_`,
+      opcoes: primeira.opcoes, criadaEm: new Date().toISOString(),
+    };
   }
-  return {
-    id: ID(), papel: "sistema", tipo: "pergunta", etapa: "intencao",
-    conteudo, opcoes: [" Digitar", " Falar", " Anexar documento"], criadaEm: new Date().toISOString(),
-  };
+  let conteudo = "Olá! Eu sou o **LEX Licitações**. Antes de pensar em ETP, TR ou pesquisa de preço, eu vou entender exatamente o que você precisa contratar.\n\n**O que você precisa comprar ou contratar hoje?** Conte do seu jeito.";
+  if (hasMemoria && memorias?.ug_preferida) conteudo += `\n\nÚltima UG usada: ${memorias.ug_preferida}.`;
+  return { id: ID(), papel: "sistema", tipo: "pergunta", etapa: "intencao", conteudo, criadaEm: new Date().toISOString() };
 }
 
 /**
@@ -137,6 +320,42 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
   const t = (texto || "").trim().toLowerCase();
 
   switch (estado.etapa) {
+    case "modo_guiado": {
+      const guia = GUIAS_MODO[estado.modoSolicitado || ""];
+      if (!guia) { estado.etapa = "intencao"; return responder(texto, estado, memorias); }
+      const i = Math.max(0, Number(estado.modoIndice || 0));
+      const atual = guia.perguntas[i];
+      estado.modoRespostas = { ...(estado.modoRespostas || {}), [atual.chave]: (texto || "").trim() || "[NÃO INFORMADO]" };
+      const prox = i + 1;
+      if (prox < guia.perguntas.length) {
+        estado.modoIndice = prox;
+        const q = guia.perguntas[prox];
+        msg.push({ id: ID(), papel: "sistema", tipo: "pergunta", etapa: "modo_guiado", conteudo: `**${q.pergunta}**\n\n_Por que preciso disso: ${q.motivo}_`, opcoes: q.opcoes, criadaEm: new Date().toISOString() });
+        return { mensagens: msg, estado };
+      }
+      estado.etapa = "modo_concluido";
+      const resumo = guia.perguntas.map(q => `- **${q.pergunta.replace(/\?$/, "")}:** ${estado.modoRespostas?.[q.chave] || "[NÃO INFORMADO]"}`).join("\n");
+      msg.push({ id: ID(), papel: "sistema", tipo: "card", etapa: "modo_concluido", conteudo: `Fechei esta etapa de **${guia.titulo}**.\n\n${resumo}\n\nEscolha o próximo passo:`, opcoes: guia.proximos, criadaEm: new Date().toISOString() });
+      return { mensagens: msg, estado };
+    }
+
+    case "modo_concluido": {
+      const norm = (v: string) => v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      const e = norm(texto || "");
+      const destinos: [string,string][] = [["planejar a contratacao","planejamento"],["definir o objeto","objeto"],["pesquisa de precos","pesquisa"],["preparar a licitacao","preparacao"],["selecionar o fornecedor","selecao"],["contrato e execucao","contrato"],["descobrir a necessidade","necessidade"]];
+      const destino = destinos.find(([r]) => e.includes(r))?.[1];
+      if (destino) {
+        const guia = GUIAS_MODO[destino];
+        estado.modoSolicitado = destino; estado.modoIndice = 0; estado.modoRespostas = {}; estado.etapa = "modo_guiado";
+        const q = guia.perguntas[0];
+        msg.push({ id: ID(), papel: "sistema", tipo: "card", etapa: "modo_guiado", conteudo: `**${guia.titulo}**\n\n${guia.abertura}\n\n**${q.pergunta}**\n\n_Por que estou perguntando: ${q.motivo}_`, opcoes: q.opcoes, criadaEm: new Date().toISOString() });
+        return { mensagens: msg, estado };
+      }
+      const guia = GUIAS_MODO[estado.modoSolicitado || ""];
+      msg.push({ id: ID(), papel: "sistema", tipo: "card", etapa: "modo_concluido", conteudo: "Escolha um dos próximos passos abaixo para continuar.", opcoes: guia?.proximos || ["Voltar aos procedimentos"], criadaEm: new Date().toISOString() });
+      return { mensagens: msg, estado };
+    }
+
     // ── 0. FINALIZADO → transições ──────────────────────────────
     case "finalizado": {
       if (t.includes("elaborar edital") || t.includes("elaborar") || t.includes("edital")) {
@@ -157,24 +376,86 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
     // ── 1. INTENÇÃO ─────────────────────────────────────────────
     case "intencao": {
       const sugestoes = await detectarIntencao(texto);
-      if (!sugestoes.length) {
+      const melhor = sugestoes[0] || { nomeTipo: "Contratação pública" } as any;
+      estado.objeto = texto.trim();
+      estado.tipoProcesso = melhor.nomeTipo;
+      estado.descoberta = await montarDNAObjeto(estado.objeto, estado.tipoProcesso, memorias);
+      estado.etapa = "descoberta";
+
+      const primeira = estado.descoberta.perguntas[0];
+      const histQtd = Number(memorias.historico_qtd || 0);
+      const notaHistorico = histQtd > 0
+        ? `\n\n**Memória do órgão:** encontrei ${histQtd} processo(s) com objeto parecido. Vou usar como referência, sem copiar automaticamente decisões antigas.`
+        : "";
+
+      msg.push({
+        id: ID(), papel: "sistema", tipo: "card", etapa: "descoberta",
+        conteudo: `Entendi a direção: **${estado.descoberta.familia}**.\n\nAntes de abrir documentos, vou **descobrir a contratação** com você.${notaHistorico}\n\n**${primeira.pergunta}**\n\n_Por que estou perguntando: ${primeira.motivo}_`,
+        opcoes: primeira.opcoes,
+        criadaEm: new Date().toISOString(),
+      });
+      return { mensagens: msg, estado };
+    }
+
+    // ── 1.5 DESCOBERTA DA CONTRATAÇÃO / DNA DO OBJETO ──────────
+    case "descoberta": {
+      const dna = estado.descoberta;
+      if (!dna || !dna.perguntas.length) {
+        estado.etapa = "ug";
         msg.push({
-          id: ID(), papel: "sistema", tipo: "texto", etapa: "intencao",
-          conteudo: "Não identifiquei com certeza. Pode me contar um pouco mais? Por exemplo: *\"Preciso contratar manutenção de ar-condicionado\"* ou *\"Vou comprar papel A4\"*.",
+          id: ID(), papel: "sistema", tipo: "pergunta", etapa: "ug",
+          conteudo: "Já entendi a necessidade inicial. Agora, para identificar a unidade responsável pelo processo: **qual a Unidade Gestora (UG)?** Se não souber, seguimos e você informa depois.",
+          opcoes: memorias.ug_preferida ? [`${memorias.ug_preferida} (da última vez)`, "Outra…", "Seguir sem UG por enquanto"] : ["Não sei o que é UG", "Seguir sem UG por enquanto"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
       }
-      const melhor = sugestoes[0];
-      estado.objeto = texto.trim();
-      estado.tipoProcesso = melhor.nomeTipo;
+
+      const atual = dna.perguntas[dna.indice];
+      const resposta = (texto || "").trim();
+      if (!resposta) {
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "pergunta", etapa: "descoberta",
+          conteudo: `**${atual.pergunta}**\n\n_Por que preciso disso: ${atual.motivo}_`,
+          opcoes: atual.opcoes,
+          criadaEm: new Date().toISOString(),
+        });
+        return { mensagens: msg, estado };
+      }
+
+      const naoSabe = /^(não sei|nao sei|não tenho|nao tenho|ainda não sei|ainda nao sei|não definido|nao definido)$/i.test(resposta) || /ainda não (sei|defin)/i.test(resposta);
+      dna.respostas[atual.chave] = naoSabe ? "[A DEFINIR]" : resposta;
+      if (naoSabe && !dna.lacunas.includes(atual.chave)) dna.lacunas.push(atual.chave);
+
+      estado.documentosGerados = {
+        ...(estado.documentosGerados || {}),
+        contratacao: { ...(estado.documentosGerados?.contratacao || {}), ...dna.respostas },
+      };
+
+      dna.indice += 1;
+      const proxima = dna.perguntas[dna.indice];
+      if (proxima) {
+        const reconheceLacuna = naoSabe
+          ? "Sem problema. Vou marcar isso como **a definir** e explicar o impacto antes de fechar o documento."
+          : "Anotado. Isso já entrou no mapa da contratação.";
+        msg.push({
+          id: ID(), papel: "sistema", tipo: "pergunta", etapa: "descoberta",
+          conteudo: `${reconheceLacuna}\n\n**${proxima.pergunta}**\n\n_Por que estou perguntando: ${proxima.motivo}_`,
+          opcoes: proxima.opcoes,
+          criadaEm: new Date().toISOString(),
+        });
+        return { mensagens: msg, estado };
+      }
+
       estado.etapa = "ug";
+      const definidos = Object.values(dna.respostas).filter(v => v && v !== "[A DEFINIR]").length;
+      const lacunasTxt = dna.lacunas.length
+        ? `\n\n**Ainda precisamos confirmar:** ${dna.lacunas.join(", ")}. Não vou inventar essas informações; elas ficam sinalizadas para revisão.`
+        : "\n\nAs definições essenciais desta primeira investigação foram respondidas.";
       msg.push({
         id: ID(), papel: "sistema", tipo: "card", etapa: "ug",
-        conteudo: `Entendi!  Vamos montar a contratação de **${melhor.nomeTipo}** juntos.\n\nObjeto: *${texto.trim().slice(0, 120)}*\n\nPrimeiro: **qual a Unidade Gestora (UG)?**\n*(Se não souber, sem problema — pode seguir e informar depois!)*`,
-        opcoes: memorias.ug_preferida
-          ? [`${memorias.ug_preferida} (da última vez)`, "Outra…", "▶ Seguir sem UG por enquanto"]
-          : ["Não sei o que é UG", "▶ Seguir sem UG por enquanto"],
+        conteudo: `Fechei o **primeiro mapa da contratação**: ${definidos} definição(ões) já estão estruturadas e serão reaproveitadas no DFD/Requisição, ETP e TR.${lacunasTxt}\n\nAgora entramos na parte formal. **Qual a Unidade Gestora (UG)?**\n*(Se não souber, seguimos e você informa depois.)*`,
+        opcoes: memorias.ug_preferida ? [`${memorias.ug_preferida} (da última vez)`, "Outra…", "Seguir sem UG por enquanto"] : ["Não sei o que é UG", "Seguir sem UG por enquanto"],
         criadaEm: new Date().toISOString(),
       });
       return { mensagens: msg, estado };
@@ -285,26 +566,57 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       if (t.includes("quero resolver agora") || t.includes("resolver agora")) {
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-          conteudo: `Perfeito! Vamos resolver o **${doc.nome}** agora.\n\nClique em ** Anexar arquivo** para enviar o documento, ou ** crie com o modelo AGU** — eu preencho com os dados do processo.`,
-          opcoes: [" Anexar arquivo", " Criar com modelo AGU", "▶ Seguir mesmo assim"],
+          conteudo: `Perfeito! Vamos resolver o **${doc.nome}** agora.\n\nClique em **Anexar arquivo** para enviar o documento, ou use **${doc.chave === "etp" ? "Criar ETP Digital" : "Criar com modelo oficial"}** — eu aproveito os dados do processo e conduzo o restante.`,
+          opcoes: [" Anexar arquivo", doc.chave === "etp" ? " Criar ETP Digital" : " Criar com modelo AGU", "▶ Seguir mesmo assim"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
       }
 
       // BOTÃO " Criar com modelo AGU": inicia a COLETA GUIADA de campos
-      if (t.includes("criar com modelo agu") || t.includes("criar com o modelo") || t.includes("gerar modelo")) {
+      if (t.includes("criar com modelo agu") || t.includes("criar com o modelo") || t.includes("gerar modelo") || t.includes("criar etp digital")) {
         const camposDef = CAMPOS_DOCUMENTO[doc.chave] || [];
         // AGENTE REDATOR: herda campos já respondidos em documentos anteriores
         // (ex.: quantidade/unidade/prazo/local do PC são reutilizados no ETP)
         const anteriores = estado.documentosGerados || {};
         const camposHerdeiros: Record<string, string> = {};
+        if (doc.chave === "etp") {
+          const pc = anteriores.pc || {};
+          const contratacao = anteriores.contratacao || {};
+          try {
+            const { prepararEtp } = await import("@/lib/etp-orchestrator");
+            const prep = await prepararEtp({
+              objeto: estado.objeto || pc.objeto || "",
+              orgao: memorias.orgao_nome,
+              ug: estado.ug,
+              dfd: pc,
+              contratacao,
+            });
+            Object.assign(camposHerdeiros, prep.campos);
+            if (prep.apoios.parcelamento) camposHerdeiros._apoioParcelamento = prep.apoios.parcelamento;
+            if (prep.apoios.impactosAmbientais) camposHerdeiros._apoioImpactosAmbientais = prep.apoios.impactosAmbientais;
+            if (prep.apoios.correlatas) camposHerdeiros._apoioCorrelatas = prep.apoios.correlatas;
+            camposHerdeiros._agentesEtp = prep.agentes.map(a => `${a.grupo}: ${a.papel}`).join(" | ");
+            camposHerdeiros._fontesEtp = prep.fontes.join(" | ");
+          } catch {
+            // Fallback mínimo: preserva o que veio da DFD sem bloquear o servidor.
+            if (pc.necessidade) camposHerdeiros.necessidade = pc.necessidade;
+            if (pc.quantidade) camposHerdeiros.quantidade = pc.quantidade;
+            if (pc.justificativaQuantitativo) camposHerdeiros.justificativaQuantitativo = pc.justificativaQuantitativo;
+            if (pc.resultado) camposHerdeiros.resultadosPretendidos = pc.resultado;
+            if (pc.alinhamentoPlanejamento) camposHerdeiros.alinhamentoPlanejamento = pc.alinhamentoPlanejamento;
+            if (contratacao.requisitosTecnicos || pc.requisitosTecnicos) camposHerdeiros.requisitosContratacao = contratacao.requisitosTecnicos || pc.requisitosTecnicos;
+          }
+        }
         const ordemFiltrada = camposDef.filter(c => {
-          const herdado = Object.values(anteriores).some(docCampos => docCampos[c.chave]);
-          if (herdado) {
-            const valor = Object.values(anteriores).map(d => d[c.chave]).find(Boolean);
-            if (valor) camposHerdeiros[c.chave] = valor;
-            return false; // já respondido — não pergunta de novo
+          const pendente = (v: unknown) => /^\s*\[(?:A CONFIRMAR|A DEFINIR|A VERIFICAR|LEVANTAMENTO PENDENTE|ESTIMATIVA PENDENTE|MEMÓRIA DE CÁLCULO A COMPLEMENTAR|A VALIDAR|VIABILIDADE A CONCLUIR)/i.test(String(v || ""));
+          const direto = camposHerdeiros[c.chave];
+          if (String(direto || "").trim() && !pendente(direto)) return false;
+
+          const valor = Object.values(anteriores).map(d => d[c.chave]).find(Boolean);
+          if (valor) {
+            camposHerdeiros[c.chave] = valor;
+            if (!pendente(valor)) return false;
           }
           return true;
         });
@@ -315,11 +627,15 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         };
         estado.etapa = "coleta_doc";
         const primeiro = ordemFiltrada[0];
-        const herdou = Object.keys(camposHerdeiros).length > 0;
+        const herdou = Object.keys(camposHerdeiros).some(k => !k.startsWith("_apoio"));
+        const apoioPrimeiro = doc.chave === "etp" && primeiro?.chave === "parcelamento" ? camposHerdeiros._apoioParcelamento
+          : doc.chave === "etp" && primeiro?.chave === "impactosAmbientais" ? camposHerdeiros._apoioImpactosAmbientais
+          : doc.chave === "etp" && primeiro?.chave === "correlatas" ? camposHerdeiros._apoioCorrelatas : "";
+        const rotuloModelo = doc.chave === "etp" ? "ETP Digital / Compras.gov (IN SEGES 58/2022)" : "modelo oficial";
         msg.push({
           id: ID(), papel: "sistema", tipo: "card", etapa: "coleta_doc",
-          conteudo: ` **${doc.nome}** — vamos montar com o modelo AGU, **campo por campo** para ficar completo!${herdou ? `\n\n *O Redator já aproveitou do documento anterior: ${Object.entries(camposHerdeiros).map(([k, v]) => `${k}=${v}`).join(", ")}.*` : ""}\n\n${ordemFiltrada.length === 0 ? "Todos os campos já estão preenchidos! Gerando o documento…" : ` **Pergunta 1/${ordemFiltrada.length}:** ${primeiro.pergunta}\n\n ${primeiro.explicacao}\n\n*(pode digitar a resposta, escolher uma opção ou pular — eu completo com o padrão)*`}`,
-          opcoes: ordemFiltrada.length === 0 ? [] : [...(primeiro.opcoes || []), "⏭ Pular (usar padrão)"],
+          conteudo: ` **${doc.nome}** — vamos montar pelo **${rotuloModelo}**, sem repetir o que o LEX já sabe.${herdou ? `\n\n**O LEX já reaproveitou ou pesquisou ${Object.entries(camposHerdeiros).filter(([k, v]) => !k.startsWith("_apoio") && String(v || "").trim()).length} elementos deste ETP.**${camposHerdeiros.levantamentoMercado ? " Levantamento de mercado preparado." : ""}${camposHerdeiros.estimativaValor ? " Estimativa de valor aproveitada/pesquisada." : ""} Restam **${ordemFiltrada.length} pontos** que dependem de confirmação ou decisão do órgão.` : ""}\n\n${ordemFiltrada.length === 0 ? "Todos os campos necessários já estão preenchidos! Gerando o documento…" : `${primeiro.grupo ? `**Bloco: ${primeiro.grupo}**\n` : ""}${primeiro.fundamento ? `Base: ${primeiro.fundamento}\n\n` : ""}**Pergunta 1/${ordemFiltrada.length}:** ${primeiro.pergunta}\n\n${primeiro.explicacao}${apoioPrimeiro ? `\n\n**Análise preliminar do LEX para você confirmar:**\n${apoioPrimeiro}` : ""}\n\n*(responda do seu jeito ou escolha uma opção; o LEX aproveita o restante automaticamente)*`}`,
+          opcoes: ordemFiltrada.length === 0 ? [] : [...(primeiro.opcoes || []), "⏭ Pular por enquanto"],
           criadaEm: new Date().toISOString(),
         });
         // Se todos os campos foram herdados, gera direto (sem perguntar)
@@ -359,7 +675,7 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         msg.push({
           id: ID(), papel: "sistema", tipo: "alerta", etapa: "documentos",
           conteudo: ` **Alerta:** sem ${doc.nome.toLowerCase()} — ${doc.implicacao}\n\n**Não vou travar** — escolha uma opção para continuar:\n\n **${doc.nome}** — o que fazer?`,
-          opcoes: [" Criar com modelo AGU", " Anexar arquivo", "▶ Seguir mesmo assim", " Quero resolver agora"],
+          opcoes: [doc.chave === "etp" ? " Criar ETP Digital" : " Criar com modelo AGU", " Anexar arquivo", "▶ Seguir mesmo assim", " Quero resolver agora"],
           criadaEm: new Date().toISOString(),
         });
         // NÃO avança — espera a escolha do servidor (criar/anexar/pular)
@@ -450,7 +766,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       const resposta = (texto || "").trim();
 
       // ── Valida a resposta conforme o campo (entende e corrige antes de aceitar) ──
-      if (campoAtual && !coleta.campos[campoAtual]) {
+      const campoPendente = (v: unknown) => /^\s*\[(?:A CONFIRMAR|A DEFINIR|A VERIFICAR|LEVANTAMENTO PENDENTE|ESTIMATIVA PENDENTE|MEMÓRIA DE CÁLCULO A COMPLEMENTAR|A VALIDAR|VIABILIDADE A CONCLUIR|ANÁLISE DE PARCELAMENTO PENDENTE)/i.test(String(v || ""));
+      if (campoAtual && (!String(coleta.campos[campoAtual] || "").trim() || campoPendente(coleta.campos[campoAtual]))) {
         const invalida = validarCampoColeta(campoAtual, resposta);
         if (invalida) {
           msg.push({
@@ -461,14 +778,37 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
           });
           return { mensagens: msg, estado };
         }
-        if (/pular|padrão|padrao/i.test(resposta)) {
+        if (coleta.docChave === "etp" && campoAtual === "levantamentoMercado" && /pesquis|automatic/i.test(resposta)) {
+          try {
+            const { levantarMercadoEtp } = await import("@/lib/etp-intelligence");
+            coleta.campos[campoAtual] = await levantarMercadoEtp(estado.objeto || "");
+          } catch { coleta.campos[campoAtual] = "[LEVANTAMENTO PENDENTE] Não foi possível concluir a consulta automática agora; complementar antes da conclusão."; }
+        } else if (coleta.docChave === "etp" && campoAtual === "estimativaValor" && /pesquisa|oficial|lex/i.test(resposta)) {
+          try {
+            const { estimarValorEtp } = await import("@/lib/etp-intelligence");
+            const pc = estado.documentosGerados?.pc || {};
+            coleta.campos[campoAtual] = await estimarValorEtp({ objeto: estado.objeto || "", quantidade: coleta.campos.quantidade || pc.quantidade, unidade: pc.unidade, local: pc.localEntrega, contexto: { ...(estado.documentosGerados?.contratacao || {}), ...pc, ...coleta.campos } });
+          } catch { coleta.campos[campoAtual] = "[ESTIMATIVA PENDENTE] A pesquisa automática não pôde ser concluída; revisar no módulo Pesquisa de preço."; }
+        } else if (coleta.docChave === "etp" && campoAtual === "parcelamento" && /lex analise|lex analisar|analise|analisar/i.test(resposta)) {
+          try { const { analisarParcelamentoEtp } = await import("@/lib/etp-intelligence"); coleta.campos[campoAtual] = await analisarParcelamentoEtp(estado.objeto || "", coleta.campos); }
+          catch { coleta.campos[campoAtual] = "[ANÁLISE DE PARCELAMENTO PENDENTE] Confirmar divisibilidade técnica, competitividade, integração e economia de escala."; }
+        } else if (coleta.docChave === "etp" && campoAtual === "correlatas" && /procur|hist[oó]ric/i.test(resposta)) {
+          try { const { buscarCorrelatasEtp } = await import("@/lib/etp-intelligence"); coleta.campos[campoAtual] = await buscarCorrelatasEtp(estado.objeto || ""); }
+          catch { coleta.campos[campoAtual] = "[A VERIFICAR] Não foi possível concluir a busca no histórico interno agora."; }
+        } else if (coleta.docChave === "etp" && campoAtual === "impactosAmbientais" && /lex sugira|sugir|validar/i.test(resposta)) {
+          try { const { sugerirImpactosEtp } = await import("@/lib/etp-intelligence"); coleta.campos[campoAtual] = await sugerirImpactosEtp(estado.objeto || ""); }
+          catch { coleta.campos[campoAtual] = "[A VALIDAR] Avaliar impactos ambientais e medidas mitigadoras aplicáveis ao objeto."; }
+        } else if (coleta.docChave === "etp" && campoAtual === "viabilidade" && /lex.*an[aá]lis|an[aá]lise conclusiva|fa[cç]a a an[aá]lise/i.test(resposta)) {
+          try { const { analisarViabilidadeEtp } = await import("@/lib/etp-intelligence"); coleta.campos[campoAtual] = await analisarViabilidadeEtp(estado.objeto || "", coleta.campos); }
+          catch { coleta.campos[campoAtual] = "[VIABILIDADE A CONCLUIR] Revisar os elementos obrigatórios e condicionantes antes da declaração final."; }
+        } else if (/pular|padrão|padrao/i.test(resposta)) {
           coleta.campos[campoAtual] = ""; // padrão
         } else if (campoAtual === "riscos" && /sim|sugira/i.test(resposta)) {
           coleta.campos[campoAtual] = "Riscos típicos: atraso na execução (mitigação: cronograma e sanções), superfaturamento (mitigação: pesquisa com 3+ referências), descumprimento contratual (mitigação: garantia e penalidades), interrupção do serviço (mitigação: cláusula de continuidade).";
         } else if (campoAtual === "alternativas" && /não sei|nao sei|duvida/i.test(resposta)) {
           coleta.campos[campoAtual] = "Considerou-se a contratação de terceiros como alternativa mais adequada, frente às alternativas de quadro próprio (inviável) e aditivo contratual (inexistente).";
-        } else if (campoAtual === "valorEstimado" && /não sei|nao sei|pesquisa|deixa/i.test(resposta)) {
-          coleta.campos[campoAtual] = "A definir pela pesquisa de preços (PNCP/Painel) com mínimo de 3 referências.";
+        } else if (campoAtual === "valorEstimado" && /não sei|nao sei|pesquisa|deixa|automaticamente|fontes oficiais/i.test(resposta)) {
+          coleta.campos[campoAtual] = "PESQUISAR_AUTOMATICAMENTE";
         } else {
           coleta.campos[campoAtual] = resposta;
         }
@@ -480,10 +820,14 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       if (proximoCampo) {
         coleta.campoAtual = proximoCampo;
         const proxDef = camposDef.find(c => c.chave === proximoCampo);
+        const apoioProximo = coleta.docChave === "etp" && proximoCampo === "parcelamento" ? coleta.campos._apoioParcelamento
+          : coleta.docChave === "etp" && proximoCampo === "impactosAmbientais" ? coleta.campos._apoioImpactosAmbientais
+          : coleta.docChave === "etp" && proximoCampo === "correlatas" ? coleta.campos._apoioCorrelatas : "";
+        const respondidosVisiveis = Object.keys(coleta.campos).filter(k => !k.startsWith("_apoio") && String(coleta.campos[k] || "").trim()).length;
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "coleta_doc",
-          conteudo: ` Anotado! (${resposta.slice(0, 80) || "padrão"})\n\n **Pergunta ${idxAtual + 2}/${camposDef.length}:** ${proxDef?.pergunta}\n\n ${proxDef?.explicacao}`,
-          opcoes: [...(proxDef?.opcoes || []), "⏭ Pular (usar padrão)"],
+          conteudo: `Anotado. O LEX já tem **${respondidosVisiveis} elemento(s)** deste documento.\n\n${proxDef?.grupo ? `**Bloco: ${proxDef.grupo}**\n` : ""}${proxDef?.fundamento ? `Base: ${proxDef.fundamento}\n\n` : ""}**Próxima pergunta:** ${proxDef?.pergunta}\n\n${proxDef?.explicacao}${apoioProximo ? `\n\n**Análise preliminar do LEX para você confirmar:**\n${apoioProximo}` : ""}`,
+          opcoes: [...(proxDef?.opcoes || []), "⏭ Pular por enquanto"],
           criadaEm: new Date().toISOString(),
         });
         return { mensagens: msg, estado };
@@ -493,25 +837,139 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
       estado.etapa = "documentos";
       estado.documentos[coleta.docChave] = { status: "ok", anexadoEm: new Date().toISOString() };
       const doc = FLUXO_DOCUMENTOS.find(d => d.chave === coleta.docChave);
-      const nomeArquivo = coleta.docChave === "pc" ? "PEDIDO DE COMPRA" : "ESTUDO TÉCNICO PRELIMINAR (ETP)";
+      const nomeArquivo = coleta.docChave === "pc" ? "DFD / REQUISIÇÃO DE COMPRA" : coleta.docChave === "etp" ? "ESTUDO TÉCNICO PRELIMINAR (ETP)" : "TERMO DE REFERÊNCIA (TR)";
       const camposTexto = Object.entries(coleta.campos)
-        .map(([k, v]) => `${k}: ${v || "(padrão — a definir)"}`).join("\n");
+        .filter(([k]) => !k.startsWith("_"))
+        .map(([k, v]) => `${k}: ${v || "[A DEFINIR]"}`).join("\n");
+      const dadosDescobertaTexto = Object.entries(estado.documentosGerados?.contratacao || {})
+        .map(([k, v]) => `${k}: ${v || "[A DEFINIR]"}`).join("\n");
       try {
         const { chat } = await import("@/lib/ia");
-        const conteudo = await chat([
-          { role: "system", content: `Você é um especialista em licitações públicas (Lei 14.133/2021). Escreva o documento oficial "${nomeArquivo}" COMPLETO em português, com linguagem formal administrativa, seguindo o modelo AGU. NÃO deixe campos em branco — complete com dados coerentes quando não informados. Estrutura: cabeçalho (órgão, UG, processo), objeto, justificativa, quantitativos (quantidade+unidade), valor estimado, prazo, local de entrega/execução, encaminhamento/riscos e data.` },
-          { role: "user", content: `Objeto: ${estado.objeto || "não informado"}\nUG: ${estado.ug || "não informada"}\nÓrgão: ${memorias.orgao_nome || "não informado"}\nDados coletados:\n${camposTexto}` },
-        ], 0.4);
+        let enriquecimento: any = null;
+
+        // O DFD já nasce com CATMAT/CATSER + estimativa preliminar pesquisada.
+        // A pesquisa externa enriquece o documento, mas nunca inventa fato interno do órgão.
+        if (coleta.docChave === "pc") {
+          try {
+            const { enriquecerDFD } = await import("@/lib/dfd-intelligence");
+            enriquecimento = await enriquecerDFD({
+              objeto: estado.objeto || coleta.campos.objeto || "",
+              quantidade: coleta.campos.quantidade,
+              unidade: coleta.campos.unidade,
+              localEntrega: coleta.campos.localEntrega,
+              dadosContexto: { ...(estado.documentosGerados?.contratacao || {}), ...coleta.campos },
+            });
+
+            if (enriquecimento?.catalogo) {
+              coleta.campos.catmatCodigo = String(enriquecimento.catalogo.codigo);
+              coleta.campos.catmatDescricao = enriquecimento.catalogo.descricao;
+              coleta.campos.catmatPdm = enriquecimento.catalogo.pdm ? String(enriquecimento.catalogo.pdm) : "";
+            }
+            if (enriquecimento?.estimativa) {
+              coleta.campos.estimativaPesquisadaUnitario = String(enriquecimento.estimativa.valorUnitario);
+              coleta.campos.estimativaPesquisadaTotal = enriquecimento.estimativa.valorTotal != null ? String(enriquecimento.estimativa.valorTotal) : "";
+              coleta.campos.fonteEstimativa = enriquecimento.estimativa.fontePrincipal;
+            }
+          } catch {
+            // A indisponibilidade de uma fonte não impede a DFD: vira lacuna explícita.
+          }
+        }
+
+        const dadosAnterioresTexto = Object.entries(estado.documentosGerados || {})
+          .filter(([k]) => k !== "contratacao")
+          .map(([k, vals]) => `${k}: ${Object.entries(vals || {}).map(([ck, cv]) => `${ck}=${cv}`).join("; ")}`)
+          .join("\n");
+
+        const instrucaoDfd = coleta.docChave === "pc" ? `
+
+Para o DFD/REQUISIÇÃO, produza uma peça COMPLETA, pronta para revisão administrativa, com esta estrutura mínima quando aplicável:
+1. IDENTIFICAÇÃO DA DEMANDA E UNIDADE REQUISITANTE.
+2. CONTEXTO E DESCRIÇÃO DA NECESSIDADE: situação atual e problema concreto que se pretende resolver.
+3. RESULTADO ESPERADO E UNIDADES/PÚBLICO ATENDIDOS.
+4. DESCRIÇÃO DO OBJETO.
+5. ITENS E CLASSIFICAÇÃO: informar expressamente o número do CATMAT/CATSER sugerido e a DESCRIÇÃO OFICIAL retornada pela fonte. Se a classificação não tiver alta confiança, registrar que depende de confirmação técnica.
+6. QUANTITATIVO E MEMÓRIA DO DIMENSIONAMENTO: quantidade, unidade e justificativa de como o número foi obtido; nunca inventar memória de consumo.
+7. ESTIMATIVA PRELIMINAR DE VALOR: valor unitário e, se houver quantidade válida, valor total; método, número de referências, média, mediana, mínimo, máximo, fonte e data/hora da consulta. Diferenciar preços unitários comparáveis de valores totais de editais/contratações do PNCP. NUNCA transformar valor total do PNCP em preço unitário.
+8. JUSTIFICATIVA DA NECESSIDADE: desenvolver de forma robusta e específica o problema atual, evidências internas informadas, impacto de não contratar, benefícios e resultados esperados, adequação do quantitativo, prioridade/urgência, continuidade do serviço quando aplicável, economicidade e coerência com a solução pretendida. A fundamentação deve demonstrar a necessidade com fatos fornecidos pelo servidor; não preencher ausência de prova com frases genéricas.
+9. ALINHAMENTO AO PLANEJAMENTO/PCA: somente afirmar previsão no PCA/plano se isso tiver sido informado. Sem confirmação, registrar [A CONFIRMAR] e indicar a providência necessária.
+10. PRAZO E LOCAL DE ENTREGA/EXECUÇÃO.
+11. FONTES E EVIDÊNCIAS CONSULTADAS: listar referências de preços, identificadores/links PNCP disponíveis e data da consulta.
+12. LACUNAS, VALIDAÇÕES E PROVIDÊNCIAS PENDENTES.
+
+Referências de TCU podem apoiar governança, planejamento e motivação quando forem realmente pertinentes, mas não comprovam fatos internos do órgão. Diferencie claramente: (a) fato informado pela unidade; (b) inferência técnica; (c) referência externa de controle.` : "";
+        const instrucaoEtp = coleta.docChave === "etp" ? `
+
+Para o ESTUDO TÉCNICO PRELIMINAR, produza o documento COMPLETO conforme a Lei 14.133/2021 e a IN SEGES 58/2022. Organize o documento obrigatoriamente em EXATAMENTE estes seis títulos principais, nesta ordem:
+1. INFORMAÇÕES BÁSICAS
+2. NECESSIDADE
+3. SOLUÇÃO
+4. PLANEJAMENTO
+5. VIABILIDADE
+6. ANEXOS
+Dentro deles, distribua todos os elementos materiais do art. 9º sem omissão. Não crie um sétimo bloco principal.
+
+${guiaEtpParaIA()}
+
+REGRAS:
+- demonstre o problema e avalie a melhor solução; não justifique retrospectivamente uma escolha já feita;
+- reaproveite DFD, CATMAT/CATSER, quantitativo, estimativa pesquisada, histórico e dados confirmados;
+- levantamento de mercado deve comparar alternativas reais; se ainda não pesquisado, use [LEVANTAMENTO PENDENTE];
+- quantidade precisa de memória de cálculo e suporte; se faltar, use [MEMÓRIA DE CÁLCULO A COMPLEMENTAR];
+- estimativa deve separar preço unitário, quantidade e total e indicar fontes; nunca trate valor total de edital como preço unitário;
+- parcelamento deve analisar divisibilidade técnica, competitividade, integração e economia de escala;
+- só afirme previsão em PCA/PLS/outro plano se houver confirmação;
+- resultados pretendidos devem ser mensuráveis quando possível;
+- impactos ambientais conforme aplicabilidade, sem inventar fatos;
+- a viabilidade deve decorrer dos elementos anteriores e registrar condicionantes;
+- elementos não obrigatórios não tratados devem receber justificativa objetiva;
+- o documento deve vir INTEIRO, substancial, com anexos/evidências referenciados ao final.` : "";
+
+        let conteudo: string;
+        if (coleta.docChave === "etp") {
+          const { gerarEtpCompleto } = await import("@/lib/etp-orchestrator");
+          const camposEtp = Object.fromEntries(Object.entries(coleta.campos).filter(([k]) => !k.startsWith("_"))) as Record<string,string>;
+          const gerado = await gerarEtpCompleto({
+            objeto: estado.objeto || "não informado",
+            orgao: memorias.orgao_nome || "não informado",
+            ug: estado.ug || "não informada",
+            campos: camposEtp,
+            dadosAnteriores: estado.documentosGerados || {},
+          });
+          conteudo = gerado.documento;
+          if (!gerado.validacao.seisBlocos || !gerado.validacao.terminaComAnexos) {
+            throw new Error("ETP gerado sem todos os seis blocos obrigatórios");
+          }
+        } else {
+          conteudo = await chat([
+          { role: "system", content: `Você é o LEX Licitações, arquiteto de contratações públicas especializado na Lei 14.133/2021. Escreva o documento oficial "${nomeArquivo}" INTEIRO e COMPLETO, em português, com linguagem formal administrativa. NÃO produza resumo, amostra ou prévia. Reaproveite os dados descobertos na conversa e os campos específicos do documento. NÃO invente quantidade, dimensão, prazo, preço, requisito técnico, vínculo ao PCA, evidência, responsabilidade ou fato do órgão. Quando um dado essencial não estiver definido, escreva [A DEFINIR] ou [A CONFIRMAR] e explique objetivamente o que precisa ser validado. O documento deve nascer da necessidade investigada, e não de texto genérico.${instrucaoDfd}${instrucaoEtp}` },
+          { role: "user", content: `Objeto: ${estado.objeto || "não informado"}
+UG: ${estado.ug || "não informada"}
+Órgão: ${memorias.orgao_nome || "não informado"}
+
+DNA / dados descobertos na conversa:
+${dadosDescobertaTexto || "nenhum"}
+
+Campos específicos deste documento:
+${Object.entries(coleta.campos).filter(([k]) => !k.startsWith("_")).map(([k, v]) => `${k}: ${v || "[A DEFINIR]"}`).join("\n")}
+
+Dados herdados de documentos anteriores:
+${dadosAnterioresTexto || "nenhum"}
+
+ENRIQUECIMENTO OFICIAL PARA O DFD (use somente estes dados; não invente complemento factual):
+${enriquecimento ? JSON.stringify(enriquecimento, null, 2) : "indisponível — registrar as lacunas"}` },
+        ], coleta.docChave === "pc" ? 0.22 : coleta.docChave === "etp" ? 0.25 : 0.35, coleta.docChave === "pc" ? 5200 : coleta.docChave === "etp" ? 6500 : 4200);
+        }
+
         msg.push({
           id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
-          conteudo: ` **${doc?.nome} GERADO completo (modelo AGU):**\n\n${conteudo.slice(0, 2000)}${conteudo.length > 2000 ? "…" : ""}\n\n **Baixe** com o botão abaixo ou **edite** se precisar ajustar.`,
-          completo: conteudo,   // documento INTEIRO (download usa este campo)
+          conteudo: ` **${doc?.nome} GERADO completo:**\n\n${conteudo}\n\n **Documento inteiro exibido acima.** Você também pode baixar ou editar por seção.`,
+          completo: conteudo,
           criadaEm: new Date().toISOString(),
         });
       } catch {
         msg.push({
           id: ID(), papel: "sistema", tipo: "documento", etapa: "documentos",
-          conteudo: ` **${doc?.nome}** gerado! (IA indisponível — use o modelo AGU na jornada do processo.)`,
+          conteudo: ` **${doc?.nome}** gerado! (IA indisponível — use o modelo oficial disponível na jornada do processo.)`,
           criadaEm: new Date().toISOString(),
         });
       }
@@ -526,8 +984,8 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
         estado.documentoAtual = proximoDoc.chave;
         msg.push({
           id: ID(), papel: "sistema", tipo: "pergunta", etapa: "documentos",
-          conteudo: ` **${proximoDoc.nome}** — você já tem? Se não, posso **criar com o modelo AGU** também (campo por campo)!`,
-          opcoes: [" Já tenho", " Ainda não", " Criar com modelo AGU", " Anexar arquivo"],
+          conteudo: ` **${proximoDoc.nome}** — você já tem? Se não, posso **${proximoDoc.chave === "etp" ? "criar pelo ETP Digital / Compras.gov" : "criar com o modelo oficial"}** e conduzir campo por campo.`,
+          opcoes: [" Já tenho", " Ainda não", proximoDoc.chave === "etp" ? " Criar ETP Digital" : " Criar com modelo AGU", " Anexar arquivo"],
           criadaEm: new Date().toISOString(),
         });
       } else {
@@ -781,8 +1239,9 @@ export async function responder(texto: string, estado: EstadoChat, memorias: Rec
 /** Explicação amigável de cada documento (para quem nunca fez). */
 function explicarDocumento(chave: string): string {
   const expl: Record<string, string> = {
-    pc: "O **Pedido de Compra (PC)** é o documento do setor requisitante que pede a contratação. Ele justifica a necessidade e informa o quantitativo. Sem ele, a contratação não tem demanda formal.",
-    etp: "O **Estudo Técnico Preliminar (ETP)** é o documento que analisa: por que contratar, quais alternativas existem, qual a melhor solução e os riscos. É a 'prova' de que a contratação faz sentido (art. 18 da Lei 14.133).",
+    pc: "O **DFD / Requisição de Compra** registra a necessidade do setor requisitante. No LEX ele começa a nascer durante a conversa, usando o que já foi descoberto sobre o problema, o objeto e o quantitativo.",
+    etp: "O **Estudo Técnico Preliminar (ETP)** organiza o problema, as alternativas, a solução, os quantitativos e os riscos. No LEX ele reaproveita o DNA do objeto e destaca o que ainda precisa ser confirmado.",
+    tr: "O **Termo de Referência (TR)** transforma a solução escolhida em regras claras de execução: escopo, requisitos, responsabilidades, medição, prazos e condições. Ele deve usar as definições já consolidadas no DFD e no ETP.",
     pesquisa: "A **pesquisa de preços** levanta o valor de mercado com mínimo de 3 referências — define o valor estimado e evita superfaturamento.",
     dotacao: "A **dotação orçamentária** é o 'lugar' no orçamento de onde sai o dinheiro (função, subfunção, natureza de despesa). Sem ela, não há empenho nem contrato.",
     minuta: "A **minuta do edital/TR** é o rascunho oficial da contratação — descreve objeto, regras, prazos e condições.",

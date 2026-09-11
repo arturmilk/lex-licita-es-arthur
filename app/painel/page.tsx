@@ -1,9 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, AlertTriangle, Clock, CheckCircle2, Users, Sparkles, Loader2, Bell, ArrowRight, Inbox, Hourglass, Search, FileText, BookOpen } from "lucide-react";
+import { CalendarClock, AlertTriangle, Clock, CheckCircle2, Users, Bell, ArrowRight, Inbox, Hourglass, Search, FileText, BookOpen } from "lucide-react";
 import { obterPainelServidor, marcarAlertaLido, buscarTudo, consultarLegislacao } from "@/lib/actions-intencao";
-import { entenderIntencao, criarProcessoPorIntencao } from "@/lib/actions-intencao";
 
 function fmtData(d: Date | string | null) {
   if (!d) return "—";
@@ -35,16 +34,10 @@ function badgeStatus(status: string) {
 export default function PainelPage() {
   const [painel, setPainel] = useState<any | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [intencao, setIntencao] = useState("");
-  const [sugestoes, setSugestoes] = useState<any[] | null>(null);
-  const [tipos, setTipos] = useState<any[]>([]);
-  const [analisando, setAnalisando] = useState(false);
-  const [criando, setCriando] = useState(false);
   const [busca, setBusca] = useState("");
   const [resultadoBusca, setResultadoBusca] = useState<any | null>(null);
   const [legis, setLegis] = useState<any[] | null>(null);
   const [perguntaLei, setPerguntaLei] = useState("");
-  const [novoProcesso, setNovoProcesso] = useState<any | null>(null);
   // Aba ativa das tarefas (formato dashboard — seções com abas)
   const [abaTarefas, setAbaTarefas] = useState("hoje");
 
@@ -52,27 +45,6 @@ export default function PainelPage() {
     obterPainelServidor().then(setPainel).catch((e) => setErro(String(e?.message || e)));
   }, []);
 
-  async function detectar() {
-    if (intencao.trim().length < 5) return;
-    // Agora o fluxo vai para o CHAT GUIADO (assistente conversacional) —
-    // o servidor conversa com o sistema em vez de escolher numa lista.
-    window.location.href = `/assistente?intencao=${encodeURIComponent(intencao.trim())}`;
-  }
-
-  async function criar(tipoId: string) {
-    setCriando(true);
-    try {
-      const r = await criarProcessoPorIntencao(intencao, tipoId);
-      setNovoProcesso(r);
-      setSugestoes(null);
-      setIntencao("");
-      setPainel(await obterPainelServidor());
-    } catch (e: any) {
-      setErro(String(e?.message || e));
-    } finally {
-      setCriando(false);
-    }
-  }
 
   async function lerAlerta(id: string) {
     await marcarAlertaLido(id);
@@ -91,80 +63,16 @@ export default function PainelPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Painel de trabalho</h1>
-          <p className="text-sm text-slate-500">O que você precisa fazer hoje, sem procurar em menus.</p>
-        </div>
-        <Link href="/processos" className="inline-flex items-center gap-1.5 text-sm text-[#032650] hover:text-[#042f5e] font-medium">
-          Ver processos <ArrowRight size={14} />
-        </Link>
-      </div>
-
       {erro && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{erro}</div>}
 
-      {/* ============ O QUE VOCÊ PRECISA FAZER? (coração do sistema) ============ */}
-      <div className="mb-6 rounded-2xl border-2 border-[#d5dce8] bg-gradient-to-br from-[#eef2f8] to-white p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-2">
-          <Sparkles size={18} className="text-[#032650]" />
-          <h2 className="font-bold text-indigo-900">O que você precisa fazer?</h2>
+      <div className="flex items-end justify-between gap-4 mb-5">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-800">O que tenho pra fazer hoje</h1>
+          <p className="text-sm text-slate-500 mt-1">Tarefas, pendências e alertas que precisam da sua atenção.</p>
         </div>
-        <p className="text-sm text-[#032650]/70 mb-3">
-          Digite em linguagem normal. O sistema identifica o procedimento, monta o caminho e conduz você etapa por etapa.
-        </p>
-        <div className="flex gap-2">
-          <input
-            value={intencao}
-            onChange={(e) => setIntencao(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && detectar()}
-            placeholder="Ex.: Preciso iniciar uma contratação de manutenção de ar-condicionado"
-            className="flex-1 px-4 py-2.5 rounded-xl border-2 border-[#d5dce8] focus:outline-none focus:border-[#C9A227] focus:ring-4 focus:ring-indigo-50 text-sm bg-white"
-          />
-          <button
-            onClick={detectar}
-            disabled={analisando || intencao.trim().length < 5}
-            className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#032650] text-white text-sm font-semibold hover:bg-[#032650] disabled:opacity-50 transition-colors cursor-pointer"
-          >
-            {analisando ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-            Entender
-          </button>
-        </div>
-
-        {/* Sugestões de tipo de processo */}
-        {sugestoes && (
-          <div className="mt-4 space-y-2">
-            <p className="text-xs font-semibold text-[#C9A227] uppercase tracking-wide">Identifiquei o procedimento. Confirme:</p>
-            {sugestoes.map((s) => (
-              <button
-                key={s.tipoProcessoId}
-                onClick={() => criar(s.tipoProcessoId)}
-                disabled={criando}
-                className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl bg-white border border-[#d5dce8] hover:border-[#C9A227] hover:bg-[#eef2f8] transition-colors text-left cursor-pointer"
-              >
-                <div>
-                  <p className="font-semibold text-slate-800">{s.nomeTipo}</p>
-                  <p className="text-xs text-slate-500">
-                    Confiança: {Math.round(s.confianca * 100)}% · palavras: {s.palavrasChave.join(", ") || "geral"}
-                  </p>
-                </div>
-                {criando ? <Loader2 size={16} className="animate-spin text-[#C9A227]" /> : <ArrowRight size={16} className="text-[#C9A227]" />}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Processo criado */}
-        {novoProcesso && (
-          <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4">
-            <p className="flex items-center gap-2 font-semibold text-green-800">
-              <CheckCircle2 size={16} /> Processo criado com sucesso!
-            </p>
-            <p className="text-sm text-green-700 mt-1">
-              {novoProcesso.processo.numero} · {novoProcesso.tipo.nome} · <strong>{novoProcesso.totalEtapas} etapas guiadas</strong> criadas.
-            </p>
-            <p className="text-xs text-green-600 mt-1">O sistema vai conduzir você etapa por etapa. Veja no painel abaixo.</p>
-          </div>
-        )}
+        <Link href="/processos" className="hidden sm:inline-flex items-center gap-1.5 text-sm text-[#032650] hover:text-[#042f5e] font-medium">
+          Ver processos <ArrowRight size={14} />
+        </Link>
       </div>
 
       {/* ============ MÉTRICAS GRANDES (formato dashboard) ============ */}

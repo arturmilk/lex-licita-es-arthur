@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Loader2, FileText, Plus, ChevronRight, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { listarProcessos, apagarProcesso } from "@/lib/actions";
 
 interface ProcessoRow {
@@ -25,6 +26,7 @@ export default function ProcessosPage() {
   const [rows, setRows] = useState<ProcessoRow[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [apagando, setApagando] = useState<string | null>(null);
+  const dentroHistoricos = usePathname() === "/historicos";
 
   useEffect(() => {
     listarProcessos()
@@ -52,12 +54,14 @@ export default function ProcessosPage() {
           <h1 className="text-xl font-semibold text-slate-800">Processos</h1>
           <p className="text-sm text-slate-500 mt-0.5">Processos licitatórios vinculados ao órgão</p>
         </div>
-        <Link
-          href="/pesquisa/nova"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-medium hover:bg-[#032650] transition-colors"
-        >
-          <Plus className="w-4 h-4" /> Nova pesquisa
-        </Link>
+        {!dentroHistoricos && (
+          <Link
+            href="/pesquisa/nova"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#032650] text-white text-sm font-semibold shadow-sm hover:bg-[#042f5e] hover:shadow-md transition-all"
+          >
+            <Plus className="w-4 h-4" /> Nova pesquisa de preço
+          </Link>
+        )}
       </div>
 
       {erro && (
@@ -123,18 +127,19 @@ export default function ProcessosPage() {
                     <p className="text-sm text-slate-800 mb-1" title={r.objeto}>{r.objeto}</p>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-slate-500">{r.unidade || "—"} · {new Date(r.updatedAt).toLocaleDateString("pt-BR")}</span>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#d5dce8] bg-white text-xs font-semibold text-[#032650] hover:bg-[#eef2f8] hover:border-[#b8c5d6] transition-colors">
+                          Abrir <ChevronRight size={12} />
+                        </Link>
                         <button
                           onClick={() => apagar(r.id)}
                           disabled={apagando === r.id}
-                          className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg cursor-pointer disabled:opacity-50 transition-colors"
-                          title="Apagar processo"
+                          className="w-8 h-8 inline-flex items-center justify-center rounded-lg text-red-500 bg-white border border-red-100 hover:bg-red-50 hover:border-red-200 cursor-pointer disabled:opacity-50 transition-colors"
+                          title="Excluir processo"
+                          aria-label="Excluir processo"
                         >
-                          {apagando === r.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                          {apagando === r.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                         </button>
-                        <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-[#042f5e]">
-                          Guiar <ChevronRight size={12} />
-                        </Link>
                       </div>
                     </div>
                   </div>
@@ -146,7 +151,7 @@ export default function ProcessosPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    {["Número", "Objeto", "Unidade", "Status", "Atualizado", "Ação"].map(h => (
+                    {["Número", "Objeto", "Unidade", "Status", "Atualizado", "Ações"].map(h => (
                       <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
                     ))}
                   </tr>
@@ -165,17 +170,17 @@ export default function ProcessosPage() {
                         <td className="py-2.5 px-4 text-slate-500 text-xs">{new Date(r.updatedAt).toLocaleDateString("pt-BR")}</td>
                         <td className="py-2.5 px-4">
                           <div className="flex items-center gap-2">
-                            <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center gap-1 text-xs font-semibold text-[#032650] hover:text-[#042f5e]">
-                              Guiar <ChevronRight size={12} />
+                            <Link href={`/processos/${r.id}/jornada`} className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#d5dce8] bg-white text-xs font-semibold text-[#032650] hover:bg-[#eef2f8] hover:border-[#b8c5d6] transition-colors">
+                              Abrir processo <ChevronRight size={12} />
                             </Link>
                             <button
                               onClick={() => apagar(r.id)}
                               disabled={apagando === r.id}
-                              className="inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-lg cursor-pointer disabled:opacity-50 transition-colors"
+                              className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-red-600 bg-white border border-red-100 hover:bg-red-50 hover:border-red-200 cursor-pointer disabled:opacity-50 transition-colors"
                               title="Apagar processo"
                             >
                               {apagando === r.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                              Apagar
+                              Excluir
                             </button>
                           </div>
                         </td>

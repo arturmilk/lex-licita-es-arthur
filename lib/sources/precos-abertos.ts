@@ -1,3 +1,4 @@
+import { readFile, writeFile, mkdir, stat } from "node:fs/promises";
 import type { BuscaParams, ResultadoFonte, ResultadoBruto } from "./types";
 
 // Pesquisa de Preços em Dados Abertos — Compras.gov.br
@@ -19,6 +20,7 @@ interface RegistroPreco {
   descricaoItem: string; nomeFornecedor?: string; marca?: string;
   nomeUasg?: string; estado?: string; municipio?: string;
   idCompra?: number; codigoPdm?: number; nomePdm?: string; objetoCompra?: string;
+  codigoItemCatalogo?: number; codigoServico?: number;
 }
 
 // ─── Palavras-chave que indicam SERVIÇO de TI / serviço em geral ──────────────
@@ -63,10 +65,24 @@ async function carregarCatalogo(tipo: "material" | "servico"): Promise<Pdm[]> {
   const endpointLista = tipo === "material"
     ? "modulo-material/3_consultarPdmMaterial"
     : "modulo-servico/3_consultarPdmServico";
+  const cacheDir = process.env.LEX_CACHE_DIR || "/tmp/lex-cache";
+  const cacheFile = `${cacheDir}/catalogo-pdm-${tipo}.json`;
 
   const c = g[cacheKey];
   if (c?.pdms?.length && Date.now() - c.ts < CACHE_MS) return c.pdms;
   if (c?.promise) return c.promise;
+
+  // Cache persistente: evita baixar o catálogo inteiro após cada restart.
+  try {
+    const st = await stat(cacheFile);
+    if (Date.now() - st.mtimeMs < CACHE_MS) {
+      const parsed = JSON.parse(await readFile(cacheFile, "utf8"));
+      if (Array.isArray(parsed) && parsed.length) {
+        g[cacheKey] = { pdms: parsed, ts: Date.now(), promise: undefined };
+        return parsed;
+      }
+    }
+  } catch { /* primeira carga ou cache expirado */ }
 
   const promise = (async () => {
     const pdms: Pdm[] = [];
@@ -75,11 +91,15 @@ async function carregarCatalogo(tipo: "material" | "servico"): Promise<Pdm[]> {
     pdms.push(...primeira.resultado);
     const total = primeira.totalPaginas || 1;
     for (let p = 2; p <= total; p++) {
-      await sleep(400);
+      await sleep(120);
       const d = await getJson(`${BASE}/${endpointLista}?pagina=${p}&tamanhoPagina=500`);
       if (d?.resultado) pdms.push(...d.resultado);
     }
     g[cacheKey] = { pdms, ts: Date.now(), promise: undefined };
+    try {
+      await mkdir(cacheDir, { recursive: true });
+      await writeFile(cacheFile, JSON.stringify(pdms), "utf8");
+    } catch { /* cache em disco é otimização, não requisito */ }
     return pdms;
   })();
 
@@ -204,7 +224,7 @@ async function buscarPrecos(
 ): Promise<RegistroPreco[]> {
   const endpoint = tipo === "material"
     ? "modulo-pesquisa-preco/1_consultarMaterial"
-    : "modulo-pesquisa-preco/1_consultarServico";
+    : "modulo-pesquisa-preco/3_consultarServico";
 
   const registros: RegistroPreco[] = [];
   for (const pdm of pdms) {
@@ -226,6 +246,8 @@ async function buscarPrecos(
         nomeUasg: r.nomeUasg, estado: r.estado, municipio: r.municipio,
         idCompra: r.idCompra, codigoPdm: pdm, nomePdm: r.nomePdm || r.nomeServico,
         objetoCompra: r.objetoCompra,
+        codigoItemCatalogo: r.codigoItemCatalogo != null ? Number(r.codigoItemCatalogo) : undefined,
+        codigoServico: r.codigoServico != null ? Number(r.codigoServico) : undefined,
       });
     }
     await sleep(600);

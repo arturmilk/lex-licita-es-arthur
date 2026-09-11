@@ -1,0 +1,60 @@
+{
+  "data": "2026-09-10T13:55:09.524Z",
+  "pedido": "Aquisição de notebook para equipes de fiscalização ambiental itinerante, com tela de 15,6 polegadas, memória RAM de 16 GB, SSD de 512 GB, processador com 8 núcleos, sistema operacional proprietário e garantia on-site de 36 meses",
+  "termoPesquisa": "notebook",
+  "catmat": {
+    "tipo": "CATMAT",
+    "codigo": 482382,
+    "descricao": "NOTEBOOK, TELA: SUPERIOR A 14 POL, INTERATIVIDADE DA TELA: SEM INTERATIVIDADE , MEMÓRIA RAM: SUPERIOR A 8 GB, NÚCLEOS POR PROCESSADOR: 4 A 8 , ARMAZENAMENTO HDD: SEM DISCO HDD GB, ARMAZENAMENTO SSD: SUPERIOR A 500 , BATERIA: SUPERIOR A 4 CÉLULAS , ALIMENTAÇÃO: BIVOLT AUTOMÁTICA , SISTEMA OPERACIONAL: PROPRIETÁRIO , GARANTIA ON SITE: 36 MESES",
+    "pdm": 8435,
+    "nomePdm": "NOTEBOOK",
+    "grupo": "70 INFORMÁTICA - EQUIPAMENTOS,  PEÇAS, ACESSÓRIOS E SUPRIMENTOSDE TIC",
+    "classe": "7010 COMPUTADORES",
+    "confianca": "alta",
+    "nota": "O CATMAT 482382 atende a todas as especificações: tela superior a 14 pol (15,6 pol), RAM superior a 8 GB (16 GB), SSD superior a 500 GB (512 GB), processador de 4 a 8 núcleos (8 núcleos), sistema operacional proprietário e garantia on-site de 36 meses. Os demais códigos divergem em garantia, SSD, sistema operacional ou interatividade da tela. Aderência alta; manter confirmação técnica antes da aprovação final.",
+    "fonte": "Compras.gov.br — Dados Abertos / CATMAT"
+  },
+  "estimativa": {
+    "valorUnitario": 5490,
+    "valorTotal": 98820,
+    "quantidade": 18,
+    "unidade": "unidade",
+    "media": 5926,
+    "mediana": 5490,
+    "minimo": 4890,
+    "maximo": 7398,
+    "referencias": 3,
+    "metodo": "Mediana dos preços unitários comparáveis, após tratamento conservador de valores discrepantes pelo intervalo interquartil.",
+    "escopoAmostra": "Referências do CATMAT 482382 e/ou do PDM 8435, priorizadas por aderência ao objeto.",
+    "fontePrincipal": "Compras.gov.br — módulo público de Pesquisa de Preços"
+  },
+  "perguntasIniciais": 11,
+  "autoPreenchidos": 8,
+  "tamanhoDocumento": 38039,
+  "unresolved": 25,
+  "auditoria": {
+    "ok": true,
+    "faltantes": [],
+    "alertas": []
+  },
+  "checks": {
+    "seisMiniagentes": true,
+    "termoPesquisa": true,
+    "catmatAltaOuMedia": true,
+    "estimativa3Refs": true,
+    "valorTotalCoerente": true,
+    "conversaReduziuPerguntas": true,
+    "documentoInteiro": true,
+    "seisBlocosNaOrdem": true,
+    "contemCatmat": true,
+    "contemEstimativa": true,
+    "contemPcaConfirmado": true,
+    "semRegimeAntigo": true,
+    "temMercado": true,
+    "temParcelamento": true,
+    "temViabilidade": true,
+    "auditoriaMinimos": true,
+    "encerraComAnexos": true
+  },
+  "falhas": []
+}

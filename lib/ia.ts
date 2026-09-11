@@ -16,12 +16,12 @@ interface ChatMsg {
   content: string;
 }
 
-export async function chat(messages: ChatMsg[], temperature = 0.3): Promise<string> {
+export async function chat(messages: ChatMsg[], temperature = 0.3, maxTokens = 2000): Promise<string> {
   if (!API_KEY) throw new Error("DEEPSEEK_API_KEY não configurada.");
   const res = await fetch(`${BASE_URL}/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${API_KEY}` },
-    body: JSON.stringify({ model: MODEL, messages, temperature, max_tokens: 2000 }),
+    body: JSON.stringify({ model: MODEL, messages, temperature, max_tokens: Math.max(500, Math.min(maxTokens, 7000)) }),
   });
   if (!res.ok) {
     const txt = await res.text().catch(() => "");

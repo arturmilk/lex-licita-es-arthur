@@ -78,6 +78,29 @@ interface ResultadoPNCP {
   dadosBrutos?: Record<string, unknown>;
 }
 
+interface CatalogoOpcaoUI {
+  tipo: "CATMAT" | "CATSER";
+  codigo: number;
+  descricao: string;
+  pdm?: number | null;
+  nomePdm?: string;
+  principal: boolean;
+  confianca: "alta" | "media" | "baixa";
+  nota: string;
+  requisitosComparados: number;
+  diferencas?: string[];
+}
+
+interface CatalogoItemState {
+  opcoes: CatalogoOpcaoUI[];
+  selecionado?: number;
+  carregando?: boolean;
+  desatualizado?: boolean;
+  alerta?: string | null;
+  erro?: string | null;
+  estimativaPreliminar?: any;
+}
+
 const UNIDADES_MEDIDA = [
   "unidade", "kit", "lote", "serviço",
   "kg", "g", "ton",
@@ -106,6 +129,26 @@ const STEP_NAMES: Record<number, string> = {
   15: "Evidências", 16: "Relatório final",
 };
 
+
+const GUIA_STEP: Record<number, { pergunta: string; orientacao: string }> = {
+  1: { pergunta: "O que exatamente você precisa pesquisar?", orientacao: "Conte do seu jeito. O LEX identifica objeto, parcelamento, local, itens, quantidades e unidades quando essas informações estiverem claras." },
+  2: { pergunta: "Os itens ou lotes representam corretamente o que será comprado ou contratado?", orientacao: "Confira descrição, especificação, quantidade e unidade. Quanto mais comparável estiver o item, melhor será a pesquisa." },
+  3: { pergunta: "Qual processo administrativo está dando origem a esta pesquisa?", orientacao: "Complete somente a identificação do processo. O órgão e o responsável já são aproveitados do cadastro quando disponíveis." },
+  4: { pergunta: "Você já tem cotações, notas, propostas ou preços coletados fora das bases públicas?", orientacao: "Registre aqui as referências manuais. Elas continuam separadas, rastreáveis e entram no relatório com fonte e CNPJ." },
+  5: { pergunta: "Pronto para consultar as fontes públicas?", orientacao: "O LEX prepara termos de busca por item e consulta as fontes disponíveis sem apagar as referências manuais." },
+  6: { pergunta: "Foi isso que você quis pesquisar?", orientacao: "Revise o que a IA extraiu e confirme os itens. Esta é a hora de corrigir qualquer interpretação antes da coleta de preços." },
+  7: { pergunta: "Como a pesquisa deve ser comparada?", orientacao: "Defina período, região, quantidade mínima de referências, método estatístico e limite de variação. O LEX mantém os padrões quando você não pedir mudança." },
+  8: { pergunta: "Quer ajustar algum parâmetro antes da busca?", orientacao: "Faça o último ajuste de abrangência. Depois o LEX pesquisa e organiza os resultados por relevância." },
+  9: { pergunta: "Quais referências realmente são comparáveis ao seu objeto?", orientacao: "Aceite, rejeite, filtre e ordene. A IA ajuda a priorizar, mas a decisão fica visível e auditável." },
+  10: { pergunta: "Quer que o LEX escreva a justificativa técnica da amostra?", orientacao: "A IA usa somente as referências e estatísticas calculadas. Você pode revisar a análise antes de seguir." },
+  11: { pergunta: "A amostra está consistente?", orientacao: "Confira média, mediana, mínimo, máximo, desvio padrão e coeficiente de variação antes de gerar a estimativa." },
+  12: { pergunta: "Qual é a estimativa resultante?", orientacao: "Aqui o LEX mostra valor unitário, valor total, método efetivamente aplicado e os alertas que influenciaram o cálculo." },
+  13: { pergunta: "Como a metodologia deve aparecer no relatório?", orientacao: "Revise tendência central, parâmetros estatísticos e tratamento de ME/EPP sem perder a memória de cálculo já formada." },
+  14: { pergunta: "Esta contratação precisa de composição ou decomposição de custos?", orientacao: "Quando aplicável, detalhe insumos, mão de obra, encargos, BDI e outros custos para comparar a composição com o mercado." },
+  15: { pergunta: "As evidências da pesquisa estão completas?", orientacao: "Confira links, registros e documentos que demonstram de onde vieram os preços usados na estimativa." },
+  16: { pergunta: "Pronto para fechar a pesquisa?", orientacao: "Exporte o relatório final em PDF e a planilha XLSX com memória de cálculo, fontes, estatísticas, justificativas e evidências." },
+};
+
 export default function NovaPesquisaPage() {
   const [step, setStep] = useState(1);
   const totalSteps = 16;
@@ -125,6 +168,11 @@ export default function NovaPesquisaPage() {
   });
   const [decomposicaoCustos, setDecomposicaoCustos] = useState<ComposicaoItem[]>([]);
   const [erroExtracao, setErroExtracao] = useState<string | null>(null);
+  const [pedidoGuiado, setPedidoGuiado] = useState("");
+  const [interpretandoGuiado, setInterpretandoGuiado] = useState(false);
+  const [resultadoGuiado, setResultadoGuiado] = useState<any | null>(null);
+  const [erroGuiado, setErroGuiado] = useState<string | null>(null);
+  const [catalogoPorItem, setCatalogoPorItem] = useState<Record<string, CatalogoItemState>>({});
 
   React.useEffect(() => {
     fetch("/api/auth/session")
@@ -190,6 +238,31 @@ export default function NovaPesquisaPage() {
   const nextStep = useCallback(() => setStep(s => Math.min(s + 1, totalSteps)), []);
   const prevStep = useCallback(() => setStep(s => Math.max(s - 1, 1)), []);
   const goToStep = useCallback((s: number) => { if (s >= 1 && s <= totalSteps) setStep(s); }, []);
+
+
+  React.useEffect(() => {
+    if (formaParcelamento === "lote") {
+      // Lotes podem reunir unidades incompatíveis; não força um quantitativo global artificial.
+      setQuantidade(0);
+      setUnidadeMedida("");
+      return;
+    }
+    const validos = itens.filter(i => i.quantidade > 0 && i.unidadeMedida);
+    if (validos.length === 0) {
+      setQuantidade(0);
+      setUnidadeMedida("");
+      return;
+    }
+    const unidades = Array.from(new Set(validos.map(i => i.unidadeMedida.trim().toLowerCase())));
+    if (unidades.length === 1) {
+      setQuantidade(validos.reduce((soma, i) => soma + i.quantidade, 0));
+      setUnidadeMedida(validos[0].unidadeMedida);
+    } else {
+      // Unidades diferentes devem ser estimadas por item; evita somar grandezas incompatíveis.
+      setQuantidade(0);
+      setUnidadeMedida("");
+    }
+  }, [itens, formaParcelamento]);
   // Volta para a etapa de Resultados (9) para aceitar referências
   const nextStepToResultados = useCallback(() => setStep(9), []);
 
@@ -249,11 +322,61 @@ export default function NovaPesquisaPage() {
     const novo = [...itens];
     (novo[idx] as unknown as Record<string, unknown>)[field] = value;
     setItens(novo);
+    if (field === "descricao" || field === "especificacao") {
+      const id = novo[idx]?.id;
+      if (id) setCatalogoPorItem(prev => prev[id] ? ({ ...prev, [id]: { ...prev[id], desatualizado: true } }) : prev);
+    }
   };
   const removeItem = (idx: number) => {
     const removido = itens[idx];
     setItens(itens.filter((_, i) => i !== idx));
-    if (removido) setExpandido(e => { const n = { ...e }; delete n[removido.id]; return n; });
+    if (removido) {
+      setExpandido(e => { const n = { ...e }; delete n[removido.id]; return n; });
+      setCatalogoPorItem(prev => { const n = { ...prev }; delete n[removido.id]; return n; });
+    }
+  };
+
+  const buscarCatalogoParaItem = async (item: ItemPesquisa | SubItem) => {
+    if (!item?.id || item.descricao.trim().length < 3) return;
+    setCatalogoPorItem(prev => ({ ...prev, [item.id]: { ...(prev[item.id] || { opcoes: [] }), carregando: true, erro: null, desatualizado: false } }));
+    try {
+      const resp = await fetch("/api/catalogo/sugestoes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          descricao: item.descricao,
+          especificacao: item.especificacao,
+          quantidade: item.quantidade || null,
+          unidade: item.unidadeMedida || null,
+          localEntrega: localEntrega || null,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.error || "Falha ao consultar o catálogo oficial.");
+      const opcoes: CatalogoOpcaoUI[] = Array.isArray(data.opcoes) ? data.opcoes : [];
+      setCatalogoPorItem(prev => ({
+        ...prev,
+        [item.id]: {
+          opcoes,
+          selecionado: Number(data.principalCodigo) || opcoes[0]?.codigo,
+          carregando: false,
+          desatualizado: false,
+          alerta: data.alerta || null,
+          estimativaPreliminar: data.estimativaPreliminar || null,
+        },
+      }));
+    } catch (e: any) {
+      setCatalogoPorItem(prev => ({ ...prev, [item.id]: { ...(prev[item.id] || { opcoes: [] }), carregando: false, erro: String(e?.message || e), desatualizado: false } }));
+    }
+  };
+
+  const buscarCatalogosParaItens = async (lista: ItemPesquisa[]) => {
+    const alvos = lista.filter(i => i.descricao.trim().length >= 3).slice(0, 12);
+    await Promise.allSettled(alvos.map(buscarCatalogoParaItem));
+  };
+
+  const selecionarCatalogo = (itemId: string, codigo: number) => {
+    setCatalogoPorItem(prev => prev[itemId] ? ({ ...prev, [itemId]: { ...prev[itemId], selecionado: codigo, desatualizado: false } }) : prev);
   };
 
   // ── Sub-itens do lote ────────────────────────────────────────────────────────
@@ -269,11 +392,17 @@ export default function NovaPesquisaPage() {
     (subs[subIdx] as unknown as Record<string, unknown>)[field] = value;
     novo[loteIdx] = { ...novo[loteIdx], subitens: subs };
     setItens(novo);
+    if (field === "descricao" || field === "especificacao") {
+      const id = subs[subIdx]?.id;
+      if (id) setCatalogoPorItem(prev => prev[id] ? ({ ...prev, [id]: { ...prev[id], desatualizado: true } }) : prev);
+    }
   };
   const removeSubItem = (loteIdx: number, subIdx: number) => {
     const novo = [...itens];
+    const removido = (novo[loteIdx].subitens || [])[subIdx];
     novo[loteIdx] = { ...novo[loteIdx], subitens: (novo[loteIdx].subitens || []).filter((_, i) => i !== subIdx) };
     setItens(novo);
+    if (removido) setCatalogoPorItem(prev => { const n = { ...prev }; delete n[removido.id]; return n; });
   };
 
   // ── Pesquisa de mercado (manual) ────────────────────────────────────────────
@@ -374,6 +503,84 @@ export default function NovaPesquisaPage() {
     setIaLoading(false);
   };
 
+  const interpretarPedidoGuiado = async () => {
+    if (pedidoGuiado.trim().length < 8 || interpretandoGuiado) return;
+    setInterpretandoGuiado(true);
+    setErroGuiado(null);
+    setResultadoGuiado(null);
+    try {
+      const resp = await fetch("/api/ia/pesquisa-guiada", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pedido: pedidoGuiado,
+          contexto: {
+            objeto: objetoDesc || null,
+            formaParcelamento: formaParcelamento || null,
+            localEntrega: localEntrega || null,
+            itens: itens.map(i => ({ descricao: i.descricao, especificacao: i.especificacao, quantidade: i.quantidade || null, unidadeMedida: i.unidadeMedida || null })),
+            processo: { numero: processo.numero || null, unidade: processo.unidade || null },
+            parametros: config,
+          },
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.error || "Não consegui interpretar a solicitação.");
+
+      if (data.objeto && !objetoDesc.trim()) setObjetoDesc(data.objeto);
+      if (data.formaParcelamento && !formaParcelamento) setFormaParcelamento(data.formaParcelamento);
+      if (data.localEntrega && !localEntrega.trim()) setLocalEntrega(data.localEntrega);
+      if (data.processo?.numero && !processo.numero.trim()) setProcesso(p => ({ ...p, numero: data.processo.numero }));
+      if (data.processo?.unidade && !processo.unidade.trim()) setProcesso(p => ({ ...p, unidade: data.processo.unidade }));
+
+      if (Array.isArray(data.itens) && data.itens.length > 0 && itens.length === 0) {
+        const novos: ItemPesquisa[] = data.itens.map((i: any) => ({
+          id: crypto.randomUUID(),
+          descricao: i.descricao || "",
+          especificacao: i.especificacao || "",
+          quantidade: Number(i.quantidade) > 0 ? Number(i.quantidade) : 0,
+          unidadeMedida: i.unidadeMedida || "",
+          itemEdital: i.itemEdital || "",
+          obrigatorio: i.obrigatorio !== false,
+          subitens: [],
+        }));
+        setItens(novos);
+        setExpandido(Object.fromEntries(novos.map(i => [i.id, true])));
+        void buscarCatalogosParaItens(novos);
+      }
+
+      if (data.parametros) {
+        setConfig(c => ({
+          ...c,
+          periodo: data.parametros.periodo || c.periodo,
+          regiao: data.parametros.regiao || c.regiao,
+          qtdMin: data.parametros.qtdMin || c.qtdMin,
+          metodo: data.parametros.metodo || c.metodo,
+          cvLimite: data.parametros.cvLimite || c.cvLimite,
+        }));
+      }
+
+      if (Array.isArray(data.cotacoes) && data.cotacoes.length > 0 && pesquisaMercado.length === 0) {
+        setPesquisaMercado(data.cotacoes.map((c: any) => ({
+          id: crypto.randomUUID(),
+          itemId: "global",
+          fornecedor: c.fornecedor || "",
+          cnpj: c.cnpj || "",
+          fonte: c.fonte || "",
+          valor: Number(c.valor) > 0 ? Number(c.valor) : 0,
+          data: c.data || new Date().toISOString().slice(0, 10),
+          observacao: c.observacao || "",
+        })));
+      }
+
+      setResultadoGuiado(data);
+    } catch (err: any) {
+      setErroGuiado(String(err?.message || err));
+    } finally {
+      setInterpretandoGuiado(false);
+    }
+  };
+
   const pesquisarPNCP = async () => {
     setPesquisando(true); setResultados([]); setErroPesquisa(null); setParametrosBusca(null);
     setSituFiltro("todos"); setIaFiltroReady(false); setIaAnalisando(false);
@@ -425,6 +632,18 @@ export default function NovaPesquisaPage() {
         filtros: montarFiltros(),
         parametros: `objeto=${objetoDesc.slice(0, 60)}${localEntrega ? ` | local=${localEntrega}` : ""}`,
       });
+    } else if (formaParcelamento === "lote") {
+      for (const lote of itens) {
+        for (const sub of (lote.subitens || []).filter(s => (s.descricao || "").trim().length > 0)) {
+          alvos.push({
+            itemId: sub.id,
+            rotulo: `${lote.descricao || "Lote"} · ${sub.descricao}`.slice(0, 60),
+            termo: montarTermoBusca(sub),
+            filtros: montarFiltros(sub),
+            parametros: `${sub.descricao.slice(0, 60)}${sub.unidadeMedida ? ` | ${sub.quantidade || ""} ${sub.unidadeMedida}` : ""}${localEntrega ? ` | local=${localEntrega}` : ""}`,
+          });
+        }
+      }
     } else {
       const base = itens.filter(i => (i.descricao || "").trim().length > 0);
       for (const item of (base.length ? base : itens)) {
@@ -508,11 +727,16 @@ export default function NovaPesquisaPage() {
             valor_unitario: it.valorUnitario ?? null,  // contratos_govbr traz preço real pago
             valor_total: it.valorTotal ?? null,        // valor_total_estimado do edital (Opção A)
             localizacao: it.localizacao || "",
-            similaridade: it.similaridade ?? 0,
+            similaridade: (() => {
+              const escolhido = catalogoPorItem[alvo.itemId]?.selecionado;
+              const codigoResultado = Number(it?.dadosBrutos?.codigoItemCatalogo || 0);
+              const boostCatmat = escolhido && codigoResultado === escolhido ? 20 : 0;
+              return Math.min(100, Number(it.similaridade ?? 0) + boostCatmat);
+            })(),
             documento_origem: it.documentoOrigem || "",
             link_origem: it.linkEdital || "",
             status_avaliacao: "pendente" as const,
-            dadosBrutos: it.dadosBrutos || {},
+            dadosBrutos: { ...(it.dadosBrutos || {}), _catmatSelecionado: catalogoPorItem[alvo.itemId]?.selecionado || null },
           });
         });
       }
@@ -903,6 +1127,28 @@ export default function NovaPesquisaPage() {
     };
   };
 
+  const catalogoSelecionadoResumo = itens.flatMap((item, idx) => {
+    const alvos: { ref: ItemPesquisa | SubItem; rotulo: string }[] = formaParcelamento === "lote"
+      ? (item.subitens || []).map((sub, si) => ({ ref: sub, rotulo: `Lote ${idx + 1} · Item ${si + 1}` }))
+      : [{ ref: item, rotulo: `Item ${idx + 1}` }];
+    return alvos.map(({ ref, rotulo }) => {
+      const estadoCat = catalogoPorItem[ref.id];
+      const opcao = estadoCat?.opcoes?.find(o => o.codigo === estadoCat.selecionado);
+      return opcao ? {
+        item: rotulo,
+        itemId: ref.id,
+        descricaoItem: ref.descricao,
+        tipo: opcao.tipo,
+        codigo: opcao.codigo,
+        descricaoOficial: opcao.descricao,
+        pdm: opcao.pdm || null,
+        nomePdm: opcao.nomePdm || null,
+        confianca: opcao.confianca,
+        confirmadoNaPesquisa: true,
+      } : null;
+    }).filter(Boolean);
+  });
+
   const premissas = {
     processo: processo.numero,
     orgao: processo.orgao,
@@ -912,6 +1158,7 @@ export default function NovaPesquisaPage() {
     objeto: objetoDesc,
     formaParcelamento: formaParcelamento || "item",
     itens,
+    catalogoSelecionado: catalogoSelecionadoResumo,
     quantidade,
     unidadeMedida,
     localEntrega,
@@ -1013,6 +1260,7 @@ export default function NovaPesquisaPage() {
 
   // ─── Stepper helpers ────────────────────────────────────────────────────────
   const faseAtual = FASES.findIndex(f => f.steps.includes(step));
+  const itensEfetivos: (ItemPesquisa | SubItem)[] = formaParcelamento === "lote" ? itens.flatMap(i => i.subitens || []) : itens;
   const nAceitos = resultados.filter(r => r.status_avaliacao === "aceito").length;
   const nRejeitados = resultados.filter(r => r.status_avaliacao === "rejeitado").length;
 
@@ -1021,8 +1269,8 @@ export default function NovaPesquisaPage() {
       // ── Etapa 1: Objeto e parcelamento (2ª tela antiga  1ª posição) ────────
       case 1: return (
         <StepCard
-          title="Objeto da contratação e parcelamento"
-          desc="Primeiro, diga o que será contratado e como o fornecimento será dividido (por item, por lote ou preço global). Isso define os campos da próxima etapa."
+          title="Vamos preparar sua pesquisa"
+          desc="Comece do seu jeito. O LEX organiza o pedido, aponta o que falta e ajuda você a confirmar a classificação antes de buscar preços."
           footer={<><span /><Btn primary onClick={() => {
             if (!objetoDesc.trim()) {
               setErroStep1("Preencha a descrição do objeto antes de avançar.");
@@ -1030,9 +1278,138 @@ export default function NovaPesquisaPage() {
             }
             setErroStep1(null);
             nextStep();
-          }} icon={<ChevronRight size={15}/>}>Próximo</Btn></>}
+          }} icon={<ChevronRight size={15}/>}>Revisar itens</Btn></>}
         >
           <div className="space-y-5">
+            <div className="rounded-2xl border-2 border-[#d5dce8] bg-gradient-to-br from-[#eef2f8] to-white p-5 md:p-6 shadow-sm">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-[#032650] text-white flex items-center justify-center shrink-0">
+                  <Sparkles size={18} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-[#032650]">Conte para o LEX do seu jeito</p>
+                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">Você pode escrever como falaria com uma pessoa. Eu identifico as variáveis da pesquisa e preencho somente o que estiver claro. O restante eu transformo em perguntas.</p>
+                </div>
+              </div>
+              <div className="mb-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Exemplos para começar</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    "Preciso pesquisar 30 notebooks com 16 GB de RAM e SSD de 512 GB para entrega em Porto Velho/RO.",
+                    "Quero contratar manutenção preventiva e corretiva de 40 aparelhos de ar-condicionado por 12 meses.",
+                    "Precisamos comprar 500 resmas de papel A4 75 g/m² para o almoxarifado central.",
+                  ].map((ex, i) => (
+                    <button key={i} type="button" onClick={() => setPedidoGuiado(ex)} className="text-left text-[11px] leading-snug px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-[#C9A227] hover:bg-amber-50/40 transition-colors max-w-[250px]">
+                      {ex}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <textarea
+                value={pedidoGuiado}
+                onChange={e => setPedidoGuiado(e.target.value)}
+                placeholder="Ex.: Preciso pesquisar 30 notebooks para a Secretaria de Administração, entrega em Porto Velho. Cada um com 16 GB de RAM e SSD de 512 GB. Ainda não sei se faço por item ou lote."
+                className="w-full min-h-[120px] resize-y rounded-xl border-2 border-white bg-white px-4 py-3 text-sm text-slate-700 shadow-sm outline-none focus:border-[#C9A227] focus:ring-4 focus:ring-[#C9A227]/10"
+              />
+              <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                <button
+                  type="button"
+                  onClick={interpretarPedidoGuiado}
+                  disabled={interpretandoGuiado || pedidoGuiado.trim().length < 8}
+                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 rounded-xl bg-[#032650] text-white text-sm font-semibold shadow-sm hover:bg-[#042f5e] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  {interpretandoGuiado ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                  {interpretandoGuiado ? "Analisando sua solicitação…" : "Organizar meu pedido"}
+                </button>
+                <p className="text-[11px] text-slate-400">Nada é apagado e nenhum dado ausente é inventado.</p>
+              </div>
+
+              {erroGuiado && (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">{erroGuiado}</div>
+              )}
+
+              {resultadoGuiado && (
+                <div className="mt-4 rounded-xl border border-[#d5dce8] bg-white p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle2 size={15} className="text-green-600" />
+                    <p className="text-xs font-bold text-slate-800 uppercase tracking-wide">O que o LEX entendeu</p>
+                  </div>
+                  <p className="text-sm text-slate-700 leading-relaxed">{resultadoGuiado.resumo}</p>
+                  {Array.isArray(resultadoGuiado.perguntasFaltantes) && resultadoGuiado.perguntasFaltantes.length > 0 && (
+                    <div className="mt-3 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2.5">
+                      <p className="text-xs font-bold text-amber-800 mb-1.5">Antes de pesquisar, ainda preciso confirmar:</p>
+                      <ul className="space-y-1 text-xs text-amber-800">
+                        {resultadoGuiado.perguntasFaltantes.map((q: string, i: number) => <li key={i}>• {q}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                  {Array.isArray(resultadoGuiado.alertas) && resultadoGuiado.alertas.length > 0 && (
+                    <div className="mt-3 text-xs text-slate-500 space-y-1">
+                      {resultadoGuiado.alertas.map((a: string, i: number) => <p key={i}>Atenção: {a}</p>)}
+                    </div>
+                  )}
+                  {itens.length > 0 && Object.values(catalogoPorItem).some(c => c.carregando || c.opcoes?.length > 0) && (
+                    <div className="mt-4 border-t border-slate-100 pt-4">
+                      <div className="mb-2">
+                        <p className="text-xs font-bold text-slate-800">Classificação oficial sugerida</p>
+                        <p className="text-[11px] text-slate-500">O LEX procura CATMATs compatíveis, mas você confirma a opção antes da pesquisa.</p>
+                      </div>
+                      <div className="space-y-2">
+                        {itens.map((item, idx) => {
+                          const cat = catalogoPorItem[item.id];
+                          if (!cat) return null;
+                          const escolhido = cat.opcoes?.find(o => o.codigo === cat.selecionado);
+                          return (
+                            <div key={item.id} className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Item {idx + 1}</p>
+                                  <p className="text-xs font-semibold text-slate-700 truncate">{item.descricao}</p>
+                                </div>
+                                {cat.carregando ? <Loader2 size={15} className="animate-spin text-[#032650]" /> : escolhido ? (
+                                  <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-lg bg-[#032650] text-white">CATMAT {escolhido.codigo}</span>
+                                ) : <span className="text-[10px] text-amber-700">Revisar classificação</span>}
+                              </div>
+                              {escolhido && cat.opcoes.length > 1 && <p className="text-[10px] text-amber-700 mt-1.5">Há {cat.opcoes.length} opções plausíveis. Compare na próxima etapa.</p>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <p className="text-xs font-bold text-slate-700">Prontidão para pesquisar</p>
+                      <span className="text-[10px] font-bold text-[#032650]">{[!!objetoDesc.trim(), !!formaParcelamento, itens.length > 0, itens.length > 0 && itens.every(i => i.quantidade > 0 && !!i.unidadeMedida), !!localEntrega.trim()].filter(Boolean).length}/5 essenciais</span>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
+                      {[
+                        ["Objeto", !!objetoDesc.trim()],
+                        ["Divisão", !!formaParcelamento],
+                        ["Itens", itens.length > 0],
+                        ["Qtde./unidade", itens.length > 0 && itens.every(i => i.quantidade > 0 && !!i.unidadeMedida)],
+                        ["Local", !!localEntrega.trim()],
+                      ].map(([rotulo, ok]: any) => (
+                        <div key={rotulo} className={`rounded-lg px-2 py-1.5 text-[10px] font-semibold border ${ok ? "bg-green-50 text-green-700 border-green-100" : "bg-white text-slate-400 border-slate-200"}`}>
+                          {ok ? "✓ " : "○ "}{rotulo}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="mt-3 text-xs font-semibold text-[#032650]">Próximo passo: {resultadoGuiado.proximaAcao}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px bg-slate-200 flex-1" />
+              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">confirme ou ajuste abaixo</span>
+              <div className="h-px bg-slate-200 flex-1" />
+            </div>
+
             <Field label="Descrição do objeto (visão geral) *">
               <textarea
                 className="inp min-h-[110px] resize-y"
@@ -1042,19 +1419,29 @@ export default function NovaPesquisaPage() {
               />
               {erroStep1 && <p className="text-xs text-red-600 mt-1">{erroStep1}</p>}
             </Field>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Field label="Forma de parcelamento *">
-                <select className="inp" value={formaParcelamento} onChange={e => setFormaParcelamento(e.target.value as FormaParcelamento | "")}>
-                  <option value="">Selecione...</option>
-                  <option value="item">Por item</option>
-                  <option value="lote">Por lote</option>
-                  <option value="global">Preço global</option>
-                </select>
-              </Field>
-              <Field label="Local de entrega">
-                <input className="inp" placeholder="Ex: Porto Velho/RO" value={localEntrega} onChange={e => setLocalEntrega(e.target.value)} />
-              </Field>
+            <div>
+              <p className="text-xs font-semibold text-slate-700 mb-2">Como você quer comparar os preços?</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  { value: "item", titulo: "Por item", texto: "Cada item recebe sua própria pesquisa e estimativa." },
+                  { value: "lote", titulo: "Por lote", texto: "Agrupa itens que precisam ser avaliados em conjunto." },
+                  { value: "global", titulo: "Preço global", texto: "Uma única estimativa para a solução completa." },
+                ].map(op => (
+                  <button key={op.value} type="button" onClick={() => setFormaParcelamento(op.value as FormaParcelamento)} className={`rounded-xl border-2 p-3 text-left transition-all ${formaParcelamento === op.value ? "border-[#032650] bg-[#eef2f8] shadow-sm" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                    <div className="flex items-center gap-2">
+                      <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${formaParcelamento === op.value ? "border-[#032650]" : "border-slate-300"}`}>{formaParcelamento === op.value && <span className="w-2 h-2 rounded-full bg-[#032650]" />}</span>
+                      <span className="text-xs font-bold text-slate-800">{op.titulo}</span>
+                    </div>
+                    <p className="text-[11px] leading-relaxed text-slate-500 mt-1.5">{op.texto}</p>
+                  </button>
+                ))}
+              </div>
+              {!formaParcelamento && <p className="mt-2 text-[11px] text-slate-400">Se ainda não souber, descreva a necessidade acima e deixe o LEX ajudar a identificar.</p>}
             </div>
+            <Field label="Local de entrega ou execução">
+              <input className="inp" placeholder="Ex: Porto Velho/RO" value={localEntrega} onChange={e => setLocalEntrega(e.target.value)} />
+              <p className="text-[10px] text-slate-400 mt-1">O local ajuda a avaliar frete, disponibilidade regional e comparabilidade das referências.</p>
+            </Field>
             {formaParcelamento === "global" && (
               <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
                 <strong>Atenção:</strong> No preço global, o valor total será calculado diretamente, sem divisão por unidade.
@@ -1078,18 +1465,18 @@ export default function NovaPesquisaPage() {
               ? "Cadastre os lotes. Cada lote pode ser expandido para detalhar especificações minuciosas (tamanho, capacidade, potência etc.) e o nº do item no edital."
               : formaParcelamento === "global"
                 ? "Cadastre o item com especificação minuciosa. A especificação detalhada evita falhas de precificação por definições genéricas."
-                : "Cadastre os itens. Use o acordeão para expandir e detalhar cada item com especificação minuciosa, quantidade, unidade e nº do item no edital (PNCP)."
+                : "Revise cada item e confirme a classificação oficial sugerida. Se houver mais de um CATMAT plausível, o LEX mostra as opções para você comparar."
           }
           footer={<>
             <Btn onClick={prevStep}>Voltar</Btn>
             <Btn primary onClick={() => {
-              const validos = itens.filter(i => i.descricao.trim() && i.quantidade > 0);
+              const validos = itensEfetivos.filter(i => i.descricao.trim() && i.quantidade > 0 && i.unidadeMedida);
               if (validos.length === 0) {
-                alert("Adicione pelo menos um item com descrição e quantidade maior que zero.");
+                alert(formaParcelamento === "lote" ? "Adicione pelo menos um item dentro do lote com descrição, quantidade e unidade." : "Adicione pelo menos um item com descrição, quantidade e unidade.");
                 return;
               }
               nextStep();
-            }} icon={<ChevronRight size={15}/>}>Próximo</Btn>
+            }} icon={<ChevronRight size={15}/>}>Continuar para o processo</Btn>
           </>}
         >
           <div className="space-y-3">
@@ -1185,7 +1572,33 @@ export default function NovaPesquisaPage() {
                                       value={sub.especificacao}
                                       onChange={e => updateSubItem(idx, si, "especificacao", e.target.value)}
                                     />
+                                    <p className="text-[9px] text-slate-400 mt-1">Informe só características que mudam a comparação de preço; o LEX usa isso para eliminar CATMATs incompatíveis.</p>
                                   </Field>
+                                  <div className="rounded-xl border border-[#d5dce8] bg-white p-3">
+                                    <div className="flex items-center justify-between gap-2">
+                                      <div>
+                                        <p className="text-[11px] font-bold text-[#032650]">Classificação oficial do item</p>
+                                        <p className="text-[10px] text-slate-400 mt-0.5">Compare as opções CATMAT antes de pesquisar preços.</p>
+                                      </div>
+                                      <button type="button" onClick={() => buscarCatalogoParaItem(sub)} disabled={catalogoPorItem[sub.id]?.carregando || sub.descricao.trim().length < 3} className="inline-flex items-center gap-1 text-[10px] font-bold text-[#032650] border border-[#d5dce8] rounded-lg px-2.5 py-1.5 hover:bg-[#eef2f8] disabled:opacity-40">
+                                        {catalogoPorItem[sub.id]?.carregando ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
+                                        {catalogoPorItem[sub.id]?.opcoes?.length ? "Atualizar" : "Localizar"}
+                                      </button>
+                                    </div>
+                                    {catalogoPorItem[sub.id]?.desatualizado && <p className="mt-2 text-[10px] text-amber-700">A descrição mudou. Atualize antes de continuar.</p>}
+                                    {!!catalogoPorItem[sub.id]?.opcoes?.length && (
+                                      <div className="mt-2 space-y-1.5">
+                                        {catalogoPorItem[sub.id].opcoes.map(op => {
+                                          const sel = catalogoPorItem[sub.id]?.selecionado === op.codigo;
+                                          return <button key={op.codigo} type="button" onClick={() => selecionarCatalogo(sub.id, op.codigo)} className={`w-full text-left rounded-lg border px-2.5 py-2 ${sel ? "border-[#032650] bg-[#eef2f8]" : "border-slate-200 hover:border-slate-300"}`}>
+                                            <div className="flex flex-wrap items-center gap-1.5"><span className="text-[10px] font-bold text-slate-800">{op.tipo} {op.codigo}</span>{op.principal && <span className="text-[8px] font-bold bg-[#032650] text-white rounded px-1.5 py-0.5">LEX</span>}{sel && <span className="text-[8px] font-bold bg-green-100 text-green-700 rounded px-1.5 py-0.5">Selecionado</span>}</div>
+                                            <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">{op.descricao}</p>
+                                            {!!op.diferencas?.length && <p className="text-[9px] text-[#032650] mt-1"><b>Diferenças:</b> {op.diferencas.join(" · ")}</p>}
+                                          </button>;
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
                                   <div className="grid grid-cols-3 gap-2">
                                     <Field label="Quantidade *">
                                       <input type="number" className="inp bg-white" min={0}
@@ -1233,7 +1646,65 @@ export default function NovaPesquisaPage() {
                               value={item.especificacao}
                               onChange={e => updateItem(idx, "especificacao", e.target.value)}
                             />
+                            <p className="text-[10px] text-slate-400 mt-1"><b>O que ajuda o LEX:</b> capacidade, desempenho, dimensões, garantia, padrão de qualidade, frequência, prazo ou condição de execução que realmente altere o preço.</p>
                           </Field>
+                          <div className="rounded-2xl border border-[#d5dce8] bg-[#f8fafc] p-3 sm:p-4">
+                            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                              <div>
+                                <p className="text-xs font-bold text-[#032650]">CATMAT / CATSER sugerido</p>
+                                <p className="text-[11px] text-slate-500 mt-1">O código ajuda a encontrar referências comparáveis. O LEX sugere; a área técnica confirma.</p>
+                              </div>
+                              <button type="button" onClick={() => buscarCatalogoParaItem(item)} disabled={catalogoPorItem[item.id]?.carregando || item.descricao.trim().length < 3} className="inline-flex items-center justify-center gap-1.5 min-h-[36px] px-3 rounded-lg border border-[#d5dce8] bg-white text-[11px] font-bold text-[#032650] hover:bg-[#eef2f8] disabled:opacity-40">
+                                {catalogoPorItem[item.id]?.carregando ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+                                {catalogoPorItem[item.id]?.desatualizado ? "Atualizar classificação" : catalogoPorItem[item.id]?.opcoes?.length ? "Refazer análise" : "Localizar classificação"}
+                              </button>
+                            </div>
+                            {catalogoPorItem[item.id]?.desatualizado && (
+                              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800">A descrição mudou depois da última análise. Atualize a classificação antes de pesquisar.</div>
+                            )}
+                            {catalogoPorItem[item.id]?.erro && (
+                              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[11px] text-red-700">{catalogoPorItem[item.id]?.erro}</div>
+                            )}
+                            {!!catalogoPorItem[item.id]?.opcoes?.length && (
+                              <div className="mt-3 space-y-2">
+                                {catalogoPorItem[item.id].alerta && <p className="text-[11px] text-amber-700">{catalogoPorItem[item.id].alerta}</p>}
+                                {catalogoPorItem[item.id].opcoes.map(op => {
+                                  const selecionado = catalogoPorItem[item.id]?.selecionado === op.codigo;
+                                  return (
+                                    <button key={op.codigo} type="button" onClick={() => selecionarCatalogo(item.id, op.codigo)} className={`w-full rounded-xl border-2 p-3 text-left transition-all ${selecionado ? "border-[#032650] bg-white shadow-sm" : "border-slate-200 bg-white/70 hover:border-slate-300"}`}>
+                                      <div className="flex items-start gap-3">
+                                        <span className={`mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center ${selecionado ? "border-[#032650]" : "border-slate-300"}`}>{selecionado && <span className="w-2 h-2 rounded-full bg-[#032650]" />}</span>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="flex flex-wrap items-center gap-1.5">
+                                            <span className="text-xs font-bold text-slate-900">{op.tipo} {op.codigo}</span>
+                                            {op.principal && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#032650] text-white">Recomendado pelo LEX</span>}
+                                            {selecionado && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">Selecionado</span>}
+                                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${op.confianca === "alta" ? "bg-green-50 text-green-700" : op.confianca === "media" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"}`}>aderência {op.confianca}</span>
+                                          </div>
+                                          <p className="text-[11px] leading-relaxed text-slate-600 mt-1">{op.descricao}</p>
+                                          <p className="text-[10px] leading-relaxed text-slate-400 mt-1">{op.nota}</p>
+                                          {!!op.diferencas?.length && <p className="text-[10px] leading-relaxed text-[#032650] mt-1"><span className="font-bold">Diferenças:</span> {op.diferencas.join(" · ")}</p>}
+                                        </div>
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            )}
+                            {catalogoPorItem[item.id]?.estimativaPreliminar && (
+                              <div className="mt-3 rounded-xl border border-green-100 bg-green-50/60 px-3 py-2.5">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                                  <div>
+                                    <p className="text-[10px] font-bold uppercase tracking-wide text-green-700">Referência preliminar de apoio</p>
+                                    <p className="text-xs font-bold text-slate-800 mt-0.5">{formatarMoeda(Number(catalogoPorItem[item.id].estimativaPreliminar.valorUnitario || 0))} por {item.unidadeMedida || "unidade"}</p>
+                                  </div>
+                                  <span className="text-[10px] text-green-700">{catalogoPorItem[item.id].estimativaPreliminar.referencias || 0} referências comparáveis</span>
+                                </div>
+                                <p className="text-[9px] text-slate-500 mt-1">É apenas um sinal de mercado para orientar você. A estimativa oficial será formada nas etapas de pesquisa, revisão e cálculo.</p>
+                              </div>
+                            )}
+                          </div>
+
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             <Field label="Quantidade *">
                               <input
@@ -2954,18 +3425,18 @@ export default function NovaPesquisaPage() {
               ))}
             </ul>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
               onClick={() => { const bytes = gerarXLSX(relatorioData); downloadXLSX(bytes, `estimativa_${processo.numero.replace("/", "_")}.xlsx`); }}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 bg-white text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 hover:bg-slate-50 transition-colors w-full sm:w-auto"
             >
               Baixar XLSX
             </button>
             <PDFDownloadLink
               document={<RelatorioPDFDocument {...relatorioData} />}
               fileName={`estimativa_${processo.numero.replace("/", "_")}.pdf`}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-medium hover:bg-[#032650] transition-colors"
+              className="inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl bg-[#032650] text-white text-sm font-semibold hover:bg-[#042f5e] transition-colors w-full sm:w-auto"
             >
               Baixar PDF
             </PDFDownloadLink>
@@ -3030,6 +3501,32 @@ export default function NovaPesquisaPage() {
             className="h-full bg-[#eef2f8]0 transition-all duration-500"
             style={{ width: `${((step - 1) / (totalSteps - 1)) * 100}%` }}
           />
+        </div>
+      </div>
+
+      {/* ── Guia conversacional do LEX ─────────────────────────────────────── */}
+      <div className="max-w-3xl w-full mx-auto px-6 md:px-10 pt-5">
+        <div className="rounded-2xl border border-[#d5dce8] bg-white px-4 py-3.5 shadow-sm flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-[#eef2f8] flex items-center justify-center shrink-0">
+            <Sparkles size={16} className="text-[#032650]" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2 mb-1">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-[#032650]">LEX te guia</span>
+              <span className="text-[10px] font-semibold text-slate-400">Etapa {step} de {totalSteps} · {STEP_NAMES[step]}</span>
+            </div>
+            <p className="text-sm font-semibold text-slate-800">{GUIA_STEP[step]?.pergunta}</p>
+            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{GUIA_STEP[step]?.orientacao}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {objetoDesc && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-100 text-[10px] font-semibold">Objeto entendido</span>}
+              {itens.length > 0 && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-100 text-[10px] font-semibold">{itens.length} {itens.length === 1 ? "item" : "itens"}</span>}
+              {itensEfetivos.some(i => catalogoPorItem[i.id]?.selecionado) && <span className="px-2 py-1 rounded-lg bg-[#eef2f8] text-[#032650] border border-[#d5dce8] text-[10px] font-semibold">CATMAT confirmado em {itensEfetivos.filter(i => catalogoPorItem[i.id]?.selecionado).length}/{itensEfetivos.length}</span>}
+              {localEntrega && <span className="px-2 py-1 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 text-[10px] font-semibold">Local: {localEntrega}</span>}
+              {resultados.length > 0 && <span className="px-2 py-1 rounded-lg bg-[#eef2f8] text-[#032650] border border-[#d5dce8] text-[10px] font-semibold">{resultados.length} referências encontradas</span>}
+              {nAceitos > 0 && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-100 text-[10px] font-semibold">{nAceitos} aceitas</span>}
+              {precoEstimado && <span className="px-2 py-1 rounded-lg bg-[#032650] text-white text-[10px] font-semibold">Estimativa calculada</span>}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -3128,14 +3625,16 @@ function StepCard({
           <h2 className="text-lg font-bold text-slate-800">{title}</h2>
           {desc && <p className="text-sm text-slate-500 mt-1 leading-relaxed">{desc}</p>}
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-7 py-6">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-4 sm:px-7 py-5 sm:py-6">
           {children}
         </div>
       </div>
       {/* Footer SEMPRE visível — sticky na base da viewport */}
       {footer && (
-        <div className="sticky bottom-0 z-10 bg-white border-t border-slate-200 px-6 md:px-10 py-3.5 flex items-center justify-between gap-3 shadow-[0_-2px_12px_rgba(0,0,0,0.07)]">
-          {footer}
+        <div className="sticky bottom-0 z-10 bg-white/95 backdrop-blur border-t border-slate-200 px-4 md:px-10 py-3 shadow-[0_-2px_12px_rgba(0,0,0,0.07)]">
+          <div className="max-w-3xl w-full mx-auto flex flex-wrap items-center justify-between gap-2.5 [&>button]:w-full sm:[&>button]:w-auto [&>div]:w-full sm:[&>div]:w-auto [&>div]:flex-wrap">
+            {footer}
+          </div>
         </div>
       )}
     </div>
@@ -3160,7 +3659,7 @@ function Btn({
 }: {
   children: React.ReactNode; onClick?: () => void; primary?: boolean; icon?: React.ReactNode; disabled?: boolean;
 }) {
-  const base = "inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all border shadow-sm active:scale-[0.98]";
+  const base = "inline-flex items-center justify-center gap-2 min-h-[42px] px-4 py-2.5 rounded-xl text-sm font-medium transition-all border shadow-sm active:scale-[0.98] whitespace-normal sm:whitespace-nowrap text-center";
   const style = primary
     ? "bg-[#032650] text-white border-[#032650] hover:bg-[#032650] shadow-[#032650]/10"
     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300";
