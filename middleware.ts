@@ -1,7 +1,20 @@
 import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
-const publicRoutes = ["/login", "/register", "/api/auth", "/api/agent"];
+// Único middleware do projeto. Existia um segundo arquivo em `app/middleware.ts`
+// (resto de uma organização antiga): o build do Docker compilava aquele e o build
+// nativo compilava este — resultado imprevisível conforme onde o build rodava.
+// As rotas públicas abaixo são a UNIÃO das duas versões (inclui /api/register e
+// /api/health), então o comportamento em produção não muda.
+const publicRoutes = [
+  "/login",
+  "/register",
+  "/api/register",
+  "/api/auth",
+  "/api/agent",
+  "/api/health",
+];
+const adminRoutes = ["/admin"];
 
 export default auth((req) => {
   const { pathname } = req.nextUrl;
@@ -11,9 +24,9 @@ export default auth((req) => {
     return NextResponse.next();
   }
 
-  // Require auth for everything else: redirect ABSOLUTO construído a partir
-  // do Host/x-forwarded-* que chegam do proxy (nunca localhost do servidor —
-  // req.nextUrl é montado com o hostname interno e quebra atrás de túnel).
+  // Require auth for everything else: redirect ABSOLUTO construído a partir do
+  // Host/x-forwarded-* que chegam do proxy (req.nextUrl é montado com o hostname
+  // interno do container e quebra atrás de proxy/túnel).
   if (!req.auth) {
     const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost";
     const proto = req.headers.get("x-forwarded-proto") || "http";
@@ -22,7 +35,7 @@ export default auth((req) => {
   }
 
   // Rotas exclusivas de administrador
-  if (pathname.startsWith("/admin")) {
+  if (adminRoutes.some((r) => pathname.startsWith(r))) {
     const perfil = (req.auth.user as any)?.perfil;
     if (perfil !== "administrador") {
       const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost";
