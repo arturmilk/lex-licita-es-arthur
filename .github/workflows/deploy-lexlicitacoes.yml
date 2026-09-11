@@ -1,0 +1,74 @@
+name: deploy-lexlicitacoes
+
+# Deploy automático na VPS Oracle (arm64), onde roda
+# https://lexlicitacoes.novagente.com.br
+#
+# O build da imagem acontece NA PRÓPRIA VPS (arm64 nativo): o runner do GitHub é
+# x86 e emular a arquitetura só adicionaria tempo e risco. Este workflow avisa a
+# VPS que existe commit novo e reaproveita /opt/lexlicitacoes/autodeploy.sh, que
+# é idempotente — se não houver commit novo, sai sem rebuildar.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "lib/**"
+      - "components/**"
+      - "types/**"
+      - "public/**"
+      - "middleware.ts"
+      - "auth.ts"
+      - "Dockerfile"
+      - "docker-compose*.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "tsconfig.json"
+      - "next.config.js"
+      - ".github/workflows/deploy-lexlicitacoes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-lexlicitacoes
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build + deploy na VPS Oracle
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Prepara a chave SSH
+        env:
+          VPS_SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$VPS_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+      - name: Dispara o deploy na VPS
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes -o BatchMode=yes \
+              -o StrictHostKeyChecking=accept-new -o ConnectTimeout=20 \
+              "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+              'bash /opt/lexlicitacoes/autodeploy.sh; echo "--- estado ---"; cat /opt/lexlicitacoes/.autodeploy-state; echo "--- log ---"; tail -n 6 /opt/lexlicitacoes/deploy.log'
+
+      - name: Confere o container lex-app
+        run: |
+          ssh -i ~/.ssh/deploy_key \
+              -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=20 \
+              "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+              'i=0; h=desconhecido; while [ $i -lt 18 ]; do h=$(docker inspect -f "{{.State.Health.Status}}" lex-app 2>/dev/null || echo ausente); [ "$h" = healthy ] && break; i=$((i+1)); sleep 10; done; echo "lex-app health: $h"; docker ps --filter name=lex-app --format "{{.Names}} | {{.Status}}"; echo "commit no ar:"; git -C /home/ubuntu/lexlicitacoes log --oneline -1; [ "$h" = healthy ]'
+
+      - name: Confere a URL publica
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -L https://lexlicitacoes.novagente.com.br/ || echo 000)
+          echo "https://lexlicitacoes.novagente.com.br/ -> HTTP $code"
+          case "$code" in
+            000|5*) exit 1 ;;
+          esac
