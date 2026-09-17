@@ -14,6 +14,7 @@ RUN rm -rf .next && mkdir -p public && npm run build
 
 FROM node:20-alpine AS runner
 WORKDIR /app
+RUN apk add --no-cache tesseract-ocr tesseract-ocr-data-por tesseract-ocr-data-eng poppler-utils
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 

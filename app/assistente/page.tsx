@@ -635,7 +635,7 @@ export default function ChatGuiadoPage() {
           <div className="flex items-end gap-2 rounded-3xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm focus-within:border-[#C9A227] transition-colors">
             <input
               type="file"
-              accept=".pdf,.txt,.md,.docx"
+              accept=".pdf,.txt,.md,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg,.tif,.tiff,.bmp,.webp"
               onChange={anexarDocumento}
               className="hidden"
               id="anexo-chat"
