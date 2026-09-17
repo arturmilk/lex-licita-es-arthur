@@ -251,6 +251,7 @@ export async function enviarMensagemChat(conversaId: string, texto: string) {
     catmat: estadoSalvo.catmat,
     minuta: estadoSalvo.minuta,
     documentosGerados: estadoSalvo.documentosGerados,  // Redator encadeado (PC→ETP)
+    memoriaDocumental: estadoSalvo.memoriaDocumental || [],
     modoSolicitado: estadoSalvo.modoSolicitado,
     modoIndice: estadoSalvo.modoIndice,
     modoRespostas: estadoSalvo.modoRespostas || {},
@@ -291,6 +292,101 @@ export async function enviarMensagemChat(conversaId: string, texto: string) {
     .where(eq(conversasChat.id, conversaId));
 
   return { mensagens, estado: novoEstado };
+}
+
+
+/**
+ * Assimila um documento anexado como memória viva da conversa.
+ * A IA lê o conteúdo, extrai fatos e alertas e o resultado fica persistido
+ * no estado do chat para ser reutilizado nas respostas seguintes.
+ */
+export async function assimilarDocumentoChat(conversaId: string, payload: {
+  nome: string;
+  texto: string;
+  resumo?: any;
+  dados?: any;
+}) {
+  const { orgaoId } = await sessao();
+  const [conversa] = await db.select().from(conversasChat)
+    .where(and(eq(conversasChat.id, conversaId), eq(conversasChat.orgaoId, orgaoId))).limit(1);
+  if (!conversa) throw new Error("Conversa não encontrada");
+
+  const estado = ((conversa.statusDocumentos as any) || {}) as EstadoChat;
+  const texto = String(payload?.texto || "").slice(0, 12000);
+  if (!texto.trim()) throw new Error("Documento sem texto extraído");
+
+  const { chat } = await import("@/lib/ia");
+  const system = `Você é o Agente Leitor e Analista Documental do LEX Licitações.
+Leia o documento como parte de UM PROCESSO DE CONTRATAÇÃO em andamento. Sua missão não é apenas resumir: é ASSIMILAR o contexto para que o assistente use os dados depois.
+
+REGRAS:
+- Extraia somente fatos realmente presentes no documento. Não invente.
+- Identifique objeto, itens, quantidades, unidades, local, prazos, garantias, responsabilidades, critérios, requisitos técnicos, valores, modalidade, número de processo e demais elementos úteis quando existirem.
+- Aponte lacunas, contradições ou pontos que precisam ser confirmados.
+- Se houver documentos já assimilados, compare e sinalize divergências concretas.
+- Produza fatos curtos e reutilizáveis.
+- Responda APENAS JSON válido:
+{
+  "tipo":"tipo do documento",
+  "resumo":"síntese contextual em até 600 caracteres",
+  "fatos":["fato 1","fato 2"],
+  "alertas":["alerta ou divergência"],
+  "campos":{"objeto":"...","quantidade":"...","unidade":"...","localEntrega":"...","prazo":"...","garantia":"...","numeroProcesso":"...","modalidade":"...","requisitosTecnicos":"...","responsabilidades":"..."},
+  "mensagem":"o que o assistente deve dizer ao servidor após compreender o documento"
+}`;
+
+  const docsAnteriores = (estado.memoriaDocumental || []).slice(-4).map((d: any) => ({
+    nome: d.nome, tipo: d.tipo, resumo: d.resumo, fatos: d.fatos, alertas: d.alertas, campos: d.campos,
+  }));
+  const user = `ARQUIVO: ${payload.nome}\n\nCONTEXTO JÁ SALVO:\n${JSON.stringify({ objeto: estado.objeto, descoberta: estado.descoberta, documentosGerados: estado.documentosGerados, docsAnteriores }).slice(0, 9000)}\n\nDADOS EXTRAÍDOS PREVIAMENTE:\n${JSON.stringify(payload.dados || {}).slice(0, 4000)}\n\nRESUMO PRÉVIO:\n${JSON.stringify(payload.resumo || {}).slice(0, 2500)}\n\nTEXTO DO DOCUMENTO:\n${texto}`;
+
+  let analise: any = {};
+  try {
+    const out = await chat([{ role: "system", content: system }, { role: "user", content: user }], 0.1, 2600);
+    const ini = out.indexOf("{"); const fim = out.lastIndexOf("}");
+    if (ini >= 0 && fim > ini) analise = JSON.parse(out.slice(ini, fim + 1));
+  } catch { /* usa dados prévios como fallback */ }
+
+  const campos: Record<string, string> = {};
+  const origemCampos = { ...(payload.dados?.campos || {}), ...(analise?.campos || {}) };
+  for (const [k, v] of Object.entries(origemCampos)) {
+    const valor = String(v || "").trim();
+    if (valor && valor.toLowerCase() !== "não identificado") campos[k] = valor.slice(0, 2500);
+  }
+  if (!campos.objeto && payload.dados?.objeto) campos.objeto = String(payload.dados.objeto).slice(0, 2500);
+
+  const memoria = {
+    id: Math.random().toString(36).slice(2, 10),
+    nome: String(payload.nome || "documento").slice(0, 240),
+    tipo: String(analise?.tipo || payload.dados?.tipoDocumento || "Documento").slice(0, 160),
+    resumo: String(analise?.resumo || payload.resumo?.resumoCompleto || payload.resumo?.importa || "Documento assimilado.").slice(0, 1800),
+    fatos: Array.isArray(analise?.fatos) ? analise.fatos.map((x: any) => String(x).slice(0, 500)).slice(0, 30) : [],
+    alertas: Array.isArray(analise?.alertas) ? analise.alertas.map((x: any) => String(x).slice(0, 500)).slice(0, 20) : [],
+    campos,
+    texto: texto.slice(0, 9000),
+    anexadoEm: new Date().toISOString(),
+  };
+
+  const memorias = [...(estado.memoriaDocumental || []), memoria].slice(-8);
+  const documentosGerados = { ...(estado.documentosGerados || {}) } as Record<string, Record<string, string>>;
+  const tipoKey = /etp|estudo técnico/i.test(memoria.tipo) ? "etp"
+    : /termo de referência|\btr\b/i.test(memoria.tipo) ? "tr"
+    : /pedido|dfd|requisição|formalização/i.test(memoria.tipo) ? "pc"
+    : /edital/i.test(memoria.tipo) ? "edital"
+    : `anexo_${memorias.length}`;
+  documentosGerados[tipoKey] = { ...(documentosGerados[tipoKey] || {}), ...campos };
+
+  const novoEstado: any = { ...estado, memoriaDocumental: memorias, documentosGerados };
+  if (!novoEstado.objeto && campos.objeto) novoEstado.objeto = campos.objeto;
+
+  await db.update(conversasChat).set({ statusDocumentos: novoEstado, updatedAt: new Date() })
+    .where(eq(conversasChat.id, conversaId));
+
+  return {
+    memoria,
+    mensagem: String(analise?.mensagem || `Li e assimilei o documento ${payload.nome}. Vou usar essas informações nas próximas etapas e perguntas.`).slice(0, 2200),
+    estado: novoEstado,
+  };
 }
 
 /** Cria um processo a partir da conversa (quando o servidor confirma). */

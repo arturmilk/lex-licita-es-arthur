@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
 import { Send, Mic, Paperclip, Loader2, Bot, User, AlertTriangle, CheckCircle2, FileText, Sparkles, Plus, History, Wand2, X } from "lucide-react";
-import { novaConversaChat, enviarMensagemChat, listarConversasChat, criarProcessoDaConversa, carregarConversaChat, melhorarTrechoDocumento, salvarDocumentoEditado } from "@/lib/actions-chat";
+import { novaConversaChat, enviarMensagemChat, listarConversasChat, criarProcessoDaConversa, carregarConversaChat, melhorarTrechoDocumento, salvarDocumentoEditado, assimilarDocumentoChat } from "@/lib/actions-chat";
 import { CAMPOS_ETP, GRUPOS_ETP } from "@/lib/etp-model";
 
 /** ErrorBoundary — nunca deixa o chat em tela branca: mostra fallback com recarregar. */
@@ -250,20 +250,28 @@ export default function ChatGuiadoPage() {
       fd.append("arquivo", file);
       const resp = await fetch("/api/ia/documento", { method: "POST", body: fd });
       const data = await resp.json();
+      if (!resp.ok) throw new Error(data?.erro || "Não consegui ler o documento.");
       const resumo = data.resumo;
+      const assimilado = await assimilarDocumentoChat(conversa.id, {
+        nome: file.name,
+        texto: data.texto || "",
+        resumo: data.resumo,
+        dados: data.dados,
+      });
       const textoIdentificado = resumo?.aconteceu || `Anexei o documento ${file.name}`;
-      // O anexo RESPONDE à pergunta atual do chat — o motor reconhece "anexei"
-      // e marca o documento da etapa como recebido. Se o documento não for o
-      // esperado, o chat pergunta de novo.
-      const r = await enviarMensagemChat(conversa.id, `Anexei o documento ${file.name}. ${textoIdentificado.slice(0, 200)}`);
+      // Depois de assimilar o conteúdo completo, o anexo responde à pergunta
+      // atual do fluxo e o motor segue usando a memória documental persistida.
+      const r = await enviarMensagemChat(conversa.id, `Anexei o documento ${file.name}. ${textoIdentificado.slice(0, 350)}`);
+      const alertas = assimilado.memoria?.alertas || [];
       setConversa(prev => prev ? {
         ...prev,
         mensagens: [...(prev.mensagens || []), {
           id: "doc-" + Date.now(), papel: "sistema", tipo: "documento",
-          conteudo: ` **${file.name}** recebido e identificado!\n\n${resumo?.importa || ""}`,
+          conteudo: `**${file.name}** lido e assimilado.\n\n${assimilado.mensagem}${alertas.length ? `\n\n**Pontos para conferir:**\n${alertas.map((a: string) => `- ${a}`).join("\n")}` : ""}`,
           criadaEm: new Date().toISOString(),
         }, ...r.mensagens],
         etapaAtual: r.estado.etapa,
+        statusDocumentos: r.estado,
       } : prev);
     } catch (e: any) {
       setErro(String(e?.message || e));

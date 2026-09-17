@@ -58,6 +58,17 @@ export interface EstadoChat {
     campoAtual?: string;               // campo sendo perguntado agora
   };
   documentosGerados?: Record<string, Record<string, string>>;  // AGENTE REDATOR: campos coletados por documento (encadeia PC→ETP→TR)
+  memoriaDocumental?: Array<{
+    id: string;
+    nome: string;
+    tipo: string;
+    resumo: string;
+    fatos: string[];
+    alertas: string[];
+    campos: Record<string, string>;
+    texto: string;
+    anexadoEm: string;
+  }>;
   modoSolicitado?: string;
   modoIndice?: number;
   modoRespostas?: Record<string, string>;
@@ -262,10 +273,15 @@ async function interpretarComIA(texto: string, estado: EstadoChat): Promise<{ in
   try {
     const { chat } = await import("@/lib/ia");
     const docAtual = FLUXO_DOCUMENTOS.find(d => d.chave === estado.documentoAtual);
+    const memoriaDocs = (estado.memoriaDocumental || []).slice(-4).map((d) =>
+      `DOCUMENTO ${d.tipo || "não identificado"} — ${d.nome}: ${d.resumo}\nFatos: ${(d.fatos || []).join(" | ")}\nAlertas: ${(d.alertas || []).join(" | ")}`
+    ).join("\n\n");
     const contexto = [
       `Etapa atual do fluxo de contratação pública: ${estado.etapa}`,
       estado.documentoAtual ? `Documento sendo perguntado: ${docAtual?.nome || estado.documentoAtual}` : "",
       estado.objeto ? `Objeto: ${estado.objeto}` : "",
+      memoriaDocs ? `MEMÓRIA DOCUMENTAL JÁ ASSIMILADA:\n${memoriaDocs}` : "",
+      "Ao interpretar a fala do servidor, use os documentos já assimilados como contexto factual. Não invente informação ausente.",
       "O servidor é um usuário de órgão público que pode nunca ter feito licitação.",
       "Responda APENAS com JSON: {\"intencao\": \"uma de: confirmar | negar | explicar | informar | anexar | avancar\", \"resposta\": \"texto curto do que o usuário quis dizer\"}",
     ].filter(Boolean).join("\n");
