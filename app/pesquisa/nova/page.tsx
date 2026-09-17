@@ -1018,6 +1018,9 @@ export default function NovaPesquisaPage() {
   // (maior similaridade primeiro), calcula e deixa notas explicativas.
   const [notasCalcularDireto, setNotasCalcularDireto] = useState<string[] | null>(null);
   const [usadosCalcularDireto, setUsadosCalcularDireto] = useState<ResultadoPNCP[]>([]);
+  const [analisePrecificacaoIA, setAnalisePrecificacaoIA] = useState<any | null>(null);
+  const [analisandoPrecificacaoIA, setAnalisandoPrecificacaoIA] = useState(false);
+  const [erroPrecificacaoIA, setErroPrecificacaoIA] = useState<string | null>(null);
   // ── AGENTE AUDITOR: estados da análise de diferenças ──
   const [auditoriaIA, setAuditoriaIA] = useState<string | null>(null);
   const [auditoriaCarregando, setAuditoriaCarregando] = useState(false);
@@ -1057,11 +1060,59 @@ export default function NovaPesquisaPage() {
     }
   };
 
-  const calcularDireto = () => {
-    // 1. Pega TODOS os resultados com valor (aceitos ou não)
+  const analisarObjetoAntesDoCalculo = async () => {
     const comValor = resultados.filter(r => (r.valor_unitario != null || r.valor_total != null));
+    setAnalisandoPrecificacaoIA(true);
+    setErroPrecificacaoIA(null);
+    setAnalisePrecificacaoIA(null);
+    setPrecoEstimado(null);
+    setUsadosCalcularDireto([]);
+    try {
+      const resp = await fetch("/api/ia/interpretar-precificacao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          objeto: objetoDesc,
+          quantidade,
+          unidadeMedida,
+          localEntrega,
+          referencias: comValor.slice(0, 20).map(r => ({
+            id: r.id,
+            descricao: r.descricao,
+            orgao: r.orgao,
+            quantidade: r.quantidade,
+            unidade: (r as any).unidade_medida ?? (r as any).unidade ?? null,
+            data: r.data,
+            localizacao: r.localizacao,
+            similaridade: r.similaridade,
+            valor: r.valor_unitario ?? r.valor_total,
+          })),
+        }),
+        signal: AbortSignal.timeout(50_000),
+      });
+      const data = await resp.json().catch(() => null);
+      if (!resp.ok) throw new Error(data?.error || "Falha na análise inteligente do objeto.");
+      setAnalisePrecificacaoIA(data);
+    } catch (e: any) {
+      setErroPrecificacaoIA(String(e?.message || "Não consegui analisar o objeto agora."));
+    } finally {
+      setAnalisandoPrecificacaoIA(false);
+    }
+  };
+
+  const calcularDireto = () => {
+    // 1. O cálculo direto só acontece DEPOIS da interpretação inteligente do objeto.
+    const todosComValor = resultados.filter(r => (r.valor_unitario != null || r.valor_total != null));
+    if (!analisePrecificacaoIA) {
+      setNotasCalcularDireto(["Antes do cálculo direto, peça ao agente para entender o objeto e avaliar quais referências são realmente comparáveis."]);
+      return;
+    }
+    const idsCompativeis = new Set((analisePrecificacaoIA.referencias || [])
+      .filter((r: any) => r.classificacao === "compativel")
+      .map((r: any) => String(r.id)));
+    const comValor = todosComValor.filter(r => idsCompativeis.has(String(r.id)));
     if (comValor.length === 0) {
-      setNotasCalcularDireto([" Nenhum resultado com valor encontrado na pesquisa. Clique em 'Refazer pesquisa' para buscar preços."]);
+      setNotasCalcularDireto(["O agente não classificou nenhuma referência como compatível com segurança. Revise o objeto, complete as características faltantes ou refaça a pesquisa com uma das possibilidades sugeridas."]);
       setUsadosCalcularDireto([]);
       setPrecoEstimado(null);
       setEstatisticas(null);
@@ -1094,7 +1145,7 @@ export default function NovaPesquisaPage() {
 
     // 4. Notas explicativas (transparência do que o agente fez)
     const notas: string[] = [];
-    notas.push(` Usei ${amostra.length} resultado(s) da pesquisa que têm valor, ordenados por relevância (similaridade com o objeto).`);
+    notas.push(` Usei ${amostra.length} referência(s) que o agente classificou como compatíveis com o objeto, antes da análise estatística.`);
     if (descartados.length > 0) {
       notas.push(` Desconsiderei ${descartados.length} preço(s) discrepante(s) — IN 126, art. 11, §2º (${descartados.map(r => formatarMoeda((r.valor_unitario ?? r.valor_total) as number)).join(", ")}) — por serem inexequíveis (< 50% da média) ou sobrepreços (> 150%).`);
     }
@@ -2806,8 +2857,10 @@ export default function NovaPesquisaPage() {
               )}
             </>
           ) : (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-12 text-center text-sm text-slate-400">
-              Aceite pelo menos um resultado para gerar o preço estimado.
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-8 px-4 text-center">
+              <Sparkles size={20} className="mx-auto mb-2 text-[#C9A227]" />
+              <p className="text-sm font-semibold text-slate-700">Antes de calcular, o LEX precisa entender o objeto.</p>
+              <p className="mt-1 text-xs text-slate-500">O agente identifica equivalências, possibilidades de busca e quais referências parecem realmente comparáveis. Você não precisa aceitar um resultado qualquer só para destravar o cálculo.</p>
             </div>
           )}
 
@@ -2844,16 +2897,96 @@ export default function NovaPesquisaPage() {
                        <strong>Base legal:</strong> <strong>Instrução nº 126/2023-TJRO</strong> (art. 3º, III e VII; art. 8º; art. 11) — pesquisa de preços para bens e serviços de qualquer natureza no TJRO.
                     </div>
 
-                    {/* Botão calcular direto (se ainda não calculou com os automáticos) */}
+                    {/* Inteligência antes do cálculo direto */}
                     {!precoEstimado && (
-                      <div className="text-center py-3">
-                        <p className="text-xs text-slate-500 mb-3">{fonte.length} resultado(s) com valor encontrado(s) na pesquisa — <strong>sem precisar aceitar um a um</strong>.</p>
-                        <button
-                          onClick={() => calcularDireto()}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg cursor-pointer"
-                        >
-                          <Calculator size={13} /> Calcular direto agora
-                        </button>
+                      <div className="space-y-4 py-2">
+                        {!analisePrecificacaoIA ? (
+                          <div className="rounded-xl border border-[#d5dce8] bg-white p-4">
+                            <div className="flex items-start gap-3">
+                              <Sparkles size={18} className="mt-0.5 text-[#C9A227] shrink-0" />
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-[#032650]">Primeiro, entender o produto</p>
+                                <p className="mt-1 text-xs text-slate-500 leading-relaxed">O agente vai ler o objeto, identificar o que realmente define comparabilidade, criar variações úteis de busca e separar referências compatíveis das que precisam de revisão.</p>
+                                {erroPrecificacaoIA && <p className="mt-2 text-xs text-red-600">{erroPrecificacaoIA}</p>}
+                                <button
+                                  onClick={() => analisarObjetoAntesDoCalculo()}
+                                  disabled={analisandoPrecificacaoIA}
+                                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-[#032650] hover:bg-[#0b376b] disabled:opacity-60 px-4 py-2 rounded-lg cursor-pointer"
+                                >
+                                  {analisandoPrecificacaoIA ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+                                  {analisandoPrecificacaoIA ? "Entendendo o objeto..." : "Analisar objeto e criar possibilidades"}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-[#d5dce8] bg-white p-4 space-y-4">
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#C9A227]">O que o agente entendeu</p>
+                              <p className="mt-1 text-sm text-slate-700 leading-relaxed">{analisePrecificacaoIA.entendimento}</p>
+                            </div>
+
+                            {(analisePrecificacaoIA.pontosQueDefinemComparabilidade || []).length > 0 && (
+                              <div>
+                                <p className="text-xs font-semibold text-slate-700 mb-2">O que precisa bater para comparar</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {analisePrecificacaoIA.pontosQueDefinemComparabilidade.map((p: string, i: number) => <span key={i} className="text-[11px] rounded-full bg-slate-100 border border-slate-200 px-2.5 py-1 text-slate-600">{p}</span>)}
+                                </div>
+                              </div>
+                            )}
+
+                            {(analisePrecificacaoIA.possibilidadesBusca || []).length > 0 && (
+                              <div>
+                                <p className="text-xs font-semibold text-slate-700 mb-2">Possibilidades que o agente criou para pesquisar</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                  {analisePrecificacaoIA.possibilidadesBusca.map((p: any, i: number) => (
+                                    <div key={i} className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                                      <p className="text-xs font-semibold text-slate-800">{p.termo}</p>
+                                      <p className="mt-1 text-[11px] text-slate-500">{p.justificativa}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {(analisePrecificacaoIA.perguntasFaltantes || []).length > 0 && (
+                              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                                <p className="text-xs font-semibold text-amber-800">Antes de confiar totalmente na comparação</p>
+                                {analisePrecificacaoIA.perguntasFaltantes.map((p: string, i: number) => <p key={i} className="mt-1 text-[11px] text-amber-700">• {p}</p>)}
+                              </div>
+                            )}
+
+                            <div className="grid grid-cols-3 gap-2 text-center">
+                              {[
+                                ["Compatíveis", (analisePrecificacaoIA.referencias || []).filter((r: any) => r.classificacao === "compativel").length, "text-emerald-700"],
+                                ["Revisar", (analisePrecificacaoIA.referencias || []).filter((r: any) => r.classificacao === "revisar").length, "text-amber-700"],
+                                ["Incompatíveis", (analisePrecificacaoIA.referencias || []).filter((r: any) => r.classificacao === "incompativel").length, "text-red-700"],
+                              ].map(([label, valor, cor]: any) => (
+                                <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                                  <p className={`text-lg font-bold ${cor}`}>{valor}</p>
+                                  <p className="text-[10px] text-slate-500">{label}</p>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="flex flex-wrap gap-2 justify-center">
+                              <button
+                                onClick={() => analisarObjetoAntesDoCalculo()}
+                                disabled={analisandoPrecificacaoIA}
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-white border border-slate-200 hover:bg-slate-50 px-4 py-2 rounded-lg cursor-pointer"
+                              >
+                                <RefreshCw size={13} className={analisandoPrecificacaoIA ? "animate-spin" : ""} /> Reanalisar
+                              </button>
+                              <button
+                                onClick={() => calcularDireto()}
+                                disabled={(analisePrecificacaoIA.referencias || []).filter((r: any) => r.classificacao === "compativel").length === 0}
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 px-4 py-2 rounded-lg cursor-pointer"
+                              >
+                                <Calculator size={13} /> Calcular com referências compatíveis
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
 
