@@ -122,11 +122,11 @@ const FASES = [
 
 const STEP_NAMES: Record<number, string> = {
   1: "Objeto e parcelamento", 2: "Itens da contratação", 3: "Informações do processo",
-  4: "Pesquisa de mercado", 5: "Realizar pesquisa",
-  6: "Revisão", 7: "Configurações", 8: "Pesquisa PNCP",
-  9: "Resultados", 10: "Análise IA", 11: "Estatísticas",
-  12: "Preço estimado", 13: "Metodologia e ME/EPP", 14: "Decomposição de custos",
-  15: "Evidências", 16: "Relatório final",
+  4: "Preços que você já tem", 5: "Buscar nas fontes oficiais",
+  6: "Revisão", 7: "Ajustes da pesquisa", 8: "Buscar preços",
+  9: "Resultados", 10: "Análise automática", 11: "Resumo dos preços",
+  12: "Preço estimado", 13: "Metodologia do cálculo", 14: "Detalhamento de custos",
+  15: "Comprovações", 16: "Relatório final",
 };
 
 
@@ -1343,7 +1343,7 @@ export default function NovaPesquisaPage() {
                 </div>
               </div>
               <div className="mb-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">Exemplos para começar</p>
+                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-2">Exemplos para começar</p>
                 <div className="flex flex-wrap gap-2">
                   {[
                     "Preciso pesquisar 30 notebooks com 16 GB de RAM e SSD de 512 GB para entrega em Porto Velho/RO.",
@@ -1361,7 +1361,7 @@ export default function NovaPesquisaPage() {
                 value={pedidoGuiado}
                 onChange={e => setPedidoGuiado(e.target.value)}
                 placeholder="Ex.: Preciso pesquisar 30 notebooks para a Secretaria de Administração, entrega em Porto Velho. Cada um com 16 GB de RAM e SSD de 512 GB. Ainda não sei se faço por item ou lote."
-                className="w-full min-h-[120px] resize-y rounded-xl border-2 border-white bg-white px-4 py-3 text-sm text-slate-700 shadow-sm outline-none focus:border-[#C9A227] focus:ring-4 focus:ring-[#C9A227]/10"
+                className="w-full min-h-[120px] resize-y rounded-xl border-2 border-white bg-white px-4 py-3 text-sm text-slate-700 shadow-sm outline-none focus:border-[#0a3a6e] focus:ring-4 focus:ring-[#0a3a6e]/10"
               />
               <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3">
                 <button
@@ -1373,7 +1373,7 @@ export default function NovaPesquisaPage() {
                   {interpretandoGuiado ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
                   {interpretandoGuiado ? "Analisando sua solicitação…" : "Organizar meu pedido"}
                 </button>
-                <p className="text-[11px] text-slate-400">Nada é apagado e nenhum dado ausente é inventado.</p>
+                <p className="text-[11px] text-slate-600">Nada é apagado e nenhum dado ausente é inventado.</p>
               </div>
 
               {erroGuiado && (
@@ -1415,14 +1415,14 @@ export default function NovaPesquisaPage() {
                             <div key={item.id} className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2.5">
                               <div className="flex items-center justify-between gap-3">
                                 <div className="min-w-0">
-                                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Item {idx + 1}</p>
+                                  <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600">Item {idx + 1}</p>
                                   <p className="text-xs font-semibold text-slate-700 truncate">{item.descricao}</p>
                                 </div>
                                 {cat.carregando ? <Loader2 size={15} className="animate-spin text-[#032650]" /> : escolhido ? (
-                                  <span className="shrink-0 text-[10px] font-bold px-2 py-1 rounded-lg bg-[#032650] text-white">CATMAT {escolhido.codigo}</span>
-                                ) : <span className="text-[10px] text-amber-700">Revisar classificação</span>}
+                                  <span className="shrink-0 text-[11px] font-bold px-2 py-1 rounded-lg bg-[#032650] text-white">CATMAT {escolhido.codigo}</span>
+                                ) : <span className="text-[11px] text-amber-700">Revisar classificação</span>}
                               </div>
-                              {escolhido && cat.opcoes.length > 1 && <p className="text-[10px] text-amber-700 mt-1.5">Há {cat.opcoes.length} opções plausíveis. Compare na próxima etapa.</p>}
+                              {escolhido && cat.opcoes.length > 1 && <p className="text-[11px] text-amber-700 mt-1.5">Há {cat.opcoes.length} opções plausíveis. Compare na próxima etapa.</p>}
                             </div>
                           );
                         })}
@@ -1433,7 +1433,7 @@ export default function NovaPesquisaPage() {
                   <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
                     <div className="flex items-center justify-between gap-3 mb-2">
                       <p className="text-xs font-bold text-slate-700">Prontidão para pesquisar</p>
-                      <span className="text-[10px] font-bold text-[#032650]">{[!!objetoDesc.trim(), !!formaParcelamento, itens.length > 0, itens.length > 0 && itens.every(i => i.quantidade > 0 && !!i.unidadeMedida), !!localEntrega.trim()].filter(Boolean).length}/5 essenciais</span>
+                      <span className="text-[11px] font-bold text-[#032650]">{[!!objetoDesc.trim(), !!formaParcelamento, itens.length > 0, itens.length > 0 && itens.every(i => i.quantidade > 0 && !!i.unidadeMedida), !!localEntrega.trim()].filter(Boolean).length}/5 essenciais</span>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5">
                       {[
@@ -1443,7 +1443,7 @@ export default function NovaPesquisaPage() {
                         ["Qtde./unidade", itens.length > 0 && itens.every(i => i.quantidade > 0 && !!i.unidadeMedida)],
                         ["Local", !!localEntrega.trim()],
                       ].map(([rotulo, ok]: any) => (
-                        <div key={rotulo} className={`rounded-lg px-2 py-1.5 text-[10px] font-semibold border ${ok ? "bg-green-50 text-green-700 border-green-100" : "bg-white text-slate-400 border-slate-200"}`}>
+                        <div key={rotulo} className={`rounded-lg px-2 py-1.5 text-[11px] font-semibold border ${ok ? "bg-green-50 text-green-700 border-green-100" : "bg-white text-slate-600 border-slate-200"}`}>
                           {ok ? "✓ " : "○ "}{rotulo}
                         </div>
                       ))}
@@ -1457,7 +1457,7 @@ export default function NovaPesquisaPage() {
 
             <div className="flex items-center gap-3">
               <div className="h-px bg-slate-200 flex-1" />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">confirme ou ajuste abaixo</span>
+              <span className="text-[11px] font-bold uppercase tracking-widest text-slate-600">confirme ou ajuste abaixo</span>
               <div className="h-px bg-slate-200 flex-1" />
             </div>
 
@@ -1487,11 +1487,11 @@ export default function NovaPesquisaPage() {
                   </button>
                 ))}
               </div>
-              {!formaParcelamento && <p className="mt-2 text-[11px] text-slate-400">Se ainda não souber, descreva a necessidade acima e deixe o LEX ajudar a identificar.</p>}
+              {!formaParcelamento && <p className="mt-2 text-[11px] text-slate-600">Se ainda não souber, descreva a necessidade acima e deixe o LEX ajudar a identificar.</p>}
             </div>
             <Field label="Local de entrega ou execução">
               <input className="inp" placeholder="Ex: Porto Velho/RO" value={localEntrega} onChange={e => setLocalEntrega(e.target.value)} />
-              <p className="text-[10px] text-slate-400 mt-1">O local ajuda a avaliar frete, disponibilidade regional e comparabilidade das referências.</p>
+              <p className="text-[11px] text-slate-600 mt-1">O local ajuda a avaliar frete, disponibilidade regional e comparabilidade das referências.</p>
             </Field>
             {formaParcelamento === "global" && (
               <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
@@ -1532,7 +1532,7 @@ export default function NovaPesquisaPage() {
         >
           <div className="space-y-3">
             {itens.length === 0 && (
-              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-sm text-slate-400">
+              <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-sm text-slate-600">
                 {formaParcelamento === "global"
                   ? "Adicione o item da contratação."
                   : "Nenhum item cadastrado. Clique em \"Adicionar item\" para começar."}
@@ -1552,7 +1552,7 @@ export default function NovaPesquisaPage() {
                       className="flex items-center gap-2 flex-1 text-left"
                     >
                       <span className={`transition-transform ${aberto ? "rotate-90" : ""}`}>
-                        <ChevronRight size={15} className="text-slate-400" />
+                        <ChevronRight size={15} className="text-slate-600" />
                       </span>
                       <span className="font-medium text-slate-700 text-sm">
                         {formaParcelamento === "lote" ? `Lote ${idx + 1}` : `Item ${idx + 1}`}: {rotulo}
@@ -1562,7 +1562,7 @@ export default function NovaPesquisaPage() {
                           {(item.subitens || []).length} {(item.subitens || []).length === 1 ? "item" : "itens"}
                         </span>
                       ) : (item.quantidade > 0 || item.unidadeMedida) && (
-                        <span className="text-xs text-slate-400 font-normal">
+                        <span className="text-xs text-slate-600 font-normal">
                           {item.quantidade > 0 ? `${item.quantidade} ` : ""}{item.unidadeMedida || ""}
                         </span>
                       )}
@@ -1593,7 +1593,7 @@ export default function NovaPesquisaPage() {
                             <p className="text-xs font-bold text-slate-600 mb-2">Itens do lote</p>
                             <div className="space-y-3">
                               {(item.subitens || []).length === 0 && (
-                                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-5 text-center text-xs text-slate-400">
+                                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-5 text-center text-xs text-slate-600">
                                   Nenhum item adicionado a este lote ainda.
                                 </div>
                               )}
@@ -1623,28 +1623,28 @@ export default function NovaPesquisaPage() {
                                       value={sub.especificacao}
                                       onChange={e => updateSubItem(idx, si, "especificacao", e.target.value)}
                                     />
-                                    <p className="text-[9px] text-slate-400 mt-1">Informe só características que mudam a comparação de preço; o LEX usa isso para eliminar CATMATs incompatíveis.</p>
+                                    <p className="text-[11px] text-slate-600 mt-1">Informe só características que mudam a comparação de preço; o LEX usa isso para eliminar CATMATs incompatíveis.</p>
                                   </Field>
                                   <div className="rounded-xl border border-[#d5dce8] bg-white p-3">
                                     <div className="flex items-center justify-between gap-2">
                                       <div>
                                         <p className="text-[11px] font-bold text-[#032650]">Classificação oficial do item</p>
-                                        <p className="text-[10px] text-slate-400 mt-0.5">Compare as opções CATMAT antes de pesquisar preços.</p>
+                                        <p className="text-[11px] text-slate-600 mt-0.5">Compare as opções CATMAT antes de pesquisar preços.</p>
                                       </div>
-                                      <button type="button" onClick={() => buscarCatalogoParaItem(sub)} disabled={catalogoPorItem[sub.id]?.carregando || sub.descricao.trim().length < 3} className="inline-flex items-center gap-1 text-[10px] font-bold text-[#032650] border border-[#d5dce8] rounded-lg px-2.5 py-1.5 hover:bg-[#eef2f8] disabled:opacity-40">
+                                      <button type="button" onClick={() => buscarCatalogoParaItem(sub)} disabled={catalogoPorItem[sub.id]?.carregando || sub.descricao.trim().length < 3} className="inline-flex items-center gap-1 text-[11px] font-bold text-[#032650] border border-[#d5dce8] rounded-lg px-2.5 py-1.5 hover:bg-[#eef2f8] disabled:opacity-40">
                                         {catalogoPorItem[sub.id]?.carregando ? <Loader2 size={11} className="animate-spin" /> : <RefreshCw size={11} />}
                                         {catalogoPorItem[sub.id]?.opcoes?.length ? "Atualizar" : "Localizar"}
                                       </button>
                                     </div>
-                                    {catalogoPorItem[sub.id]?.desatualizado && <p className="mt-2 text-[10px] text-amber-700">A descrição mudou. Atualize antes de continuar.</p>}
+                                    {catalogoPorItem[sub.id]?.desatualizado && <p className="mt-2 text-[11px] text-amber-700">A descrição mudou. Atualize antes de continuar.</p>}
                                     {!!catalogoPorItem[sub.id]?.opcoes?.length && (
                                       <div className="mt-2 space-y-1.5">
                                         {catalogoPorItem[sub.id].opcoes.map(op => {
                                           const sel = catalogoPorItem[sub.id]?.selecionado === op.codigo;
                                           return <button key={op.codigo} type="button" onClick={() => selecionarCatalogo(sub.id, op.codigo)} className={`w-full text-left rounded-lg border px-2.5 py-2 ${sel ? "border-[#032650] bg-[#eef2f8]" : "border-slate-200 hover:border-slate-300"}`}>
-                                            <div className="flex flex-wrap items-center gap-1.5"><span className="text-[10px] font-bold text-slate-800">{op.tipo} {op.codigo}</span>{op.principal && <span className="text-[8px] font-bold bg-[#032650] text-white rounded px-1.5 py-0.5">LEX</span>}{sel && <span className="text-[8px] font-bold bg-green-100 text-green-700 rounded px-1.5 py-0.5">Selecionado</span>}</div>
-                                            <p className="text-[10px] text-slate-500 mt-1 leading-relaxed">{op.descricao}</p>
-                                            {!!op.diferencas?.length && <p className="text-[9px] text-[#032650] mt-1"><b>Diferenças:</b> {op.diferencas.join(" · ")}</p>}
+                                            <div className="flex flex-wrap items-center gap-1.5"><span className="text-[11px] font-bold text-slate-800">{op.tipo} {op.codigo}</span>{op.principal && <span className="text-[8px] font-bold bg-[#032650] text-white rounded px-1.5 py-0.5">LEX</span>}{sel && <span className="text-[8px] font-bold bg-green-100 text-green-700 rounded px-1.5 py-0.5">Selecionado</span>}</div>
+                                            <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{op.descricao}</p>
+                                            {!!op.diferencas?.length && <p className="text-[11px] text-[#032650] mt-1"><b>Diferenças:</b> {op.diferencas.join(" · ")}</p>}
                                           </button>;
                                         })}
                                       </div>
@@ -1674,7 +1674,7 @@ export default function NovaPesquisaPage() {
                             </div>
                             <button type="button" onClick={() => addSubItem(idx)}
                               className="mt-2 inline-flex items-center gap-1.5 text-xs text-[#032650] hover:text-[#042f5e] font-semibold">
-                              <span className="w-4 h-4 rounded-full border-2 border-current flex items-center justify-center text-[10px] font-bold leading-none">+</span>
+                              <span className="w-4 h-4 rounded-full border-2 border-current flex items-center justify-center text-[11px] font-bold leading-none">+</span>
                               Adicionar item ao lote
                             </button>
                           </div>
@@ -1697,7 +1697,7 @@ export default function NovaPesquisaPage() {
                               value={item.especificacao}
                               onChange={e => updateItem(idx, "especificacao", e.target.value)}
                             />
-                            <p className="text-[10px] text-slate-400 mt-1"><b>O que ajuda o LEX:</b> capacidade, desempenho, dimensões, garantia, padrão de qualidade, frequência, prazo ou condição de execução que realmente altere o preço.</p>
+                            <p className="text-[11px] text-slate-600 mt-1"><b>O que ajuda o LEX:</b> capacidade, desempenho, dimensões, garantia, padrão de qualidade, frequência, prazo ou condição de execução que realmente altere o preço.</p>
                           </Field>
                           <div className="rounded-2xl border border-[#d5dce8] bg-[#f8fafc] p-3 sm:p-4">
                             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
@@ -1728,13 +1728,13 @@ export default function NovaPesquisaPage() {
                                         <div className="min-w-0 flex-1">
                                           <div className="flex flex-wrap items-center gap-1.5">
                                             <span className="text-xs font-bold text-slate-900">{op.tipo} {op.codigo}</span>
-                                            {op.principal && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#032650] text-white">Recomendado pelo LEX</span>}
-                                            {selecionado && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">Selecionado</span>}
-                                            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${op.confianca === "alta" ? "bg-green-50 text-green-700" : op.confianca === "media" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"}`}>aderência {op.confianca}</span>
+                                            {op.principal && <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-[#032650] text-white">Recomendado pelo LEX</span>}
+                                            {selecionado && <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">Selecionado</span>}
+                                            <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${op.confianca === "alta" ? "bg-green-50 text-green-700" : op.confianca === "media" ? "bg-amber-50 text-amber-700" : "bg-slate-100 text-slate-500"}`}>aderência {op.confianca}</span>
                                           </div>
                                           <p className="text-[11px] leading-relaxed text-slate-600 mt-1">{op.descricao}</p>
-                                          <p className="text-[10px] leading-relaxed text-slate-400 mt-1">{op.nota}</p>
-                                          {!!op.diferencas?.length && <p className="text-[10px] leading-relaxed text-[#032650] mt-1"><span className="font-bold">Diferenças:</span> {op.diferencas.join(" · ")}</p>}
+                                          <p className="text-[11px] leading-relaxed text-slate-600 mt-1">{op.nota}</p>
+                                          {!!op.diferencas?.length && <p className="text-[11px] leading-relaxed text-[#032650] mt-1"><span className="font-bold">Diferenças:</span> {op.diferencas.join(" · ")}</p>}
                                         </div>
                                       </div>
                                     </button>
@@ -1746,12 +1746,12 @@ export default function NovaPesquisaPage() {
                               <div className="mt-3 rounded-xl border border-green-100 bg-green-50/60 px-3 py-2.5">
                                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                                   <div>
-                                    <p className="text-[10px] font-bold uppercase tracking-wide text-green-700">Referência preliminar de apoio</p>
+                                    <p className="text-[11px] font-bold uppercase tracking-wide text-green-700">Referência preliminar de apoio</p>
                                     <p className="text-xs font-bold text-slate-800 mt-0.5">{formatarMoeda(Number(catalogoPorItem[item.id].estimativaPreliminar.valorUnitario || 0))} por {item.unidadeMedida || "unidade"}</p>
                                   </div>
-                                  <span className="text-[10px] text-green-700">{catalogoPorItem[item.id].estimativaPreliminar.referencias || 0} referências comparáveis</span>
+                                  <span className="text-[11px] text-green-700">{catalogoPorItem[item.id].estimativaPreliminar.referencias || 0} referências comparáveis</span>
                                 </div>
-                                <p className="text-[9px] text-slate-500 mt-1">É apenas um sinal de mercado para orientar você. A estimativa oficial será formada nas etapas de pesquisa, revisão e cálculo.</p>
+                                <p className="text-[11px] text-slate-500 mt-1">É apenas um sinal de mercado para orientar você. A estimativa oficial será formada nas etapas de pesquisa, revisão e cálculo.</p>
                               </div>
                             )}
                           </div>
@@ -1819,14 +1819,14 @@ export default function NovaPesquisaPage() {
           <Grid2>
             <Field label="Número do processo *">
               <input className="inp" placeholder="Ex: 2026/00123" value={processo.numero} onChange={e => setProcesso({ ...processo, numero: e.target.value })} />
-              <p className="text-[10px] text-slate-400 mt-0.5">Ex.: 2026/00123 ou 0001/2026-PG — como consta no SEI/processo físico</p>
+              <p className="text-[11px] text-slate-600 mt-0.5">Ex.: 2026/00123 ou 0001/2026-PG — como consta no SEI/processo físico</p>
             </Field>
             <Field label="Órgão">
               <input className="inp inp-ro" value={processo.orgao} readOnly />
             </Field>
             <Field label="Unidade">
               <input className="inp" placeholder="Ex: SUPLAN/DILIC" value={processo.unidade} onChange={e => setProcesso({ ...processo, unidade: e.target.value })} />
-              <p className="text-[10px] text-slate-400 mt-0.5">Ex.: DILOG/Diretoria de Logística ou SUPLAN/DILIC</p>
+              <p className="text-[11px] text-slate-600 mt-0.5">Ex.: DILOG/Diretoria de Logística ou SUPLAN/DILIC</p>
             </Field>
             <Field label="Responsável">
               <input className="inp inp-ro" value={processo.responsavel} readOnly />
@@ -1850,7 +1850,7 @@ export default function NovaPesquisaPage() {
           </div>
 
           {pesquisaMercado.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-10 text-center text-sm text-slate-400">
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-10 text-center text-sm text-slate-600">
               Nenhuma cotação registrada. Esta etapa é opcional — as referências do PNCP são buscadas automaticamente na etapa de pesquisa.
             </div>
           ) : (
@@ -1879,7 +1879,7 @@ export default function NovaPesquisaPage() {
                           onChange={e => updateRegistroMercado(idx, "cnpj", e.target.value)}
                         />
                         {reg.cnpj && reg.cnpj.replace(/\D/g, "").length !== 14 && (
-                          <span className="text-[10px] text-red-500 mt-0.5">CNPJ incompleto (14 dígitos)</span>
+                          <span className="text-[11px] text-red-500 mt-0.5">CNPJ incompleto (14 dígitos)</span>
                         )}
                       </Field>
                       <Field label="Fonte dos dados *">
@@ -1959,10 +1959,10 @@ export default function NovaPesquisaPage() {
 
             {/* Objeto que será pesquisado */}
             <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Objeto que será pesquisado</p>
-              <p className="text-sm text-slate-700 font-medium">{objetoDesc || <span className="text-slate-400 italic">Nenhum objeto informado</span>}</p>
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600 mb-1">Objeto que será pesquisado</p>
+              <p className="text-sm text-slate-700 font-medium">{objetoDesc || <span className="text-slate-600 italic">Nenhum objeto informado</span>}</p>
               {itens.filter(i => i.descricao).length > 0 && (
-                <p className="text-[11px] text-slate-400 mt-1">
+                <p className="text-[11px] text-slate-600 mt-1">
                   {itens.length} {itens.length === 1 ? "item" : "itens"}: {itens.map(i => i.descricao).filter(Boolean).join(" · ").slice(0, 140)}
                 </p>
               )}
@@ -1995,7 +1995,7 @@ export default function NovaPesquisaPage() {
                 </div>
               </div>
             ) : (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-400 text-center">
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-600 text-center">
                 Nenhuma característica extraída pela IA ainda.
               </div>
             )}
@@ -2012,7 +2012,7 @@ export default function NovaPesquisaPage() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-semibold text-slate-700">{e.descricao || `Item ${i + 1}`}</p>
                         {e.especificacao && <p className="text-xs text-slate-500 mt-0.5 leading-snug">{e.especificacao}</p>}
-                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-400">
+                        <div className="flex items-center gap-3 mt-1 text-xs text-slate-600">
                           {(e.quantidade > 0 || e.unidadeMedida) && (
                             <span>{e.quantidade} {e.unidadeMedida || "un"}</span>
                           )}
@@ -2082,7 +2082,7 @@ export default function NovaPesquisaPage() {
               <input type="number" className="inp" min={1} max={100} value={config.cvLimite} onChange={e => setConfig({ ...config, cvLimite: Number(e.target.value) || 20 })} />
             </Field>
           </div>
-          <p className="mt-3 text-xs text-slate-400 leading-relaxed">
+          <p className="mt-3 text-xs text-slate-600 leading-relaxed">
             Regra de variação: se a dispersão dos preços pesquisados (coeficiente de variação) ultrapassar o limite acima,
             o sistema emite alerta e aplica automaticamente o <strong>menor preço</strong> como referência de cálculo.
           </p>
@@ -2128,12 +2128,12 @@ export default function NovaPesquisaPage() {
           if (!sit) return null;
           const l = sit.toLowerCase();
           if (l.includes("divulgada") || l.includes("aberta") || l.includes("recebendo"))
-            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 whitespace-nowrap"> {sit}</span>;
+            return <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-700 whitespace-nowrap"> {sit}</span>;
           if (l.includes("anulada") || l.includes("cancelada") || l.includes("revogada"))
-            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700 whitespace-nowrap"> {sit}</span>;
+            return <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-red-100 text-red-700 whitespace-nowrap"> {sit}</span>;
           if (l.includes("encerrada") || l.includes("homologada") || l.includes("adjudicada"))
-            return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-500 whitespace-nowrap">{sit}</span>;
-          return <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-700 whitespace-nowrap">{sit}</span>;
+            return <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-500 whitespace-nowrap">{sit}</span>;
+          return <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-700 whitespace-nowrap">{sit}</span>;
         };
         const rotuloItem = (itemId?: string) => {
           if (!itemId || itemId === "global") return objetoDesc.slice(0, 60) || "Objeto";
@@ -2239,11 +2239,11 @@ export default function NovaPesquisaPage() {
               {/* Cabeçalho da tabela deste item */}
               <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
                 <div className="flex items-center gap-2">
-                  <span className="w-6 h-6 rounded-full bg-[#032650] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                  <span className="w-6 h-6 rounded-full bg-[#032650] text-white text-[11px] font-bold flex items-center justify-center shrink-0">
                     {itemIds.indexOf(itemId) + 1}
                   </span>
                   <h3 className="font-bold text-slate-800 text-sm">{rotuloItem(itemId)}</h3>
-                  <span className="text-xs text-slate-400">
+                  <span className="text-xs text-slate-600">
                     {totalItem.toLocaleString("pt-BR")} editais · pág. {pagAtual}/{totalPags}
                   </span>
                 </div>
@@ -2262,7 +2262,7 @@ export default function NovaPesquisaPage() {
               </div>
 
               {filtrados.length === 0 ? (
-                <div className="rounded-xl bg-slate-50 border border-dashed border-slate-200 py-8 text-center text-slate-400 text-sm">
+                <div className="rounded-xl bg-slate-50 border border-dashed border-slate-200 py-8 text-center text-slate-600 text-sm">
                   Nenhum edital encontrado com o filtro selecionado.
                 </div>
               ) : (
@@ -2331,22 +2331,22 @@ export default function NovaPesquisaPage() {
                                   }}
                                 />
                               </td>
-                              <td className="px-3 py-2 text-center text-slate-400 font-bold border-r border-slate-100">{idx + 1}</td>
+                              <td className="px-3 py-2 text-center text-slate-600 font-bold border-r border-slate-100">{idx + 1}</td>
                               <td className="px-3 py-2 border-r border-slate-100">
-                                <span className="font-mono text-[10px] text-slate-500 leading-tight break-all">{r.documento_origem || "—"}</span>
+                                <span className="font-mono text-[11px] text-slate-500 leading-tight break-all">{r.documento_origem || "—"}</span>
                               </td>
                               <td className="px-3 py-2 border-r border-slate-100">
                                 <div className="font-semibold text-[#032650] text-[11px] leading-tight" style={{maxWidth:176}} title={r.orgao}>
                                   {r.orgao.length > 45 ? r.orgao.slice(0, 45) + "…" : r.orgao}
                                 </div>
-                                {unidade && <div className="text-[10px] text-slate-400 mt-0.5" title={unidade}>{unidade.length > 40 ? unidade.slice(0,40)+"…" : unidade}</div>}
+                                {unidade && <div className="text-[11px] text-slate-600 mt-0.5" title={unidade}>{unidade.length > 40 ? unidade.slice(0,40)+"…" : unidade}</div>}
                               </td>
                               <td className="px-3 py-2 border-r border-slate-100">
                                 <span className="text-slate-700 leading-snug" title={r.descricao}>
                                   {r.descricao.length > 150 ? r.descricao.slice(0, 150) + "…" : r.descricao}
                                 </span>
                                 {r.similaridade > 0 && iaFiltroReady && (
-                                  <span className={`ml-1.5 inline-block px-1.5 py-0.5 rounded text-[9px] font-bold ${r.similaridade >= 70 ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-400"}`}>
+                                  <span className={`ml-1.5 inline-block px-1.5 py-0.5 rounded text-[11px] font-bold ${r.similaridade >= 70 ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-600"}`}>
                                     IA {r.similaridade}%
                                   </span>
                                 )}
@@ -2359,7 +2359,7 @@ export default function NovaPesquisaPage() {
                               <td className="px-3 py-2 border-r border-slate-100 text-right font-mono font-bold whitespace-nowrap">
                                 {r.valor_unitario != null && r.valor_unitario > 0
                                   ? <span className="text-green-700">{formatarMoeda(r.valor_unitario)}</span>
-                                  : <span className="text-slate-300 text-[10px]">buscando…</span>}
+                                  : <span className="text-slate-300 text-[11px]">buscando…</span>}
                               </td>
                               <td className="px-3 py-2 border-r border-slate-100 text-right font-mono text-slate-600 whitespace-nowrap text-[11px]">
                                 {r.valor_total != null && r.valor_total > 0 ? formatarMoeda(r.valor_total) : <span className="text-slate-300">—</span>}
@@ -2368,7 +2368,7 @@ export default function NovaPesquisaPage() {
                               <td className="px-3 py-2 text-center">
                                 {r.link_origem
                                   ? <a href={r.link_origem} target="_blank" rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#032650] hover:bg-[#032650] text-white text-[10px] font-bold transition-colors shadow-sm">
+                                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-[#032650] hover:bg-[#032650] text-white text-[11px] font-bold transition-colors shadow-sm">
                                       <ExternalLink size={9}/> Abrir
                                     </a>
                                   : <span className="text-slate-200">—</span>}
@@ -2404,17 +2404,17 @@ export default function NovaPesquisaPage() {
               {/* Linha 1: busca inteligente */}
               <div className="flex items-center gap-2 mb-2.5">
                 <div className="relative flex-1">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"/>
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-600 pointer-events-none"/>
                   <input
                     type="text"
                     value={textoFiltro}
                     onChange={e => setTextoFiltro(e.target.value)}
                     placeholder="Buscar por descrição, órgão, nº PNCP, modalidade, localização…"
-                    className="w-full pl-8 pr-3 py-2 text-sm border-2 border-slate-200 rounded-xl focus:outline-none focus:border-[#C9A227] focus:ring-4 focus:ring-[#C9A227]/20 transition-colors bg-slate-50 placeholder:text-slate-400"
+                    className="w-full pl-8 pr-3 py-2 text-sm border-2 border-slate-200 rounded-xl focus:outline-none focus:border-[#0a3a6e] focus:ring-4 focus:ring-[#0a3a6e]/20 transition-colors bg-slate-50 placeholder:text-slate-600"
                   />
                   {textoFiltro && (
                     <button onClick={() => setTextoFiltro("")}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors">
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-600 transition-colors">
                       <X size={14}/>
                     </button>
                   )}
@@ -2460,7 +2460,7 @@ export default function NovaPesquisaPage() {
                 <select
                   value={regiaoFiltro}
                   onChange={e => setRegiaoFiltro(e.target.value)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 focus:outline-none focus:border-[#C9A227] cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 focus:outline-none focus:border-[#0a3a6e] cursor-pointer"
                   title="Filtrar por região (inferida da localização do edital)"
                 >
                   <option value="todas"> Todas as regiões</option>
@@ -2474,7 +2474,7 @@ export default function NovaPesquisaPage() {
                 <select
                   value={ordenacao}
                   onChange={e => setOrdenacao(e.target.value as any)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 focus:outline-none focus:border-[#C9A227] cursor-pointer"
+                  className="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-600 focus:outline-none focus:border-[#0a3a6e] cursor-pointer"
                   title="Ordenar resultados"
                 >
                   <option value="relevancia">Relevância</option>
@@ -2573,7 +2573,7 @@ export default function NovaPesquisaPage() {
                       <div key={i} className="text-[11px] text-slate-600">
                         <span className="font-semibold text-slate-700">{p.rotulo}:</span>{" "}
                         <span className="font-mono text-[#042f5e]">{p.termo}</span>
-                        {p.filtros && <span className="text-slate-400"> · priorizando: {p.filtros}</span>}
+                        {p.filtros && <span className="text-slate-600"> · priorizando: {p.filtros}</span>}
                         {p.parametros && <span className="text-slate-300"> — {p.parametros}</span>}
                       </div>
                     ))}
@@ -2600,7 +2600,7 @@ export default function NovaPesquisaPage() {
               ) : resultados.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                   <FileSearch className="w-10 h-10 text-slate-300" />
-                  <p className="text-sm text-slate-400">Nenhum resultado. Clique em "Refazer pesquisa" ou volte para ajustar os termos.</p>
+                  <p className="text-sm text-slate-600">Nenhum resultado. Clique em "Refazer pesquisa" ou volte para ajustar os termos.</p>
                 </div>
               ) : (
                 itemIds.map(itemId => <TabelaItem key={itemId} itemId={itemId} />)
@@ -2657,11 +2657,11 @@ export default function NovaPesquisaPage() {
         >
           {justificativaIA ? (
             <div className="rounded-xl bg-slate-50 border border-slate-200 p-5 text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-              <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Justificativa gerada pela IA</p>
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">Justificativa gerada pela IA</p>
               {justificativaIA}
             </div>
           ) : (
-            <div className="py-12 text-center text-slate-400 rounded-xl bg-slate-50 border border-dashed border-slate-200">
+            <div className="py-12 text-center text-slate-600 rounded-xl bg-slate-50 border border-dashed border-slate-200">
               <Sparkles size={32} className="mx-auto mb-3 opacity-30" />
               <p className="text-sm font-medium">Justificativa não gerada ainda.</p>
               <p className="text-xs mt-1">Clique em &quot;Gerar justificativa&quot; para acionar o agente IA, ou pule esta etapa.</p>
@@ -2693,7 +2693,7 @@ export default function NovaPesquisaPage() {
               <div className="flex items-center gap-2 mb-1">
                 <BarChart3 size={16} className="text-[#032650]" />
                 <p className="text-sm font-semibold text-[#032650]">Análise crítica das referências</p>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
+                <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
                   analiseCritica.forcaDispersao === "baixa" ? "bg-green-100 text-green-700"
                   : analiseCritica.forcaDispersao === "media" ? "bg-amber-100 text-amber-700"
                   : "bg-red-100 text-red-700"}`}>
@@ -2716,7 +2716,7 @@ export default function NovaPesquisaPage() {
               </div>
               {analiseCritica.sugestaoJustificativa && (
                 <div className="mt-3 rounded-lg bg-white border border-[#d5dce8] p-3">
-                  <p className="text-[10px] font-semibold text-[#C9A227] uppercase tracking-wide mb-1">Sugestão para a justificativa</p>
+                  <p className="text-[11px] font-semibold text-[#C9A227] uppercase tracking-wide mb-1">Sugestão para a justificativa</p>
                   <p className="text-xs text-slate-700 leading-relaxed">{analiseCritica.sugestaoJustificativa}</p>
                   <button
                     onClick={() => { navigator.clipboard.writeText(analiseCritica.sugestaoJustificativa); alert("Sugestão copiada para a área de transferência."); }}
@@ -2794,7 +2794,7 @@ export default function NovaPesquisaPage() {
                   badge={estatisticas.coeficienteVariacao <= 15 ? "ok" : estatisticas.coeficienteVariacao <= config.cvLimite ? "warn" : "err"} />
               </div>
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Memória de cálculo</p>
+                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Memória de cálculo</p>
                 <div className="font-mono text-xs text-slate-600 space-y-1">
                   <p>Referências aceitas: {estatisticas.n}</p>
                   <p>Valores: {resultados.filter(r => r.status_avaliacao === "aceito").map(r => formatarMoeda(r.valor_unitario ?? 0)).join(" | ")}</p>
@@ -2806,7 +2806,7 @@ export default function NovaPesquisaPage() {
               </div>
             </>
           ) : (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-12 text-center text-sm text-slate-400">
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-12 text-center text-sm text-slate-600">
               Nenhum resultado aceito. Volte e aceite pelo menos um registro.
             </div>
           )}
@@ -2833,9 +2833,9 @@ export default function NovaPesquisaPage() {
                   <p className="text-xs text-[#C9A227] mt-1">{quantidade} {unidadeMedida}(s)</p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-1">Método aplicado</p>
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Método aplicado</p>
                   <p className="text-base font-semibold text-slate-700">{(metodoEfetivo || config.metodo).replace(/_/g, " ")}</p>
-                  {alertaCv && <p className="text-[10px] text-red-500 mt-1 font-medium">CV acima do limite  menor preço</p>}
+                  {alertaCv && <p className="text-[11px] text-red-500 mt-1 font-medium">CV acima do limite  menor preço</p>}
                 </div>
               </div>
               <div className="rounded-lg bg-blue-50 border border-blue-100 p-4 text-sm text-blue-800 leading-relaxed">
@@ -2871,7 +2871,7 @@ export default function NovaPesquisaPage() {
                 <Calculator size={15} />
                 <p className="text-sm font-bold"> Calcular direto — quadro comparativo</p>
               </div>
-              <span className="text-[10px] font-medium bg-white/20 px-2 py-0.5 rounded-full">agente automático</span>
+              <span className="text-[11px] font-medium bg-white/20 px-2 py-0.5 rounded-full">agente automático</span>
             </div>
             <div className="p-4">
               {(() => {
@@ -2964,7 +2964,7 @@ export default function NovaPesquisaPage() {
                               ].map(([label, valor, cor]: any) => (
                                 <div key={label} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
                                   <p className={`text-lg font-bold ${cor}`}>{valor}</p>
-                                  <p className="text-[10px] text-slate-500">{label}</p>
+                                  <p className="text-[11px] text-slate-500">{label}</p>
                                 </div>
                               ))}
                             </div>
@@ -3019,9 +3019,9 @@ export default function NovaPesquisaPage() {
                                 <td className="px-3 py-2 text-right text-slate-500 tabular-nums">{q}</td>
                                 <td className="px-3 py-2">
                                   {classif.tipo === "válido" ? (
-                                    <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700"> válido</span>
+                                    <span className="inline-block px-2 py-0.5 rounded-full text-[11px] font-bold bg-green-100 text-green-700"> válido</span>
                                   ) : (
-                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${classif.tipo === "inexequível" ? "bg-red-100 text-red-700" : classif.tipo === "sobrepreço" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>
+                                    <span className={`inline-block px-2 py-0.5 rounded-full text-[11px] font-bold ${classif.tipo === "inexequível" ? "bg-red-100 text-red-700" : classif.tipo === "sobrepreço" ? "bg-orange-100 text-orange-700" : "bg-amber-100 text-amber-700"}`}>
                                        {classif.tipo} ({classif.pct}% da média)
                                     </span>
                                   )}
@@ -3099,12 +3099,12 @@ export default function NovaPesquisaPage() {
                     {precoEstimado && (
                       <div className="rounded-lg bg-emerald-600 text-white p-4 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-100"> Valor estimado sugerido da contratação (art. 11 IN 126)</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-100"> Valor estimado sugerido da contratação (art. 11 IN 126)</p>
                           <p className="text-xl font-bold tabular-nums">{formatarMoeda(precoEstimado.total)}</p>
                           <p className="text-[11px] text-emerald-100">({precoEstimado.unitario ? formatarMoeda(precoEstimado.unitario) : ""} × {quantidade} {unidadeMedida}(s) · método {config.metodo.replace(/_/g, " ")})</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[10px] text-emerald-100">Preços válidos</p>
+                          <p className="text-[11px] text-emerald-100">Preços válidos</p>
                           <p className="text-lg font-bold tabular-nums">{fonte.filter(r => classificarPrecoIN126((r.valor_unitario ?? r.valor_total) as number, fonte.map(a => (a.valor_unitario ?? a.valor_total) as number)).tipo === "válido").length}</p>
                         </div>
                       </div>
@@ -3169,7 +3169,7 @@ export default function NovaPesquisaPage() {
                     {/* NOTAS EXPLICATIVAS — embaixo (transparência do agente) */}
                     {notasCalcularDireto && notasCalcularDireto.length > 0 && (
                       <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-                        <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-2"> Notas explicativas do cálculo</p>
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600 mb-2"> Notas explicativas do cálculo</p>
                         <div className="space-y-1.5">
                           {notasCalcularDireto.map((n, i) => (
                             <p key={i} className="text-[11px] text-slate-600 leading-relaxed">{n}</p>
@@ -3201,7 +3201,7 @@ export default function NovaPesquisaPage() {
             </div>
           )}
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 mb-4">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">1. Tendência central aplicada no cálculo</p>
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">1. Tendência central aplicada no cálculo</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {([
                 ["media_aritmetica", "Média aritmética", "Soma dos valores dividida pelo nº de referências"],
@@ -3232,7 +3232,7 @@ export default function NovaPesquisaPage() {
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 mb-4">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">2. Parâmetros que constarão no relatório</p>
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">2. Parâmetros que constarão no relatório</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               {([
                 ["exibirMedia", "Média"],
@@ -3253,7 +3253,7 @@ export default function NovaPesquisaPage() {
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">3. Reserva ME/EPP (LC nº 123/2006)</p>
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">3. Reserva ME/EPP (LC nº 123/2006)</p>
             {precoEstimado ? (
               <>
                 <div className="flex items-start gap-3 p-3 rounded-lg border border-slate-200 bg-white">
@@ -3276,12 +3276,12 @@ export default function NovaPesquisaPage() {
                     )}
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                <p className="text-[11px] text-slate-600 mt-2 leading-relaxed">
                   Item indivisível e acima de R$ 80.000 fica fora da reserva — a regra não é aplicável. A decisão constará nas premissas do relatório.
                 </p>
               </>
             ) : (
-              <p className="text-sm text-slate-400">Calcule o preço estimado na etapa anterior para ver a sugestão automática de ME/EPP.</p>
+              <p className="text-sm text-slate-600">Calcule o preço estimado na etapa anterior para ver a sugestão automática de ME/EPP.</p>
             )}
           </div>
         </StepCard>
@@ -3295,7 +3295,7 @@ export default function NovaPesquisaPage() {
           footer={<><Btn onClick={prevStep}>Voltar</Btn><Btn primary onClick={nextStep} icon={<ChevronRight size={14}/>}>Próximo</Btn></>}
         >
           {(formaParcelamento === "global" ? (itens[0] ? [{ id: "global", descricao: objetoDesc || "Objeto (global)" }] : []) : itens).length === 0 && (
-            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-sm text-slate-400">
+            <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-8 text-center text-sm text-slate-600">
               Cadastre itens na etapa 2 para decompor custos.
             </div>
           )}
@@ -3310,7 +3310,7 @@ export default function NovaPesquisaPage() {
                 </div>
 
                 {comps.length === 0 && (
-                  <div className="px-4 py-6 text-center text-xs text-slate-400">
+                  <div className="px-4 py-6 text-center text-xs text-slate-600">
                     Nenhuma composição de custo para este item. Clique em "Composição" para montar a decomposição (ex.: mão de obra dedicada + insumos + BDI).
                   </div>
                 )}
@@ -3379,7 +3379,7 @@ export default function NovaPesquisaPage() {
                                 </td>
                                 <td className="px-2 py-1.5 text-right font-mono tabular-nums text-slate-700">
                                   {(custo.tipo === "encargo" || custo.tipo === "bdi")
-                                    ? <span className="text-slate-400">—</span>
+                                    ? <span className="text-slate-600">—</span>
                                     : formatarMoeda(sub)}
                                 </td>
                                 <td className="px-1 py-1.5 text-center">
@@ -3441,7 +3441,7 @@ export default function NovaPesquisaPage() {
             <Field label="E-mail"><input className="inp inp-ro" value={processo.email} readOnly /></Field>
           </Grid2>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 mb-4">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Links das referências aceitas</p>
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-3">Links das referências aceitas</p>
             {linksAceitos.length > 0 ? (
               <ul className="space-y-2">
                 {linksAceitos.map((link, i) => (
@@ -3454,11 +3454,11 @@ export default function NovaPesquisaPage() {
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-slate-400">Nenhuma referência aceita com link disponível.</p>
+              <p className="text-sm text-slate-600">Nenhuma referência aceita com link disponível.</p>
             )}
           </div>
           <div className="rounded-lg bg-slate-50 border border-slate-200 p-4">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Evidências registradas automaticamente</p>
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Evidências registradas automaticamente</p>
             <ul className="text-sm text-slate-600 space-y-1.5">
               {[
                 `Registros consultados em ${new Date().toLocaleDateString("pt-BR")}`,
@@ -3497,7 +3497,7 @@ export default function NovaPesquisaPage() {
 
           {/* Premissas estruturadas */}
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 mb-6 text-sm">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Premissas e justificativas do processo (incluídas no relatório)</p>
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Premissas e justificativas do processo (incluídas no relatório)</p>
             <ul className="text-slate-600 space-y-1.5">
               <li className="flex items-start gap-2"><Check size={12} className="text-green-500 shrink-0 mt-0.5" />
                 Fontes: {Array.from(new Set(resultados.filter(r => r.status_avaliacao === "aceito").map(r => r.fonte))).join(", ") || "—"}
@@ -3515,7 +3515,7 @@ export default function NovaPesquisaPage() {
               <li className="flex items-start gap-2"><Check size={12} className="text-green-500 shrink-0 mt-0.5" />
                 Métrica de tendência central: {(metodoEfetivo || config.metodo).replace(/_/g, " ")}
                 {metodoEfetivo && metodoEfetivo !== config.metodo && (
-                  <span className="text-slate-400"> (escolhido: {config.metodo.replace(/_/g, " ")})</span>
+                  <span className="text-slate-600"> (escolhido: {config.metodo.replace(/_/g, " ")})</span>
                 )}
               </li>
               <li className="flex items-start gap-2"><Check size={12} className="text-green-500 shrink-0 mt-0.5" />
@@ -3543,7 +3543,7 @@ export default function NovaPesquisaPage() {
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 mb-6 text-sm">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Metadados incluídos no documento</p>
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Metadados incluídos no documento</p>
             <ul className="text-slate-600 space-y-1.5">
               {[
                 `Responsável: ${processo.responsavel} (${processo.email})`,
@@ -3585,6 +3585,7 @@ export default function NovaPesquisaPage() {
   // Quebra o padding do layout pai (-mx -mt) e usa sticky para wizard + footers
   return (
     <div className="-mx-4 md:-mx-8 -mt-4 md:-mt-8">
+      <h1 className="sr-only">Nova pesquisa de preços</h1>
 
       {/* ── Wizard sticky no topo ──────────────────────────────────────────── */}
       <div className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
@@ -3603,26 +3604,26 @@ export default function NovaPesquisaPage() {
                   isAtual
                     ? "bg-[#032650] text-white"
                     : isConcluida
-                    ? "bg-[#eef2f8] text-[#032650] hover:bg-[#eef2f8]"
-                    : "text-slate-400 hover:bg-slate-50"
+                    ? "bg-[#eef2f8] text-[#032650] hover:bg-[#e0e8f3]"
+                    : "text-slate-600 hover:bg-slate-50"
                 }`}
               >
                 <Icon size={13} />
                 <span>{fase.nome}</span>
                 {isConcluida && <Check size={10} />}
-                {isAtual && <span className="text-[10px] opacity-75 font-normal">({step}/{totalSteps})</span>}
+                {isAtual && <span className="text-[11px] opacity-75 font-normal">({step}/{totalSteps})</span>}
               </button>
             );
           })}
           {/* contadores à direita */}
           <div className="flex items-center gap-2 px-4 border-l border-slate-100 shrink-0">
             {nAceitos > 0 && (
-              <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
                 <Check size={9}/>{nAceitos}
               </span>
             )}
             {nRejeitados > 0 && (
-              <span className="inline-flex items-center gap-1 bg-red-100 text-red-600 text-[10px] font-bold px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-[11px] font-bold px-2 py-0.5 rounded-full">
                 <X size={9}/>{nRejeitados}
               </span>
             )}
@@ -3631,7 +3632,7 @@ export default function NovaPesquisaPage() {
         {/* Barra de progresso */}
         <div className="h-[3px] bg-slate-100">
           <div
-            className="h-full bg-[#eef2f8]0 transition-all duration-500"
+            className="h-full bg-[#032650] transition-all duration-500"
             style={{ width: `${((step - 1) / (totalSteps - 1)) * 100}%` }}
           />
         </div>
@@ -3645,19 +3646,19 @@ export default function NovaPesquisaPage() {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2 mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-widest text-[#032650]">LEX te guia</span>
-              <span className="text-[10px] font-semibold text-slate-400">Etapa {step} de {totalSteps} · {STEP_NAMES[step]}</span>
+              <span className="text-[11px] font-bold uppercase tracking-widest text-[#032650]">LEX te guia</span>
+              <span className="text-xs font-medium text-slate-600">Etapa {step} de {totalSteps} · {STEP_NAMES[step]}</span>
             </div>
-            <p className="text-sm font-semibold text-slate-800">{GUIA_STEP[step]?.pergunta}</p>
-            <p className="text-xs text-slate-500 mt-1 leading-relaxed">{GUIA_STEP[step]?.orientacao}</p>
+            <p className="text-sm font-semibold text-slate-900">{GUIA_STEP[step]?.pergunta}</p>
+            <p className="text-sm text-slate-600 mt-1 leading-relaxed">{GUIA_STEP[step]?.orientacao}</p>
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {objetoDesc && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-100 text-[10px] font-semibold">Objeto entendido</span>}
-              {itens.length > 0 && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-100 text-[10px] font-semibold">{itens.length} {itens.length === 1 ? "item" : "itens"}</span>}
-              {itensEfetivos.some(i => catalogoPorItem[i.id]?.selecionado) && <span className="px-2 py-1 rounded-lg bg-[#eef2f8] text-[#032650] border border-[#d5dce8] text-[10px] font-semibold">CATMAT confirmado em {itensEfetivos.filter(i => catalogoPorItem[i.id]?.selecionado).length}/{itensEfetivos.length}</span>}
-              {localEntrega && <span className="px-2 py-1 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 text-[10px] font-semibold">Local: {localEntrega}</span>}
-              {resultados.length > 0 && <span className="px-2 py-1 rounded-lg bg-[#eef2f8] text-[#032650] border border-[#d5dce8] text-[10px] font-semibold">{resultados.length} referências encontradas</span>}
-              {nAceitos > 0 && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-700 border border-green-100 text-[10px] font-semibold">{nAceitos} aceitas</span>}
-              {precoEstimado && <span className="px-2 py-1 rounded-lg bg-[#032650] text-white text-[10px] font-semibold">Estimativa calculada</span>}
+              {objetoDesc && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-800 border border-green-100 text-[11px] font-semibold">Objeto entendido</span>}
+              {itens.length > 0 && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-800 border border-green-100 text-[11px] font-semibold">{itens.length} {itens.length === 1 ? "item" : "itens"}</span>}
+              {itensEfetivos.some(i => catalogoPorItem[i.id]?.selecionado) && <span className="px-2 py-1 rounded-lg bg-[#eef2f8] text-[#032650] border border-[#d5dce8] text-[11px] font-semibold">Catálogo conferido: {itensEfetivos.filter(i => catalogoPorItem[i.id]?.selecionado).length}/{itensEfetivos.length}</span>}
+              {localEntrega && <span className="px-2 py-1 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 text-[11px] font-semibold">Local: {localEntrega}</span>}
+              {resultados.length > 0 && <span className="px-2 py-1 rounded-lg bg-[#eef2f8] text-[#032650] border border-[#d5dce8] text-[11px] font-semibold">{resultados.length} preços encontrados</span>}
+              {nAceitos > 0 && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-800 border border-green-100 text-[11px] font-semibold">{nAceitos} aceitas</span>}
+              {precoEstimado && <span className="px-2 py-1 rounded-lg bg-[#032650] text-white text-[11px] font-semibold">Estimativa calculada</span>}
             </div>
           </div>
         </div>
@@ -3728,18 +3729,18 @@ function BuscaAnimada({ regiao, periodo, qtdMin }: { regiao: string; periodo: st
         >
           {MENSAGENS_BUSCA[idx]}
         </p>
-        <p className="text-xs text-slate-400 font-mono">{regiao} · {periodo} · mín. {qtdMin} refs.</p>
+        <p className="text-xs text-slate-600 font-mono">{regiao} · {periodo} · mín. {qtdMin} refs.</p>
       </div>
 
       {/* Barra de progresso */}
       <div className="w-72">
         <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div
-            className="h-full bg-[#eef2f8]0 rounded-full transition-all duration-500 ease-out"
+            className="h-full bg-[#032650] rounded-full transition-all duration-500 ease-out"
             style={{ width: `${progresso}%` }}
           />
         </div>
-        <p className="text-center text-xs text-slate-400 mt-2">Pesquisa em andamento — não feche a página</p>
+        <p className="text-center text-xs text-slate-600 mt-2">Pesquisa em andamento — não feche a página</p>
       </div>
     </div>
   );
@@ -3755,8 +3756,8 @@ function StepCard({
       {/* Conteúdo centralizado */}
       <div className="flex-1 px-6 md:px-10 py-7 max-w-3xl w-full mx-auto">
         <div className="mb-4">
-          <h2 className="text-lg font-bold text-slate-800">{title}</h2>
-          {desc && <p className="text-sm text-slate-500 mt-1 leading-relaxed">{desc}</p>}
+          <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+          {desc && <p className="text-sm text-slate-600 mt-1 leading-relaxed">{desc}</p>}
         </div>
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-4 sm:px-7 py-5 sm:py-6">
           {children}
@@ -3764,7 +3765,7 @@ function StepCard({
       </div>
       {/* Footer SEMPRE visível — sticky na base da viewport */}
       {footer && (
-        <div className="sticky bottom-0 z-10 bg-white/95 backdrop-blur border-t border-slate-200 px-4 md:px-10 py-3 shadow-[0_-2px_12px_rgba(0,0,0,0.07)]">
+        <div className="sticky bottom-0 z-10 bg-white border-t border-slate-200 px-4 md:px-10 py-3 shadow-[0_-2px_12px_rgba(3,38,80,0.06)]">
           <div className="max-w-3xl w-full mx-auto flex flex-wrap items-center justify-between gap-2.5 [&>button]:w-full sm:[&>button]:w-auto [&>div]:w-full sm:[&>div]:w-auto [&>div]:flex-wrap">
             {footer}
           </div>
@@ -3777,7 +3778,7 @@ function StepCard({
 function Field({ label, children, title }: { label: string; children: React.ReactNode; title?: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-bold text-slate-600 tracking-wide" title={title}>{label}</label>
+      <label className="text-xs font-semibold text-slate-700 tracking-wide" title={title}>{label}</label>
       {children}
     </div>
   );
@@ -3792,9 +3793,9 @@ function Btn({
 }: {
   children: React.ReactNode; onClick?: () => void; primary?: boolean; icon?: React.ReactNode; disabled?: boolean;
 }) {
-  const base = "inline-flex items-center justify-center gap-2 min-h-[42px] px-4 py-2.5 rounded-xl text-sm font-medium transition-all border shadow-sm active:scale-[0.98] whitespace-normal sm:whitespace-nowrap text-center";
+  const base = "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold transition-all border shadow-sm motion-safe:active:scale-[0.98] whitespace-normal sm:whitespace-nowrap text-center";
   const style = primary
-    ? "bg-[#032650] text-white border-[#032650] hover:bg-[#032650] shadow-[#032650]/10"
+    ? "bg-[#032650] text-white border-[#032650] hover:bg-[#0a3a6e] hover:border-[#0a3a6e] shadow-[#032650]/10"
     : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300";
   return (
     <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${style} disabled:opacity-40 disabled:cursor-not-allowed`}>
@@ -3808,9 +3809,9 @@ function StatBox({ label, value, badge }: { label: string; value: string; badge?
   return (
     <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-4 text-center">
       <span className="block text-xl font-bold tabular-nums text-slate-800 tracking-tight">{value}</span>
-      <span className="text-xs text-slate-400 mt-0.5 block">{label}</span>
+      <span className="text-xs text-slate-600 mt-0.5 block">{label}</span>
       {badge && (
-        <span className={`inline-block mt-2 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+        <span className={`inline-block mt-2 text-[11px] font-semibold px-2 py-0.5 rounded-full ${
           badge === "ok" ? "bg-green-100 text-green-700" :
           badge === "warn" ? "bg-amber-100 text-amber-700" :
           "bg-red-100 text-red-600"

@@ -46,7 +46,7 @@ function StatBox({ label, value, cls = "" }: { label: string; value: React.React
   );
 }
 
-function BarChart({ data, cor = "bg-[#eef2f8]0", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
+function BarChart({ data, cor = "bg-[#032650]", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
   const max = Math.max(1, ...data.map((d) => d.total));
   return (
     <div className="flex items-end gap-2 h-28">
@@ -67,7 +67,7 @@ function BarChart({ data, cor = "bg-[#eef2f8]0", rotulo }: { data: { rotulo: str
   );
 }
 
-function BarrasHorizontais({ data, cor = "bg-[#eef2f8]0", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
+function BarrasHorizontais({ data, cor = "bg-[#032650]", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
   const max = Math.max(1, ...data.map((d) => d.total));
   return (
     <div className="space-y-1.5">

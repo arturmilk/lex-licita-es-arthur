@@ -429,7 +429,7 @@ export default function ChatGuiadoPage() {
       {/* Cabeçalho */}
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-br bg-[#032650] bg-[#C9A227] flex items-center justify-center shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#032650] to-[#0a3a6e] flex items-center justify-center shadow-sm">
             <Bot size={18} className="text-white" />
           </div>
           <div>
@@ -506,7 +506,7 @@ export default function ChatGuiadoPage() {
         <div className="flex-1 overflow-y-auto space-y-4 pb-4">
           {!conversa ? (
             <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-4">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br bg-[#032650] bg-[#C9A227] flex items-center justify-center shadow-lg">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#032650] to-[#0a3a6e] flex items-center justify-center shadow-lg">
                 <Bot size={28} className="text-white" />
               </div>
               <p className="text-lg font-semibold text-slate-800">O que você precisa comprar ou contratar hoje?</p>
