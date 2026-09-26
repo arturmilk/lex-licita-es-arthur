@@ -4,7 +4,7 @@ import React, { useState, useCallback } from "react";
 import {
   Loader2, AlertCircle, Check, X, ExternalLink, MapPin,
   FileSearch, ChevronRight, ChevronDown, Sparkles, BarChart3, FileText,
-  ClipboardList, Settings, Search, CheckCircle2, TrendingUp, RefreshCw, Calculator,
+  ClipboardList, Search, CheckCircle2, TrendingUp, RefreshCw, Calculator,
 } from "lucide-react";
 import { calcularEstatisticas, calcularPrecoEstimado, formatarMoeda, calcularComRegraCv } from "@/lib/math";
 import { analisarReferencias, type ResultadoAnaliseCritica } from "@/lib/analise-critica";
@@ -112,12 +112,13 @@ const UNIDADES_MEDIDA = [
 ];
 
 // ─── Fases do wizard ──────────────────────────────────────────────────────────
+// ─── Fases do wizard ──────────────────────────────────────────────────────────
+// 4 "momentos" na cabeça do usuário (em vez de 5 blocos técnicos).
 const FASES = [
-  { nome: "Objeto",     icon: ClipboardList, steps: [1, 2] },
-  { nome: "Processo",   icon: Settings,      steps: [3] },
-  { nome: "Pesquisa",   icon: Search,        steps: [4, 5, 6, 7, 8] },
-  { nome: "Análise",    icon: BarChart3,     steps: [9, 10, 11, 12] },
-  { nome: "Relatório",  icon: FileText,      steps: [13, 14, 15, 16] },
+  { nome: "Preparar",         icon: ClipboardList, steps: [1, 2, 3, 4] },
+  { nome: "Buscar preços",    icon: Search,        steps: [5, 6, 7, 8] },
+  { nome: "Conferir preços",  icon: BarChart3,     steps: [9, 10, 11, 12] },
+  { nome: "Fechar relatório", icon: FileText,      steps: [13, 14, 15, 16] },
 ];
 
 const STEP_NAMES: Record<number, string> = {
@@ -1841,8 +1842,8 @@ export default function NovaPesquisaPage() {
       // ── Etapa 4: Pesquisa de mercado ────────────────────────────────────────
       case 4: return (
         <StepCard
-          title="Pesquisa de mercado"
-          desc="Registre cotações manuais junto a fornecedores. CNPJ e fonte dos dados são OBRIGATÓRIOS — garantem a transparência documental da pesquisa."
+          title="Preços que você já tem"
+          desc="Registre cotações que você já coletou com fornecedores. CNPJ e fonte são obrigatórios — é o que garante transparência à pesquisa."
           footer={<><Btn onClick={prevStep}>Voltar</Btn><Btn primary onClick={nextStep} icon={<ChevronRight size={15}/>}>Próximo</Btn></>}
         >
           <div className="mb-4">
@@ -1920,8 +1921,8 @@ export default function NovaPesquisaPage() {
       // ── Etapa 6 ─────────────────────────────────────────────────────────────
       case 5: return (
         <StepCard
-          title="Realizar pesquisa"
-          desc="O sistema busca simultaneamente no PNCP, Dados Abertos e Compras.gov e traz todos os resultados. Use os filtros na tabela para selecionar o que interessa."
+          title="Buscar nas fontes oficiais"
+          desc="O LEX consulta as bases públicas (PNCP, Compras.gov.br e Contratos.gov.br) ao mesmo tempo e traz os preços encontrados. Use os filtros para escolher o que interessa."
           footer={
             <div className="flex items-center gap-3">
               <Btn onClick={prevStep}> Voltar</Btn>
@@ -2630,8 +2631,8 @@ export default function NovaPesquisaPage() {
       // ── Etapa 11 ────────────────────────────────────────────────────────────
       case 10: return (
         <StepCard
-          title="Justificativa técnica (IA) — opcional"
-          desc="Gere uma justificativa técnica automatizada com base nas referências aceitas e nas estatísticas calculadas. Esta etapa é opcional — você pode pular e prosseguir."
+          title="Justificativa do preço (automática)"
+          desc="Gera o texto que explica como o preço foi formado, com base nas referências aceitas. Esta etapa é opcional — você pode pular."
           footer={
             <div className="flex items-center gap-3 flex-wrap">
               <Btn onClick={() => goToStep(9)}> Revisar referências</Btn>
@@ -2770,8 +2771,8 @@ export default function NovaPesquisaPage() {
       // ── Etapa 12 ────────────────────────────────────────────────────────────
       case 11: return (
         <StepCard
-          title="Análise estatística"
-          desc="Estatísticas calculadas com base nas referências aceitas."
+          title="Resumo dos preços"
+          desc="Como os preços aceitos se distribuem. Os detalhes técnicos ficam guardados — abra só se precisar."
           footer={<><Btn onClick={() => goToStep(9)}>Voltar</Btn><Btn primary onClick={nextStep} icon={<TrendingUp size={14}/>}>Gerar preço estimado</Btn></>}
         >
           {estatisticas ? (
@@ -2783,27 +2784,31 @@ export default function NovaPesquisaPage() {
                   <strong> menor preço</strong> como referência, evitando média distorcida. Método efetivo: <strong>{alertaCv.metodoEfetivo.replace(/_/g, " ")}</strong>.
                 </div>
               )}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-6">
-                <StatBox label="Referências" value={estatisticas.n.toString()} />
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
+                <StatBox label="Preços aceitos" value={estatisticas.n.toString()} />
                 <StatBox label="Média" value={formatarMoeda(estatisticas.media)} />
                 <StatBox label="Mediana" value={formatarMoeda(estatisticas.mediana)} />
-                <StatBox label="Mínimo" value={formatarMoeda(estatisticas.minimo)} />
-                <StatBox label="Máximo" value={formatarMoeda(estatisticas.maximo)} />
-                <StatBox label="Desvio padrão" value={estatisticas.desvioPadrao.toFixed(2).replace(".", ",")} />
-                <StatBox label="CV" value={`${estatisticas.coeficienteVariacao.toFixed(1).replace(".", ",")}%`}
-                  badge={estatisticas.coeficienteVariacao <= 15 ? "ok" : estatisticas.coeficienteVariacao <= config.cvLimite ? "warn" : "err"} />
+                <StatBox label="Menor" value={formatarMoeda(estatisticas.minimo)} />
+                <StatBox label="Maior" value={formatarMoeda(estatisticas.maximo)} />
               </div>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Memória de cálculo</p>
-                <div className="font-mono text-xs text-slate-600 space-y-1">
-                  <p>Referências aceitas: {estatisticas.n}</p>
-                  <p>Valores: {resultados.filter(r => r.status_avaliacao === "aceito").map(r => formatarMoeda(r.valor_unitario ?? 0)).join(" | ")}</p>
-                  <p>Média = {formatarMoeda(estatisticas.media)} · Mediana = {formatarMoeda(estatisticas.mediana)}</p>
-                  <p>Mínimo = {formatarMoeda(estatisticas.minimo)} · Máximo = {formatarMoeda(estatisticas.maximo)}</p>
-                  <p>Desvio padrão = {estatisticas.desvioPadrao.toFixed(2).replace(".", ",")} · CV = {estatisticas.coeficienteVariacao.toFixed(1).replace(".", ",")}%</p>
-                  <p>Limite de CV: {config.cvLimite}% · Método efetivo: {(metodoEfetivo || config.metodo).replace(/_/g, " ")}</p>
+              <Detalhes titulo="Ver detalhes técnicos (variação, desvio padrão e memória de cálculo)">
+                <div className="mb-3 grid grid-cols-2 gap-3">
+                  <StatBox label="Desvio padrão" value={estatisticas.desvioPadrao.toFixed(2).replace(".", ",")} />
+                  <StatBox label="Variação (CV)" value={`${estatisticas.coeficienteVariacao.toFixed(1).replace(".", ",")}%`}
+                    badge={estatisticas.coeficienteVariacao <= 15 ? "ok" : estatisticas.coeficienteVariacao <= config.cvLimite ? "warn" : "err"} />
                 </div>
-              </div>
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Memória de cálculo</p>
+                  <div className="font-mono text-xs text-slate-600 space-y-1">
+                    <p>Referências aceitas: {estatisticas.n}</p>
+                    <p>Valores: {resultados.filter(r => r.status_avaliacao === "aceito").map(r => formatarMoeda(r.valor_unitario ?? 0)).join(" | ")}</p>
+                    <p>Média = {formatarMoeda(estatisticas.media)} · Mediana = {formatarMoeda(estatisticas.mediana)}</p>
+                    <p>Mínimo = {formatarMoeda(estatisticas.minimo)} · Máximo = {formatarMoeda(estatisticas.maximo)}</p>
+                    <p>Desvio padrão = {estatisticas.desvioPadrao.toFixed(2).replace(".", ",")} · CV = {estatisticas.coeficienteVariacao.toFixed(1).replace(".", ",")}%</p>
+                    <p>Limite de CV: {config.cvLimite}% · Método efetivo: {(metodoEfetivo || config.metodo).replace(/_/g, " ")}</p>
+                  </div>
+                </div>
+              </Detalhes>
             </>
           ) : (
             <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-12 text-center text-sm text-slate-600">
@@ -2892,10 +2897,12 @@ export default function NovaPesquisaPage() {
                 }
                 return (
                   <div className="space-y-4">
-                    {/* Referência legal IN 126/2023-TJRO */}
-                    <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-[11px] text-amber-800 leading-relaxed">
-                       <strong>Base legal:</strong> <strong>Instrução nº 126/2023-TJRO</strong> (art. 3º, III e VII; art. 8º; art. 11) — pesquisa de preços para bens e serviços de qualquer natureza no TJRO.
-                    </div>
+                    {/* Referência legal IN 126/2023-TJRO — disponível, mas não na cara */}
+                    <Detalhes titulo="Ver base legal (IN 126/2023-TJRO)">
+                      <p className="text-[11px] text-amber-800 leading-relaxed">
+                        <strong>Base legal:</strong> Instrução nº 126/2023-TJRO (art. 3º, III e VII; art. 8º; art. 11) — pesquisa de preços para bens e serviços de qualquer natureza no TJRO.
+                      </p>
+                    </Detalhes>
 
                     {/* Inteligência antes do cálculo direto */}
                     {!precoEstimado && (
@@ -3166,16 +3173,15 @@ export default function NovaPesquisaPage() {
                       </div>
                     )}
 
-                    {/* NOTAS EXPLICATIVAS — embaixo (transparência do agente) */}
+                    {/* NOTAS EXPLICATIVAS — escondidas atrás de "ver notas" */}
                     {notasCalcularDireto && notasCalcularDireto.length > 0 && (
-                      <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
-                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-600 mb-2"> Notas explicativas do cálculo</p>
+                      <Detalhes titulo={`Ver notas do cálculo (${notasCalcularDireto.length})`}>
                         <div className="space-y-1.5">
                           {notasCalcularDireto.map((n, i) => (
-                            <p key={i} className="text-[11px] text-slate-600 leading-relaxed">{n}</p>
+                            <p key={i} className="text-xs text-slate-600 leading-relaxed">{n}</p>
                           ))}
                         </div>
-                      </div>
+                      </Detalhes>
                     )}
                   </div>
                 );
@@ -3188,8 +3194,8 @@ export default function NovaPesquisaPage() {
       // ── Etapa 14: Metodologia estatística + ME/EPP ──────────────────────────
       case 13: return (
         <StepCard
-          title="Metodologia do relatório e ME/EPP"
-          desc="Escolha a tendência central do cálculo e os parâmetros que constarão no relatório final. A regra de ME/EPP (LC 123/2006) é calculada automaticamente."
+          title="Como o relatório explica o cálculo"
+          desc="Escolha como a média foi calculada e o que entra no relatório final. A reserva para ME/EPP é sugerida automaticamente."
           footer={<><Btn onClick={prevStep}>Voltar</Btn><Btn primary onClick={nextStep} icon={<ChevronRight size={14}/>}>Próximo</Btn></>}
         >
           {alertaCv && (
@@ -3290,8 +3296,8 @@ export default function NovaPesquisaPage() {
       // ── Etapa 15: Decomposição de custos (diferencial competitivo) ──────────
       case 14: return (
         <StepCard
-          title="Decomposição de custos"
-          desc="Módulo exclusivo: monte a composição de custos por item (insumos, mão de obra de dedicação exclusiva, encargos e BDI) e compare com o preço estimado de mercado."
+          title="Detalhamento de custos"
+          desc="Quando for o caso, detalhe os custos do item (materiais, mão de obra, encargos e BDI) e compare a composição com o preço de mercado."
           footer={<><Btn onClick={prevStep}>Voltar</Btn><Btn primary onClick={nextStep} icon={<ChevronRight size={14}/>}>Próximo</Btn></>}
         >
           {(formaParcelamento === "global" ? (itens[0] ? [{ id: "global", descricao: objetoDesc || "Objeto (global)" }] : []) : itens).length === 0 && (
@@ -3422,8 +3428,8 @@ export default function NovaPesquisaPage() {
       // ── Etapa 16 ────────────────────────────────────────────────────────────
       case 15: return (
         <StepCard
-          title="Documentos e evidências"
-          desc="Registros e links das referências utilizadas na pesquisa."
+          title="Comprovações e documentos"
+          desc="Registros e links das referências usadas na pesquisa."
           footer={<><Btn onClick={prevStep}>Voltar</Btn><Btn primary onClick={nextStep} icon={<FileText size={14}/>}>Gerar relatório</Btn></>}
         >
           {pesquisaSalvaId && (
@@ -3600,7 +3606,7 @@ export default function NovaPesquisaPage() {
                 key={fi}
                 type="button"
                 onClick={() => goToStep(fase.steps[0])}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-3 text-xs font-semibold transition-colors border-r border-slate-100 last:border-r-0 ${
+                className={`flex-1 min-w-0 min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-3 text-[11px] sm:text-xs font-semibold transition-colors border-r border-slate-100 last:border-r-0 ${
                   isAtual
                     ? "bg-[#032650] text-white"
                     : isConcluida
@@ -3835,6 +3841,22 @@ function InfoBox({ children, color = "slate", className = "" }: { children: Reac
     <div className={`rounded-lg border p-3 text-sm ${colors[color]} ${className}`}>
       {children}
     </div>
+  );
+}
+
+/**
+ * Progressive disclosure: o essencial fica à vista, o técnico atrás de um clique.
+ * Usa <details> nativo (acessível, funciona sem JS).
+ */
+function Detalhes({ titulo = "Ver detalhes técnicos", children }: { titulo?: string; children: React.ReactNode }) {
+  return (
+    <details className="group rounded-xl border border-slate-200 bg-slate-50/70">
+      <summary className="flex min-h-[44px] cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:text-[#032650] [&::-webkit-details-marker]:hidden">
+        <ChevronRight size={15} className="shrink-0 transition-transform group-open:rotate-90" />
+        {titulo}
+      </summary>
+      <div className="border-t border-slate-200 px-4 py-3">{children}</div>
+    </details>
   );
 }
 
