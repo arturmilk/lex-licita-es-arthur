@@ -6,8 +6,8 @@ import FeedbackButton from "@/components/FeedbackButton";
 import MeAjuda from "@/components/MeAjuda";
 
 export const metadata: Metadata = {
-  title: "LEX Licitações - Pesquisa de Preços",
-  description: "Sistema de pesquisa de preços para licitações públicas",
+  title: "LEX Licitações — Pesquisa de Preços",
+  description: "Pesquisa de preços e apoio à instrução de contratações públicas.",
 };
 
 export const viewport: Viewport = {
@@ -15,6 +15,10 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: "cover",
 };
+
+function iniciais(nome: string) {
+  return (nome || "U").trim().split(/\s+/).slice(0, 2).map((n) => n[0]).join("").toUpperCase();
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
@@ -32,36 +36,34 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="pt-BR">
-      <body className="bg-slate-50">
-        <div className="flex flex-col md:flex-row h-screen overflow-hidden">
+      <body className="bg-slate-100">
+        <div className="flex h-screen flex-col overflow-hidden md:flex-row">
           <Sidebar user={user} />
-          <div className="flex-1 flex flex-col overflow-hidden">
-            {/* Top header */}
-            <header className="hidden md:flex items-center justify-between px-8 py-3.5 bg-white border-b border-slate-200 shrink-0">
-              <div className="flex items-center gap-2 text-sm text-slate-500">
-                <img src="/logo-lex.png" alt="LEX Licitações" className="h-8 w-auto object-contain" />
-                <span className="font-bold text-[#032650]">LEX Licitações</span>
+          <div className="flex flex-1 flex-col overflow-hidden">
+            {/* Barra superior (desktop) — identidade + usuário logado */}
+            <header className="hidden shrink-0 items-center justify-between border-b border-slate-200 bg-white px-8 py-3 md:flex">
+              <div className="flex items-center gap-2.5">
+                <img src="/logo-lex.png" alt="" className="h-7 w-auto object-contain" />
+                <span className="text-sm font-semibold text-ink-900">LEX Licitações</span>
               </div>
               <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-slate-800 leading-none">{user.name}</p>
-                  <p className="text-xs text-slate-500 mt-0.5">{user.orgaoNome || "Órgão"}</p>
+                <div className="text-right leading-tight">
+                  <p className="text-sm font-medium text-slate-800">{user.name}</p>
+                  <p className="text-xs text-slate-600">{user.orgaoNome || "Órgão"}</p>
                 </div>
-                <div className="w-8 h-8 rounded-full bg-[#032650] flex items-center justify-center shrink-0">
-                  <span className="text-white text-xs font-bold">
-                    {(user.name || "U").split(" ").slice(0, 2).map((n: string) => n[0]).join("").toUpperCase()}
-                  </span>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink-900" aria-hidden>
+                  <span className="text-xs font-bold text-white">{iniciais(user.name)}</span>
                 </div>
               </div>
             </header>
-            {/* Page content */}
-            <main className="flex-1 overflow-auto">
-              <div className="max-w-7xl mx-auto p-4 md:p-8">{children}</div>
+
+            <main id="conteudo" className="flex-1 overflow-auto">
+              <div className="mx-auto max-w-content p-4 md:p-8">{children}</div>
             </main>
           </div>
         </div>
         <FeedbackButton />
-        <MeAjuda contexto="Navegando pelo Estima.IA (tela genérica)" />
+        <MeAjuda contexto="Navegando pelo LEX Licitações" />
       </body>
     </html>
   );

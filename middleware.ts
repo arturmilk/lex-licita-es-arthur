@@ -40,7 +40,7 @@ export default auth((req) => {
     if (perfil !== "administrador") {
       const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost";
       const proto = req.headers.get("x-forwarded-proto") || "http";
-      return NextResponse.redirect(new URL("/dashboard", `${proto}://${host}`));
+      return NextResponse.redirect(new URL("/painel", `${proto}://${host}`));
     }
   }
 

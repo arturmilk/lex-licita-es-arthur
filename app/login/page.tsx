@@ -3,12 +3,12 @@
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/pesquisa/nova";
+  const callbackUrl = searchParams.get("callbackUrl") || "/painel";
 
   const [form, setForm] = useState({ email: "", senha: "" });
   const [showSenha, setShowSenha] = useState(false);
@@ -27,7 +27,7 @@ function LoginForm() {
     });
 
     if (result?.error) {
-      setError("Email ou senha inválidos");
+      setError("E-mail ou senha inválidos. Confira e tente novamente.");
       setLoading(false);
     } else {
       router.push(callbackUrl);
@@ -37,130 +37,122 @@ function LoginForm() {
 
   return (
     <div className="min-h-screen flex">
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-[#032650] flex-col justify-between p-12 relative overflow-hidden">
-        {/* Background decoration */}
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#C9A227] rounded-full -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#C9A227] rounded-full translate-y-1/2 -translate-x-1/2" />
+      {/* Painel institucional (desktop) */}
+      <div className="relative hidden overflow-hidden bg-ink-900 p-12 lg:flex lg:w-1/2 lg:flex-col lg:justify-between">
+        <div className="absolute inset-0 opacity-[0.08]" aria-hidden>
+          <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-gold" />
+          <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-gold" />
         </div>
 
-        {/* Logo */}
         <div className="relative z-10 flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center shadow-sm ring-1 ring-white/20">
-            <img src="/logo-lex.png" alt="LEX Licitações" className="w-10 h-10 object-contain" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-white/20">
+            <img src="/logo-lex.png" alt="" className="h-10 w-10 object-contain" />
           </div>
-          <span className="text-white font-bold text-xl tracking-tight">LEX Licitações</span>
+          <span className="text-xl font-bold tracking-tight text-white">LEX Licitações</span>
         </div>
 
-        {/* Main content */}
         <div className="relative z-10">
-          <h2 className="text-4xl font-bold text-white leading-tight mb-4">
-            Pesquisa de preços<br />inteligente para<br />licitações públicas
-          </h2>
-          <p className="text-[#C9A227] text-base leading-relaxed max-w-sm">
-            Automatize a pesquisa de preços de mercado com IA, em conformidade com a IN SEGES 65/2021.
+          <h1 className="mb-4 text-4xl font-bold leading-tight text-white">
+            Pesquisa de preços<br />para contratações<br />públicas
+          </h1>
+          <p className="max-w-sm text-base leading-relaxed text-gold">
+            Organize a pesquisa de preços de mercado em um só lugar, com fontes oficiais e memória de cálculo pronta para o processo.
           </p>
 
           <div className="mt-10 grid grid-cols-3 gap-6">
             {[
-              { label: "Fontes integradas", value: "3+" },
+              { label: "Fontes oficiais", value: "3+" },
               { label: "Conformidade", value: "IN 65" },
               { label: "Relatórios", value: "PDF/XLSX" },
             ].map(({ label, value }) => (
               <div key={label}>
                 <p className="text-2xl font-bold text-white">{value}</p>
-                <p className="text-[#C9A227] text-xs mt-1">{label}</p>
+                <p className="mt-1 text-xs text-gold">{label}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="relative z-10 text-[#C9A227]/80 text-xs">
+        <p className="relative z-10 text-xs text-gold/80">
           © {new Date().getFullYear()} LEX Licitações — um produto NOVAGENTE.
         </p>
       </div>
 
-      {/* Right panel — form */}
-      <div className="flex-1 flex items-center justify-center p-6 bg-slate-50">
+      {/* Formulário */}
+      <div className="flex flex-1 items-center justify-center bg-slate-50 p-6">
         <div className="w-full max-w-sm">
-          {/* Mobile logo */}
-          <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <img src="/logo-lex.png" alt="LEX Licitações" className="w-9 h-9 object-contain" />
-            <span className="font-bold text-slate-800 text-lg">LEX Licitações</span>
+          <div className="mb-8 flex items-center gap-2 lg:hidden">
+            <img src="/logo-lex.png" alt="" className="h-9 w-9 object-contain" />
+            <span className="text-lg font-bold text-ink-900">LEX Licitações</span>
           </div>
 
-          <h1 className="text-2xl font-bold text-slate-800 mb-1">Bem-vindo de volta</h1>
-          <p className="text-sm text-slate-500 mb-8">Entre com suas credenciais para continuar</p>
+          <h2 className="mb-1 text-2xl font-bold text-slate-900">Entrar</h2>
+          <p className="mb-8 text-sm text-slate-600">Use o e-mail e a senha do seu órgão.</p>
 
           {error && (
-            <div className="mb-5 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-              <span className="shrink-0 w-4 h-4 rounded-full bg-red-200 flex items-center justify-center text-red-600 text-xs font-bold">!</span>
+            <div role="alert" className="mb-5 flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <span aria-hidden className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-200 text-xs font-bold text-red-700">!</span>
               {error}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">
-                Email institucional
+              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700">
+                E-mail
               </label>
               <input
+                id="email"
                 type="email"
                 required
                 autoComplete="email"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent transition"
-                placeholder="seu@orgao.gov.br"
+                className="inp"
+                placeholder="voce@orgao.gov.br"
               />
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-slate-700">Senha</label>
-              </div>
+              <label htmlFor="senha" className="mb-1.5 block text-sm font-medium text-slate-700">
+                Senha
+              </label>
               <div className="relative">
                 <input
+                  id="senha"
                   type={showSenha ? "text" : "password"}
                   required
                   autoComplete="current-password"
                   value={form.senha}
                   onChange={(e) => setForm({ ...form, senha: e.target.value })}
-                  className="w-full px-4 py-2.5 pr-11 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent transition"
+                  className="inp pr-12"
                   placeholder="••••••••"
                 />
                 <button
                   type="button"
                   onClick={() => setShowSenha(!showSenha)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                  aria-label={showSenha ? "Ocultar senha" : "Mostrar senha"}
+                  className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 >
-                  {showSenha ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showSenha ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-[#032650] text-white rounded-lg text-sm font-semibold hover:bg-[#042f5e] active:bg-[#032650] disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-            >
+            <button type="submit" disabled={loading} className="btn btn-primary w-full">
               {loading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Entrando...
+                  <Loader2 className="h-4 w-4 animate-spin" /> Entrando...
                 </>
               ) : "Entrar"}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-slate-500">
-              Primeiro acesso?{" "}
-              <a href="/register" className="text-[#032650] font-medium hover:text-[#042f5e] transition-colors">
-                Cadastre seu órgão
-              </a>
-            </p>
+          <div className="mt-6 text-center text-sm text-slate-600">
+            Primeiro acesso?{" "}
+            <a href="/register" className="font-medium text-ink-900 underline-offset-2 hover:underline">
+              Cadastre seu órgão
+            </a>
           </div>
         </div>
       </div>

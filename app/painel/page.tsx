@@ -1,276 +1,212 @@
 "use client";
+
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { CalendarClock, AlertTriangle, Clock, CheckCircle2, Users, Bell, ArrowRight, Inbox, Hourglass, Search, FileText, BookOpen } from "lucide-react";
-import { obterPainelServidor, marcarAlertaLido, buscarTudo, consultarLegislacao } from "@/lib/actions-intencao";
+import { CalendarClock, AlertTriangle, Clock, Bell, ArrowRight, Hourglass } from "lucide-react";
+import { obterPainelServidor, marcarAlertaLido } from "@/lib/actions-intencao";
 
 function fmtData(d: Date | string | null) {
   if (!d) return "—";
   return new Date(d).toLocaleDateString("pt-BR");
 }
 
-function badgeStatus(status: string) {
-  const map: Record<string, string> = {
-    pendente: "bg-amber-100 text-amber-700",
-    em_andamento: "bg-blue-100 text-blue-700",
-    concluida: "bg-green-100 text-green-700",
-    aguardando_outro: "bg-purple-100 text-purple-700",
-    atrasada: "bg-red-100 text-red-700",
-  };
-  const labels: Record<string, string> = {
-    pendente: "Pendente",
-    em_andamento: "Em andamento",
-    concluida: "Concluída",
-    aguardando_outro: "Aguardando outro",
-    atrasada: "Atrasada",
-  };
-  return (
-    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold ${map[status] || "bg-slate-100 text-slate-600"}`}>
-      {labels[status] || status}
-    </span>
+const STATUS: Record<string, { label: string; cls: string }> = {
+  pendente: { label: "Pendente", cls: "badge-warning" },
+  em_andamento: { label: "Em andamento", cls: "badge-info" },
+  concluida: { label: "Concluída", cls: "badge-success" },
+  aguardando_outro: { label: "Aguardando outro", cls: "badge-neutral" },
+  atrasada: { label: "Atrasada", cls: "badge-danger" },
+};
+
+function Badge({ status }: { status: string }) {
+  const s = STATUS[status] || { label: status, cls: "badge-neutral" };
+  return <span className={`badge ${s.cls}`}>{s.label}</span>;
+}
+
+/** Linha de tarefa reutilizada pelas abas (menos variação visual = menos ruído). */
+function TarefaLinha({
+  titulo, detalhe, status, href, tom = "neutro",
+}: {
+  titulo: string; detalhe?: string; status?: string; href?: string; tom?: "neutro" | "erro" | "espera" | "parado";
+}) {
+  const tomCls = {
+    neutro: "border-slate-200 hover:border-slate-300 hover:bg-slate-50",
+    erro: "border-red-100 bg-red-50/60",
+    espera: "border-slate-200 bg-slate-50",
+    parado: "border-amber-100 bg-amber-50/60",
+  }[tom];
+  const Icone = tom === "erro" ? AlertTriangle : tom === "espera" ? Hourglass : tom === "parado" ? Clock : CalendarClock;
+  const iconeCls = tom === "erro" ? "text-red-600" : tom === "parado" ? "text-amber-600" : "text-ink-700";
+
+  const corpo = (
+    <>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${tom === "erro" ? "bg-red-100" : tom === "parado" ? "bg-amber-100" : "bg-ink-50"}`}>
+        <Icone size={16} className={iconeCls} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-slate-800">{titulo}</span>
+        {detalhe && <span className="block truncate text-xs text-slate-500">{detalhe}</span>}
+      </span>
+      {status && <Badge status={status} />}
+      {href && <ArrowRight size={15} className="shrink-0 text-slate-400" />}
+    </>
   );
+
+  const base = `flex items-center gap-3 rounded-xl border px-4 py-3 transition-colors ${tomCls}`;
+  return href
+    ? <Link href={href} className={base}>{corpo}</Link>
+    : <div className={base}>{corpo}</div>;
+}
+
+function Vazio({ texto }: { texto: string }) {
+  return <p className="py-6 text-center text-sm text-slate-600">{texto}</p>;
 }
 
 export default function PainelPage() {
   const [painel, setPainel] = useState<any | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [busca, setBusca] = useState("");
-  const [resultadoBusca, setResultadoBusca] = useState<any | null>(null);
-  const [legis, setLegis] = useState<any[] | null>(null);
-  const [perguntaLei, setPerguntaLei] = useState("");
-  // Aba ativa das tarefas (formato dashboard — seções com abas)
-  const [abaTarefas, setAbaTarefas] = useState("hoje");
+  const [aba, setAba] = useState("hoje");
 
   useEffect(() => {
     obterPainelServidor().then(setPainel).catch((e) => setErro(String(e?.message || e)));
   }, []);
-
 
   async function lerAlerta(id: string) {
     await marcarAlertaLido(id);
     setPainel(await obterPainelServidor());
   }
 
-  async function pesquisar() {
-    if (busca.trim().length < 3) return;
-    setResultadoBusca(await buscarTudo(busca));
-  }
-
-  async function perguntarLei() {
-    if (perguntaLei.trim().length < 3) return;
-    setLegis(await consultarLegislacao(perguntaLei));
-  }
+  const resumo = painel && [
+    { chave: "hoje", rotulo: "Para hoje", valor: painel.tarefasHoje.length, destaque: true },
+    { chave: "pendentes", rotulo: "Pendentes", valor: painel.pendentes.length },
+    { chave: "atrasadas", rotulo: "Atrasadas", valor: painel.atrasadas.length, alerta: painel.atrasadas.length > 0 },
+  ];
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      {erro && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{erro}</div>}
+    <div className="mx-auto max-w-5xl">
+      {erro && <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">{erro}</div>}
 
-      <div className="flex items-end justify-between gap-4 mb-5">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800">O que tenho pra fazer hoje</h1>
-          <p className="text-sm text-slate-500 mt-1">Tarefas, pendências e alertas que precisam da sua atenção.</p>
+          <h1 className="text-2xl font-bold text-slate-900 md:text-3xl">Meu dia</h1>
+          <p className="mt-1 text-sm text-slate-600">O que precisa da sua atenção hoje.</p>
         </div>
-        <Link href="/processos" className="hidden sm:inline-flex items-center gap-1.5 text-sm text-[#032650] hover:text-[#042f5e] font-medium">
+        <Link href="/processos" className="btn btn-outline btn-sm">
           Ver processos <ArrowRight size={14} />
         </Link>
       </div>
 
-      {/* ============ MÉTRICAS GRANDES (formato dashboard) ============ */}
+      {/* Resumo — 3 números que importam, nada além disso */}
       {painel && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          {/* Card principal estilo saldo */}
-          <div className="rounded-2xl bg-[#032650] text-white p-5 shadow-sm col-span-2 lg:col-span-1">
-            <p className="text-white/60 text-[11px] font-medium uppercase tracking-wide">Processos ativos</p>
-            <p className="text-4xl font-bold mt-1 tabular-nums">{painel.totalAtivas}</p>
-            <p className="text-white/50 text-xs mt-1">{painel.processos?.length || 0} no total</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-slate-400 text-[11px] font-medium uppercase tracking-wide">Para hoje</p>
-            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{painel.tarefasHoje.length}</p>
-            <p className="text-slate-400 text-xs mt-1">tarefas do dia</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-amber-500 text-[11px] font-medium uppercase tracking-wide">Pendentes</p>
-            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{painel.pendentes.length}</p>
-            <p className="text-slate-400 text-xs mt-1">aguardando início</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-red-500 text-[11px] font-medium uppercase tracking-wide">Atrasadas</p>
-            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{painel.atrasadas.length}</p>
-            <p className="text-slate-400 text-xs mt-1">precisam de ação</p>
-          </div>
+        <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {resumo!.map((c: { chave: string; rotulo: string; valor: number; destaque?: boolean; alerta?: boolean }) => {
+            const ativo = aba === c.chave;
+            return (
+              <button
+                key={c.chave}
+                onClick={() => setAba(c.chave)}
+                className={`rounded-xl border p-5 text-left shadow-card transition-colors ${
+                  c.destaque
+                    ? "border-ink-900 bg-ink-900 text-white"
+                    : ativo
+                    ? "border-ink-300 bg-white ring-1 ring-ink-300"
+                    : "border-slate-200 bg-white hover:border-slate-300"
+                }`}
+              >
+                <p className={`eyebrow ${c.destaque ? "text-white/70" : "text-slate-600"}`}>{c.rotulo}</p>
+                <p className={`mt-1 text-4xl font-bold tabular-nums ${c.destaque ? "text-white" : c.alerta ? "text-red-700" : "text-slate-800"}`}>
+                  {c.valor}
+                </p>
+                <p className={`mt-1 text-xs ${c.destaque ? "text-white/60" : "text-slate-600"}`}>
+                  {c.chave === "hoje" ? "no seu dia" : c.chave === "pendentes" ? "aguardando início" : "precisam de ação"}
+                </p>
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {/* Alertas inteligentes */}
+      {/* Alertas */}
       {painel?.alertas?.length > 0 && (
         <div className="mb-6 rounded-xl border border-red-200 bg-red-50/60 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Bell size={16} className="text-red-600" />
-            <h3 className="font-semibold text-red-800 text-sm">Alertas inteligentes ({painel.alertas.length})</h3>
+          <div className="mb-3 flex items-center gap-2">
+            <Bell size={16} className="text-red-700" />
+            <h2 className="text-sm font-semibold text-red-800">Alertas ({painel.alertas.length})</h2>
           </div>
           <div className="space-y-2">
             {painel.alertas.map((a: any) => (
-              <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg bg-white border border-red-100 px-3 py-2 text-sm">
-                <div className="flex items-center gap-2">
-                  {a.severidade === "alta" ? <AlertTriangle size={14} className="text-red-600 shrink-0" /> : <Clock size={14} className="text-amber-600 shrink-0" />}
-                  <span className="text-slate-700">{a.mensagem}</span>
+              <div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-red-100 bg-white px-3 py-2">
+                <div className="flex items-center gap-2 text-sm text-slate-700">
+                  {a.severidade === "alta" ? <AlertTriangle size={15} className="shrink-0 text-red-600" /> : <Clock size={15} className="shrink-0 text-amber-600" />}
+                  {a.mensagem}
                 </div>
-                <button onClick={() => lerAlerta(a.id)} className="text-xs text-slate-400 hover:text-slate-600 cursor-pointer">ok</button>
+                <button onClick={() => lerAlerta(a.id)} className="shrink-0 text-xs font-medium text-slate-600 hover:text-slate-900">
+                  Marcar como lido
+                </button>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* ============ Tarefas (abas estilo dashboard) ============ */}
+      {/* Tarefas por aba */}
       {painel && (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          {/* Abas */}
-          <div className="flex items-center gap-1 px-3 pt-3 border-b border-slate-100 overflow-x-auto">
+        <div className="card overflow-hidden">
+          <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 px-3 pt-3">
             {[
               { chave: "hoje", label: "Para hoje", qtd: painel.tarefasHoje.length },
               { chave: "atrasadas", label: "Atrasadas", qtd: painel.atrasadas.length },
-              { chave: "aguardando", label: "Aguardando outro", qtd: painel.aguardandoOutro.length },
-              { chave: "paradas", label: "Paradas 5+ dias", qtd: painel.paradas5dias.length },
+              { chave: "aguardando", label: "Aguardando outra pessoa", qtd: painel.aguardandoOutro.length },
+              { chave: "paradas", label: "Sem movimento (5+ dias)", qtd: painel.paradas5dias.length },
               { chave: "pendentes", label: "Pendentes", qtd: painel.pendentes.length },
-            ].filter(a => a.qtd > 0 || a.chave === "hoje").map((a) => (
+            ].filter((a) => a.qtd > 0 || a.chave === "hoje").map((a) => (
               <button
                 key={a.chave}
-                onClick={() => setAbaTarefas(a.chave)}
-                className={`shrink-0 flex items-center gap-1.5 px-3.5 py-2.5 text-xs font-semibold rounded-t-lg border-b-2 transition-colors cursor-pointer ${
-                  abaTarefas === a.chave
-                    ? "border-[#032650] text-[#032650] bg-[#eef2f8]"
-                    : "border-transparent text-slate-400 hover:text-slate-600"
+                onClick={() => setAba(a.chave)}
+                aria-current={aba === a.chave ? "true" : undefined}
+                className={`shrink-0 border-b-2 px-3.5 py-2.5 text-[13px] font-semibold transition-colors ${
+                  aba === a.chave ? "border-ink-900 text-ink-900" : "border-transparent text-slate-500 hover:text-slate-800"
                 }`}
               >
                 {a.label}
-                <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${abaTarefas === a.chave ? "bg-[#032650] text-white" : "bg-slate-100 text-slate-500"}`}>
+                <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold ${aba === a.chave ? "bg-ink-900 text-white" : "bg-slate-100 text-slate-600"}`}>
                   {a.qtd}
                 </span>
               </button>
             ))}
           </div>
 
-          {/* Lista da aba ativa */}
-          <div className="p-4">
-            {abaTarefas === "hoje" && (
-              painel.tarefasHoje.length === 0 ? (
-                <p className="text-sm text-slate-400 py-4 text-center">Nenhuma tarefa para hoje. Tudo em dia!</p>
-              ) : (
-                <div className="space-y-2">
-                  {painel.tarefasHoje.map((t: any) => (
-                    t.processoId ? (
-                      <Link key={t.id} href={`/processos/${t.processoId}/jornada`} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 hover:border-[#d5dce8] hover:bg-slate-50 px-4 py-3 transition-colors block">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-[#eef2f8] flex items-center justify-center shrink-0">
-                            <CalendarClock size={14} className="text-[#032650]" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-semibold text-slate-800 truncate">{t.titulo}</p>
-                            <p className="text-xs text-slate-500 truncate">{t.descricao?.slice(0, 80)}…</p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {badgeStatus(t.status)}
-                          <ArrowRight size={14} className="text-slate-400" />
-                        </div>
-                      </Link>
-                    ) : (
-                      <div key={t.id} className="flex items-center gap-3 rounded-xl border border-slate-100 px-4 py-3">
-                        <div className="w-8 h-8 rounded-lg bg-[#eef2f8] flex items-center justify-center shrink-0">
-                          <CalendarClock size={14} className="text-[#032650]" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800 truncate">{t.titulo}</p>
-                          <p className="text-xs text-slate-500 truncate">{t.descricao?.slice(0, 80)}…</p>
-                        </div>
-                        <span className="ml-auto shrink-0">{badgeStatus(t.status)}</span>
-                      </div>
-                    )
-                  ))}
-                </div>
-              )
-            )}
+          <div className="space-y-2 p-4">
+            {aba === "hoje" && (painel.tarefasHoje.length === 0
+              ? <Vazio texto="Nada para hoje. Tudo em dia." />
+              : painel.tarefasHoje.map((t: any) => (
+                  <TarefaLinha key={t.id} titulo={t.titulo} detalhe={t.descricao?.slice(0, 90)} status={t.status}
+                    href={t.processoId ? `/processos/${t.processoId}/jornada` : undefined} />
+                )))}
 
-            {abaTarefas === "atrasadas" && (
-              painel.atrasadas.length === 0 ? (
-                <p className="text-sm text-slate-400 py-4 text-center">Nenhuma tarefa atrasada. Boa!</p>
-              ) : (
-                <div className="space-y-2">
-                  {painel.atrasadas.map((t: any) => (
-                    <div key={t.id} className="flex items-center justify-between gap-3 rounded-xl bg-red-50 px-4 py-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <AlertTriangle size={15} className="text-red-600 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800">{t.titulo}</p>
-                          <p className="text-xs text-slate-500">Prazo: {fmtData(t.prazo)}</p>
-                        </div>
-                      </div>
-                      {badgeStatus(t.status)}
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
+            {aba === "atrasadas" && (painel.atrasadas.length === 0
+              ? <Vazio texto="Nenhuma tarefa atrasada." />
+              : painel.atrasadas.map((t: any) => (
+                  <TarefaLinha key={t.id} titulo={t.titulo} detalhe={`Prazo: ${fmtData(t.prazo)}`} status={t.status} tom="erro" />
+                )))}
 
-            {abaTarefas === "aguardando" && (
-              painel.aguardandoOutro.length === 0 ? (
-                <p className="text-sm text-slate-400 py-4 text-center">Nada aguardando outra pessoa.</p>
-              ) : (
-                <div className="space-y-2">
-                  {painel.aguardandoOutro.map((t: any) => (
-                    <div key={t.id} className="flex items-center gap-3 rounded-xl bg-purple-50 px-4 py-3">
-                      <Hourglass size={14} className="text-purple-500 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800">{t.titulo}</p>
-                        <p className="text-xs text-slate-500">Depende de: {t.dependenteDe || "outro setor"}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
+            {aba === "aguardando" && (painel.aguardandoOutro.length === 0
+              ? <Vazio texto="Nada aguardando outra pessoa." />
+              : painel.aguardandoOutro.map((t: any) => (
+                  <TarefaLinha key={t.id} titulo={t.titulo} detalhe={`Depende de: ${t.dependenteDe || "outro setor"}`} status={t.status} tom="espera" />
+                )))}
 
-            {abaTarefas === "paradas" && (
-              painel.paradas5dias.length === 0 ? (
-                <p className="text-sm text-slate-400 py-4 text-center">Nenhum processo parado.</p>
-              ) : (
-                <div className="space-y-2">
-                  {painel.paradas5dias.map((t: any) => (
-                    <div key={t.id} className="flex items-center justify-between gap-3 rounded-xl bg-amber-50 px-4 py-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <Clock size={15} className="text-amber-600 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-semibold text-slate-800">{t.titulo}</p>
-                          <p className="text-xs text-slate-500">Criada em {fmtData(t.createdAt)} — está parada!</p>
-                        </div>
-                      </div>
-                      {badgeStatus(t.status)}
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
+            {aba === "paradas" && (painel.paradas5dias.length === 0
+              ? <Vazio texto="Nenhum processo sem movimento." />
+              : painel.paradas5dias.map((t: any) => (
+                  <TarefaLinha key={t.id} titulo={t.titulo} detalhe={`Criada em ${fmtData(t.createdAt)} — sem movimento`} status={t.status} tom="parado" />
+                )))}
 
-            {abaTarefas === "pendentes" && (
-              painel.pendentes.length === 0 ? (
-                <p className="text-sm text-slate-400 py-4 text-center">Nenhuma tarefa pendente.</p>
-              ) : (
-                <div className="space-y-2">
-                  {painel.pendentes.map((t: any) => (
-                    <div key={t.id} className="flex items-center gap-3 rounded-xl border border-slate-100 px-4 py-3">
-                      <Hourglass size={14} className="text-amber-500 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-slate-800">{t.titulo}</p>
-                        <p className="text-xs text-slate-500">{t.descricao?.slice(0, 80)}…</p>
-                      </div>
-                      <span className="ml-auto shrink-0">{badgeStatus(t.status)}</span>
-                    </div>
-                  ))}
-                </div>
-              )
-            )}
+            {aba === "pendentes" && (painel.pendentes.length === 0
+              ? <Vazio texto="Nenhuma tarefa pendente." />
+              : painel.pendentes.map((t: any) => (
+                  <TarefaLinha key={t.id} titulo={t.titulo} detalhe={t.descricao?.slice(0, 90)} status={t.status} tom="espera" />
+                )))}
           </div>
         </div>
       )}
