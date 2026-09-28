@@ -5,7 +5,7 @@
  */
 const MOMENTOS = [
   { nome: "Preparar", texto: "Conte o que precisa comprar ou contratar, do seu jeito." },
-  { nome: "Buscar preços", texto: "Fontes oficiais como PNCP e Compras.gov.br." },
+  { nome: "Precificação", texto: "Fontes oficiais como PNCP e Compras.gov.br." },
   { nome: "Conferir preços", texto: "Aceite ou rejeite referências e veja a estatística da amostra." },
   { nome: "Fechar relatório", texto: "PDF e planilha XLSX com a memória de cálculo." },
 ];

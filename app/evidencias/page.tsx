@@ -123,7 +123,7 @@ export default function EvidenciasPage() {
               titulo="Nenhuma evidência registrada"
               descricao="Conclua uma pesquisa (ou envie um arquivo) para as evidências aparecerem aqui."
               href="/pesquisa/nova"
-              acao="Ir para Nova pesquisa"
+              acao="Ir para Precificação"
             />
           ) : (
             <div className="scroll-fino overflow-x-auto">

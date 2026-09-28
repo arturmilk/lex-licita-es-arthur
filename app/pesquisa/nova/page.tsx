@@ -117,7 +117,7 @@ const UNIDADES_MEDIDA = [
 // 4 "momentos" na cabeça do usuário (em vez de 5 blocos técnicos).
 const FASES = [
   { nome: "Preparar",         icon: ClipboardList, steps: [1, 2, 3, 4] },
-  { nome: "Buscar preços",    icon: Search,        steps: [5, 6, 7, 8] },
+  { nome: "Precificação",     icon: Search,        steps: [5, 6, 7, 8] },
   { nome: "Conferir preços",  icon: BarChart3,     steps: [9, 10, 11, 12] },
   { nome: "Fechar relatório", icon: FileText,      steps: [13, 14, 15, 16] },
 ];
@@ -3621,7 +3621,7 @@ export default function NovaPesquisaPage() {
   // Quebra o padding do layout pai (-mx -mt) e usa sticky para wizard + footers
   return (
     <div className="-mx-4 md:-mx-8 -mt-4 md:-mt-8">
-      <h1 className="sr-only">Nova pesquisa de preços</h1>
+      <h1 className="sr-only">Precificação</h1>
 
       {/* ── Wizard sticky no topo ──────────────────────────────────────────── */}
       <div className="sticky top-0 z-20 border-b border-slate-200 bg-white">

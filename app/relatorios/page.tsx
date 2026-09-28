@@ -49,7 +49,7 @@ export default function RelatoriosPage() {
             titulo="Nenhuma pesquisa concluída ainda"
             descricao="Relatórios em PDF e XLSX são gerados a partir de pesquisas concluídas. Conclua uma pesquisa para vê-los aqui."
             href="/pesquisa/nova"
-            acao="Ir para Nova pesquisa"
+            acao="Ir para Precificação"
           />
         ) : (
           <div className="scroll-fino overflow-x-auto">

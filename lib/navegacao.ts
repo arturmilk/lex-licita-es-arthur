@@ -1,5 +1,5 @@
 import {
-  Home, Plus, History, MessageCircle, Search, Scale, BarChart3, Paperclip,
+  Home, CircleDollarSign, History, MessageCircle, Search, Scale, BarChart3, Paperclip,
   BookOpen, Users, LayoutDashboard, Settings,
 } from "lucide-react";
 
@@ -16,7 +16,7 @@ export const GRUPOS: GrupoNav[] = [
     nome: "Meu trabalho",
     itens: [
       { href: "/painel", icon: Home, label: "Meu dia" },
-      { href: "/pesquisa/nova", icon: Plus, label: "Nova pesquisa" },
+      { href: "/pesquisa/nova", icon: CircleDollarSign, label: "Precificação" },
       { href: "/historicos", icon: History, label: "Histórico", inclui: ["/processos", "/pesquisas"] },
     ],
   },

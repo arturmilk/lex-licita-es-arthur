@@ -73,7 +73,7 @@ function Rich({ text }: { text: string }) {
 /** Rótulo amigável da tela atual — o assistente usa isto para se situar (o antigo "Me ajuda" contextual). */
 const ROTULO_PAGINA: Record<string, string> = {
   "/painel": "Meu dia",
-  "/pesquisa/nova": "Nova pesquisa de preços",
+  "/pesquisa/nova": "Precificação",
   "/pesquisas": "Pesquisas",
   "/historicos": "Histórico",
   "/busca": "Busca",
