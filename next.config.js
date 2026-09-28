@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  // Diretório de build configurável: permite rodar o servidor de desenvolvimento
+  // e um preview separados sem que um `next build` derrube o `next dev` em execução.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   reactStrictMode: true,
   experimental: {
     serverActions: {

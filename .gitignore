@@ -53,3 +53,7 @@ data/
 # segredos
 service-account.json
 *.log
+
+# build alternativo (preview) — ver next.config.js distDir
+/.next-prod/
+/.next-old-*/

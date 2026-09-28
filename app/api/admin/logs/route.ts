@@ -89,7 +89,7 @@ export async function GET(req: NextRequest) {
 
   // Erros por dia: logs com erro + sessões com status erro (últimos 7 dias)
   const errosPorDiaRaw = await db.execute(
-    sql`SELECT to_char(day, 'YYYY-MM-DD') AS dia, (logs + sessoes)::int AS total FROM (
+    sql`SELECT to_char(day, 'YYYY-MM-DD') AS dia, (coalesce(logs, 0) + coalesce(sessoes, 0))::int AS total FROM (
         SELECT date_trunc('day', ts)::date AS day, count(*)::int AS logs
         FROM logs_sistema WHERE dados->>'erro' IS NOT NULL AND ts >= now() - interval '7 days' GROUP BY day
       ) l FULL JOIN (
