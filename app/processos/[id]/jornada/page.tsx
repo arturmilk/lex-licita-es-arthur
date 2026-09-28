@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, CheckCircle2, Circle, Loader2, FileText, History, ShieldAlert, ShieldCheck, Wand2, ChevronRight, CheckSquare, Sparkles, FileUp, Scale, Plus } from "lucide-react";
 import { obterTarefasDoProcesso, avancarEtapa, obterHistorico, gerarMinuta, listarMinutas, escreverComIA, obterJornada, sugerirDotacaoOrcamentaria, buscarJulgadosDoProcesso, adicionarJulgado, listarJulgados, alternarJulgadoUsado, removerJulgado, listarModelosDocumento, preencherModeloDocumento } from "@/lib/actions-intencao";
+import { useDialogos } from "@/components/Dialogos";
 
 export default function JornadaPage({ params }: { params: { id: string } }) {
   const [tarefas, setTarefas] = useState<any[] | null>(null);
@@ -28,6 +29,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
   const [resultadoJulgados, setResultadoJulgados] = useState<any[] | null>(null);
   const [buscandoJulgados, setBuscandoJulgados] = useState(false);
   const [erroJulgados, setErroJulgados] = useState<string | null>(null);
+  const { avisar } = useDialogos();
   const [modelos, setModelos] = useState<any[]>([]);
   const [modeloSelecionado, setModeloSelecionado] = useState("");
   const [preenchendoModelo, setPreenchendoModelo] = useState(false);
@@ -196,7 +198,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
       const minuta = await escreverComIA({ tipo: tipoMinuta, pedido: minutaContexto, processoId: params.id });
       setMinutaContexto("");
       setMinutas(await listarMinutas(params.id));
-      window.alert(`Minuta de ${minuta.tipo} gerada pela IA!`);
+      await avisar(`Minuta de ${minuta.tipo} gerada pela IA.`, "Pronto");
     } catch (e: any) {
       setErro(String(e?.message || e));
     } finally {
@@ -279,19 +281,20 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
   const percentualProgresso = totalEtapas ? Math.round((etapasConcluidas / totalEtapas) * 100) : 0;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <Link href="/painel" className="inline-flex items-center gap-1 text-sm text-[#032650] hover:text-[#042f5e] mb-4">
-        <ArrowLeft size={14} /> Voltar ao painel
+    <div>
+      <Link href="/painel" className="btn btn-ghost btn-sm -ml-3 mb-3 min-h-[44px]">
+        <ArrowLeft size={15} aria-hidden /> Voltar ao Meu dia
       </Link>
 
-      {erro && <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">{erro}</div>}
+      {erro && <div role="status" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">{erro}</div>}
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-bold text-slate-800">Jornada guiada do processo</h1>
-          <p className="text-sm text-slate-500">{params.id.slice(0, 8)} — o sistema conduz etapa por etapa</p>
+      <header className="page-head">
+        <div className="min-w-0">
+          <p className="page-eyebrow">Jornada guiada · <span className="font-mono normal-case tracking-normal">ref. {params.id.slice(0, 8)}</span></p>
+          <h1 className="page-title">Jornada do processo</h1>
+          <p className="page-lead">O sistema conduz etapa por etapa: conclua a etapa atual para liberar a próxima.</p>
         </div>
-      </div>
+      </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-[290px_minmax(0,1fr)] gap-6 items-start">
         <aside className="lg:sticky lg:top-6 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
@@ -326,11 +329,11 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                     return (
                       <div key={t.id} className={`relative flex gap-3 rounded-xl px-2.5 py-3 ${emAndamento ? "bg-[#eef2f8] ring-1 ring-[#c7d2e3]" : ""}`}>
                         <div className={`relative z-10 mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
-                          concluida ? "border-emerald-500 bg-emerald-500 text-white" :
+                          concluida ? "border-green-500 bg-green-500 text-white" :
                           emAndamento ? "border-[#032650] bg-[#032650] text-white" :
                           "border-slate-200 bg-white text-slate-300"
                         }`}>
-                          {concluida ? <CheckCircle2 size={15} /> : <span className="text-[10px] font-bold">{i + 1}</span>}
+                          {concluida ? <CheckCircle2 size={15} /> : <span className="text-xs font-bold">{i + 1}</span>}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className={`text-xs leading-snug ${
@@ -338,11 +341,11 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                             emAndamento ? "font-bold text-[#032650]" :
                             "font-medium text-slate-500"
                           }`}>{t.titulo}</p>
-                          {concluida && <span className="mt-1 inline-block text-[10px] font-semibold text-emerald-600">Concluída</span>}
+                          {concluida && <span className="mt-1 inline-block text-xs font-semibold text-green-600">Concluída</span>}
                           {emAndamento && !concluida && (
-                            <span className="mt-1 inline-flex rounded-full bg-[#032650] px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">Você está aqui</span>
+                            <span className="mt-1 inline-flex rounded-full bg-[#032650] px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-white">Você está aqui</span>
                           )}
-                          {!concluida && !emAndamento && <span className="mt-1 inline-block text-[10px] text-slate-400">Próxima etapa</span>}
+                          {!concluida && !emAndamento && <span className="mt-1 inline-block text-xs text-slate-400">Próxima etapa</span>}
                         </div>
                       </div>
                     );
@@ -351,19 +354,19 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
               </div>
             )}
             {tarefas && tarefas.length > 0 && etapasConcluidas === totalEtapas && (
-              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-center">
-                <CheckCircle2 size={18} className="mx-auto text-emerald-600 mb-1" />
-                <p className="text-xs font-bold text-emerald-700">Rito concluído</p>
+              <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-3 text-center">
+                <CheckCircle2 size={18} className="mx-auto text-green-600 mb-1" />
+                <p className="text-xs font-bold text-green-700">Rito concluído</p>
               </div>
             )}
           </div>
         </aside>
 
-        <main className="min-w-0">
+        <div className="min-w-0">
       {/* Etapa atual */}
       {atual ? (
         <div className="rounded-2xl border-2 border-[#d5dce8] bg-white p-6 shadow-sm mb-6">
-          <p className="text-xs font-semibold text-[#C9A227] uppercase tracking-wide mb-1">Etapa atual</p>
+          <p className="text-xs font-semibold text-gold-700 uppercase tracking-wide mb-1">Etapa atual</p>
           <h2 className="text-lg font-bold text-slate-800 mb-1">{atual.titulo}</h2>
           <p className="text-sm text-slate-600 mb-4">{atual.descricao || atual.instrucao}</p>
 
@@ -393,10 +396,10 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
 
           {/* Assinatura */}
           {precisaAssinatura && (
-            <label className="flex items-center gap-2.5 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2.5 cursor-pointer mb-4">
-              <input type="checkbox" checked={assinado} onChange={(e) => setAssinado(e.target.checked)} className="accent-purple-600" />
-              <span className="text-sm text-purple-800">Confirmo que o documento foi assinado pela autoridade competente</span>
-              <ShieldAlert size={14} className="ml-auto text-purple-500" />
+            <label className="flex items-center gap-2.5 rounded-lg border border-ink-100 bg-ink-50 px-3 py-2.5 cursor-pointer mb-4">
+              <input type="checkbox" checked={assinado} onChange={(e) => setAssinado(e.target.checked)} className="accent-[#032650]" />
+              <span className="text-sm text-ink-900">Confirmo que o documento foi assinado pela autoridade competente</span>
+              <ShieldAlert size={14} className="ml-auto text-ink-700" />
             </label>
           )}
 
@@ -434,7 +437,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                         onChange={(e) => setCamposEtapa({ ...camposEtapa, [campo]: e.target.value })}
                         className="w-full px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#C9A227] text-sm"
                       />
-                      <p className="text-[10px] text-slate-400 mt-0.5">
+                      <p className="text-xs text-slate-400 mt-0.5">
                         {campo === "dataAbertura" ? "Ex.: 15/10/2026 — data prevista para abertura das propostas" :
                          campo === "dataInicio" ? "Ex.: 01/09/2026 — primeiro dia da viagem/licença" :
                          campo === "dataFim" ? "Ex.: 05/09/2026 — último dia" :
@@ -481,7 +484,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
 
                           {sugestoesDotacao && sugestoesDotacao.length > 0 && (
                             <div className="mt-2 space-y-1.5">
-                              <p className="text-[10px] text-slate-400">Sugestões (valide com a unidade de orçamento antes de usar):</p>
+                              <p className="text-xs text-slate-400">Sugestões (valide com a unidade de orçamento antes de usar):</p>
                               {sugestoesDotacao.map((s, i) => (
                                 <button
                                   key={i}
@@ -491,15 +494,15 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                                 >
                                   <span className="flex items-center justify-between gap-2">
                                     <span className="font-mono text-[11px] font-semibold text-[#032650]">{s.classificacao}</span>
-                                    <span className="text-[10px] font-bold text-[#C9A227]">{s.compatibilidade}%</span>
+                                    <span className="text-xs font-bold text-gold-700">{s.compatibilidade}%</span>
                                   </span>
-                                  <span className="block text-[10px] text-slate-500">{s.descricao}</span>
+                                  <span className="block text-xs text-slate-500">{s.descricao}</span>
                                 </button>
                               ))}
                             </div>
                           )}
                           {sugestoesDotacao && sugestoesDotacao.length === 0 && (
-                            <p className="mt-1 text-[10px] text-slate-400">Nenhuma sugestão encontrada para este objeto. Preencha manualmente.</p>
+                            <p className="mt-1 text-xs text-slate-400">Nenhuma sugestão encontrada para este objeto. Preencha manualmente.</p>
                           )}
                         </div>
                       )}
@@ -566,7 +569,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           <button
             onClick={gerarMinIA}
             disabled={gerandoMinIA}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#032650] to-[#0a3a6e] text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-ink-900 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50 cursor-pointer"
           >
             {gerandoMinIA ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
             Escrever com IA
@@ -582,7 +585,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
               <div key={m.id} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2.5">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{m.tipo} · {m.status}</p>
-                  {m.acao === "minuta_ia" && <Sparkles size={12} className="text-purple-500" />}
+                  {m.acao === "minuta_ia" && <Sparkles size={12} className="text-ink-700" />}
                 </div>
                 <p className="text-sm text-slate-700 whitespace-pre-wrap mt-1">{m.conteudo}</p>
               </div>
@@ -594,7 +597,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
       {/* Leitura e resumo de documentos */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
         <div className="flex items-center gap-2 mb-3">
-          <FileUp size={16} className="text-emerald-600" />
+          <FileUp size={16} className="text-green-600" />
           <h3 className="font-semibold text-slate-800 text-sm">Ler e resumir documento (PDF/TXT)</h3>
         </div>
         <p className="text-xs text-slate-500 mb-3">
@@ -605,16 +608,16 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           accept=".pdf,.txt,.md"
           onChange={enviarDoc}
           disabled={lendoDoc}
-          className="block w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-emerald-50 file:text-emerald-700 file:text-sm file:font-semibold hover:file:bg-emerald-100 cursor-pointer"
+          className="block w-full text-sm text-slate-500 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-green-50 file:text-green-700 file:text-sm file:font-semibold hover:file:bg-green-100 cursor-pointer"
         />
         {lendoDoc && (
           <p className="mt-3 flex items-center gap-2 text-sm text-slate-500">
-            <Loader2 size={14} className="animate-spin text-emerald-600" /> Lendo documento e consultando a IA…
+            <Loader2 size={14} className="animate-spin text-green-600" /> Lendo documento e consultando a IA…
           </p>
         )}
         {resumoDoc && (
-          <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50/50 p-4">
-            <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-2">Resumo inteligente — {resumoDoc.nome}</p>
+          <div className="mt-3 rounded-xl border border-green-200 bg-green-50/50 p-4">
+            <p className="text-xs font-semibold text-green-700 uppercase tracking-wide mb-2">Resumo inteligente — {resumoDoc.nome}</p>
             <div className="space-y-2 text-sm text-slate-700">
               <p><span className="font-semibold text-slate-900"> O que aconteceu:</span> {resumoDoc.resumo.aconteceu}</p>
               <p><span className="font-semibold text-slate-900"> O que importa:</span> {resumoDoc.resumo.importa}</p>
@@ -627,8 +630,8 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
             </div>
             {/* AGENTE LEITOR: dados estruturados extraídos do documento */}
             {resumoDoc.dados && (resumoDoc.dados.tipoDocumento !== "não identificado" || (resumoDoc.dados.valores || []).length > 0) && (
-              <div className="mt-3 rounded-lg bg-white border border-emerald-100 p-3">
-                <p className="text-[11px] font-bold text-emerald-700 uppercase tracking-wide mb-2"> Agente Leitor — dados extraídos do documento</p>
+              <div className="mt-3 rounded-lg bg-white border border-green-100 p-3">
+                <p className="text-[11px] font-bold text-green-700 uppercase tracking-wide mb-2"> Agente Leitor — dados extraídos do documento</p>
                 <div className="text-xs text-slate-700 space-y-1">
                   <p><span className="font-semibold">Tipo de documento:</span> {resumoDoc.dados.tipoDocumento}</p>
                   {resumoDoc.dados.orgao && <p><span className="font-semibold">Órgão/UG:</span> {resumoDoc.dados.orgao}</p>}
@@ -663,7 +666,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
       {/* Julgados de apoio (TCU/TCE) */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
         <div className="flex items-center gap-2 mb-1">
-          <Scale size={16} className="text-rose-600" />
+          <Scale size={16} className="text-ink-700" />
           <h3 className="font-semibold text-slate-800 text-sm">Julgados de apoio (TCU/TCE)</h3>
         </div>
         <p className="text-xs text-slate-500 mb-3">
@@ -674,7 +677,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           <button
             onClick={buscarJulgados}
             disabled={buscandoJulgados}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-800 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-ink-800 hover:text-ink-950 bg-ink-50 hover:bg-ink-100 px-3 py-1.5 rounded-lg cursor-pointer"
           >
             {buscandoJulgados ? <Loader2 size={12} className="animate-spin" /> : <Scale size={12} />}
             Buscar julgados sobre o objeto
@@ -683,7 +686,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           <button
             onClick={sugerirJulgadosIA}
             disabled={sugerindoJulgados}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 px-3 py-1.5 rounded-lg cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-ink-900 hover:bg-ink-800 px-3 py-1.5 rounded-lg cursor-pointer disabled:opacity-50"
           >
             {sugerindoJulgados ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
             {sugerindoJulgados ? "Analisando aderência…" : "Sugerir os melhores julgados"}
@@ -695,11 +698,11 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
         {/* AGENTE BIBLIOTECÁRIO: sugestões ranqueadas com motivo */}
         {sugestoesJulgados && sugestoesJulgados.length > 0 && (
           <div className="mb-3 space-y-2">
-            <p className="text-[11px] font-semibold text-rose-500 uppercase tracking-wide">
+            <p className="text-[11px] font-semibold text-ink-700 uppercase tracking-wide">
                Bibliotecário — os mais aderentes ao seu objeto (com motivo):
             </p>
             {sugestoesJulgados.map((j: any, i: number) => (
-              <div key={i} className="rounded-lg border border-rose-200 bg-white px-3 py-2 shadow-sm">
+              <div key={i} className="rounded-lg border border-ink-100 bg-white px-3 py-2 shadow-sm">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-800">
@@ -707,16 +710,16 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                       {j.relator && j.relator !== "—" ? <span className="font-normal text-slate-500"> · Rel. {j.relator}</span> : null}
                     </p>
                     {j.motivo && (
-                      <p className="mt-0.5 text-[11px] text-rose-700 leading-snug">
+                      <p className="mt-0.5 text-[11px] text-ink-800 leading-snug">
                         <span className="font-semibold">Por quê:</span> {j.motivo}
                       </p>
                     )}
                     <p className="text-[11px] text-slate-500 line-clamp-1">{j.ementa?.slice(0, 120)}</p>
-                    <a href={j.link} target="_blank" rel="noreferrer" className="text-[10px] text-rose-600 hover:underline break-all"> {j.link}</a>
+                    <a href={j.link} target="_blank" rel="noreferrer" className="text-xs text-ink-700 hover:underline break-all"> {j.link}</a>
                   </div>
                   <button
                     onClick={() => adicionarJulgadoDoProcesso(j)}
-                    className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-white bg-rose-600 hover:bg-rose-700 px-2 py-1 rounded-md cursor-pointer"
+                    className="shrink-0 inline-flex items-center gap-1 text-xs font-bold text-white bg-ink-900 hover:bg-ink-800 px-2 py-1 rounded-md cursor-pointer"
                   >
                     <Plus size={10} /> Guardar
                   </button>
@@ -736,7 +739,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
             </p>
             {resultadoJulgados.length === 0 && <p className="text-xs text-slate-400">Nenhum julgado encontrado (TCU pode estar bloqueando por limite de consultas).</p>}
             {resultadoJulgados.map((j: any, i: number) => (
-              <div key={i} className="rounded-lg border border-rose-100 bg-rose-50/40 px-3 py-2">
+              <div key={i} className="rounded-lg border border-ink-100 bg-ink-50/40 px-3 py-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-800">
@@ -747,12 +750,12 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                   </div>
                   <button
                     onClick={() => adicionarJulgadoDoProcesso(j)}
-                    className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-white bg-rose-600 hover:bg-rose-700 px-2 py-1 rounded-md cursor-pointer"
+                    className="shrink-0 inline-flex items-center gap-1 text-xs font-bold text-white bg-ink-900 hover:bg-ink-800 px-2 py-1 rounded-md cursor-pointer"
                   >
                     <Plus size={10} /> Guardar
                   </button>
                 </div>
-                <a href={j.link} target="_blank" rel="noreferrer" className="text-[10px] text-rose-600 hover:underline break-all"> {j.link}</a>
+                <a href={j.link} target="_blank" rel="noreferrer" className="text-xs text-ink-700 hover:underline break-all"> {j.link}</a>
               </div>
             ))}
           </div>
@@ -767,19 +770,19 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-slate-800">
                       {j.tribunal === "tcu" ? "TCU" : "TCE-RO"} — Acórdão {j.numero}
-                      {j.usado && <span className="ml-1.5 text-[9px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">USADO NA JUSTIFICATIVA</span>}
+                      {j.usado && <span className="ml-1.5 text-[11px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">USADO NA JUSTIFICATIVA</span>}
                     </p>
                     {j.ementa && <p className="text-[11px] text-slate-500 line-clamp-2 mt-0.5">{j.ementa.slice(0, 140)}</p>}
-                    {j.link && <a href={j.link} target="_blank" rel="noreferrer" className="text-[10px] text-rose-600 hover:underline break-all"> {j.link}</a>}
+                    {j.link && <a href={j.link} target="_blank" rel="noreferrer" className="text-xs text-ink-700 hover:underline break-all"> {j.link}</a>}
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
                     <button
                       onClick={() => alternarUsado(j.id, !j.usado)}
-                      className={`text-[10px] font-bold px-2 py-1 rounded-md cursor-pointer ${j.usado ? "bg-green-600 text-white" : "bg-slate-200 text-slate-600 hover:bg-slate-300"}`}
+                      className={`text-xs font-bold px-2 py-1 rounded-md cursor-pointer ${j.usado ? "bg-green-600 text-white" : "bg-slate-200 text-slate-600 hover:bg-slate-300"}`}
                     >
                       {j.usado ? " Em uso" : "Marcar em uso"}
                     </button>
-                    <button onClick={() => removerJulgadoDoProcesso(j.id)} className="text-[10px] text-red-400 hover:text-red-600 cursor-pointer">remover</button>
+                    <button onClick={() => removerJulgadoDoProcesso(j.id)} className="text-xs text-red-400 hover:text-red-600 cursor-pointer">remover</button>
                   </div>
                 </div>
               </div>
@@ -791,7 +794,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
       {/* Modelos de documento (AGU) auto-preenchíveis */}
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
         <div className="flex items-center gap-2 mb-1">
-          <FileText size={16} className="text-violet-600" />
+          <FileText size={16} className="text-ink-800" />
           <h3 className="font-semibold text-slate-800 text-sm">Modelos de documento (AGU)</h3>
         </div>
         <p className="text-xs text-slate-500 mb-3">
@@ -801,7 +804,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
         <select
           value={modeloSelecionado}
           onChange={(e) => setModeloSelecionado(e.target.value)}
-          className="w-full sm:w-auto px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-violet-400 text-sm mb-3"
+          className="w-full sm:w-auto px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-ink-300 text-sm mb-3"
         >
           <option value="">Selecione um modelo…</option>
           {modelos.map((m: any) => (
@@ -813,7 +816,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           <button
             onClick={preencherModelo}
             disabled={preenchendoModelo}
-            className="ml-2 inline-flex items-center gap-1.5 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 px-3 py-2 rounded-lg cursor-pointer"
+            className="ml-2 inline-flex items-center gap-1.5 text-xs font-semibold text-ink-800 bg-ink-50 hover:bg-ink-100 px-3 py-2 rounded-lg cursor-pointer"
           >
             {preenchendoModelo ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
             Auto-preenchar com dados do processo
@@ -823,12 +826,12 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
         {conteudoModeloPreenchido && (
           <div className="mt-3">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-semibold text-violet-500 uppercase tracking-wide">
+              <p className="text-[11px] font-semibold text-ink-600 uppercase tracking-wide">
                 Documento preenchido ({julgadosUsados} julgado(s) em uso incluídos)
               </p>
               <button
                 onClick={salvarModeloComoMinuta}
-                className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-violet-600 hover:bg-violet-700 px-3 py-1.5 rounded-lg cursor-pointer"
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-white bg-ink-800 hover:bg-ink-800 px-3 py-1.5 rounded-lg cursor-pointer"
               >
                 <CheckCircle2 size={12} /> Salvar como minuta do processo
               </button>
@@ -837,7 +840,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
               value={conteudoModeloPreenchido}
               onChange={(e) => setConteudoModeloPreenchido(e.target.value)}
               rows={16}
-              className="w-full font-mono text-[11px] leading-relaxed text-slate-700 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-violet-400"
+              className="w-full font-mono text-[11px] leading-relaxed text-slate-700 border border-slate-200 rounded-xl p-3 focus:outline-none focus:border-ink-300"
             />
           </div>
         )}
@@ -847,13 +850,13 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm mb-6">
         <div className="flex items-center justify-between gap-3 flex-wrap mb-1">
           <div className="flex items-center gap-2">
-            <ShieldCheck size={16} className="text-emerald-600" />
+            <ShieldCheck size={16} className="text-green-600" />
             <h3 className="font-semibold text-slate-800 text-sm">Agente Revisor — pronto para publicar?</h3>
           </div>
           <button
             onClick={revisarProcesso}
             disabled={revisando}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-2 rounded-lg cursor-pointer disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700 bg-green-50 hover:bg-green-100 px-3 py-2 rounded-lg cursor-pointer disabled:opacity-50"
           >
             {revisando ? <Loader2 size={12} className="animate-spin" /> : <ShieldCheck size={12} />}
             {revisando ? "Revisando o processo…" : revisaoIA ? "Revisar novamente" : "Revisar o processo completo"}
@@ -895,7 +898,7 @@ export default function JornadaPage({ params }: { params: { id: string } }) {
           </div>
         )}
       </div>
-        </main>
+        </div>
       </div>
     </div>
   );

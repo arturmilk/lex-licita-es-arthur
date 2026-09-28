@@ -1,24 +1,46 @@
 "use client";
-import React, { useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Search, BookOpen, Loader2 } from "lucide-react";
+import { Search, BookOpen, Loader2, FileText, ListTodo, ChevronRight, Scale } from "lucide-react";
 import { buscarTudo, consultarLegislacao } from "@/lib/actions-intencao";
+import { CabecalhoPagina, Secao, Situacao, AvisoErro } from "@/components/Pagina";
 
-export default function BuscaPage() {
+const EXEMPLOS_SISTEMA = ["pesquisa de preços", "ETP", "Lei 14.133"];
+const EXEMPLOS_LEI = ["pesquisa de preços", "ME/EPP", "ETP Digital", "valor estimado"];
+
+function Grupo({ titulo, qtd, icone: Icone, children }: { titulo: string; qtd: number; icone: React.ElementType; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">
+        <Icone size={13} aria-hidden /> {titulo} <span className="font-normal normal-case tracking-normal">({qtd})</span>
+      </p>
+      <ul className="divide-y divide-slate-100 overflow-hidden rounded-lg border border-slate-200">{children}</ul>
+    </div>
+  );
+}
+
+function BuscaConteudo() {
+  const params = useSearchParams();
+  const termoUrl = params.get("q") || "";
   const [busca, setBusca] = useState("");
   const [resultadoBusca, setResultadoBusca] = useState<any>(null);
+  const [termoBuscado, setTermoBuscado] = useState("");
   const [buscando, setBuscando] = useState(false);
   const [perguntaLei, setPerguntaLei] = useState("");
   const [legis, setLegis] = useState<any[] | null>(null);
   const [perguntandoLei, setPerguntandoLei] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const pesquisar = async () => {
-    if (busca.trim().length < 3) return;
+  const pesquisar = async (termo = busca) => {
+    const t = termo.trim();
+    if (t.length < 3) return;
+    setBusca(t);
     setBuscando(true);
     setErro(null);
     try {
-      setResultadoBusca(await buscarTudo(busca.trim()));
+      setResultadoBusca(await buscarTudo(t));
+      setTermoBuscado(t);
     } catch (e: any) {
       setErro(String(e?.message || e));
     } finally {
@@ -26,12 +48,21 @@ export default function BuscaPage() {
     }
   };
 
-  const perguntarLei = async () => {
-    if (perguntaLei.trim().length < 3) return;
+  // Permite vir da busca global (Ctrl/⌘+K) já com o termo: /busca?q=...
+  // Reage à mudança do termo — inclusive quando a busca global é usada nesta mesma tela.
+  useEffect(() => {
+    if (termoUrl.trim().length >= 3) pesquisar(termoUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [termoUrl]);
+
+  const perguntarLei = async (termo = perguntaLei) => {
+    const t = termo.trim();
+    if (t.length < 3) return;
+    setPerguntaLei(t);
     setPerguntandoLei(true);
     setErro(null);
     try {
-      setLegis(await consultarLegislacao(perguntaLei.trim()));
+      setLegis(await consultarLegislacao(t));
     } catch (e: any) {
       setErro(String(e?.message || e));
     } finally {
@@ -39,110 +70,145 @@ export default function BuscaPage() {
     }
   };
 
+  const nadaNoSistema =
+    resultadoBusca && !resultadoBusca.processos?.length && !resultadoBusca.normas?.length && !resultadoBusca.tarefas?.length;
+
   return (
-    <div className="max-w-5xl mx-auto">
-      <h1 className="text-xl font-bold text-slate-800 mb-1">Busca inteligente</h1>
-      <p className="text-sm text-slate-500 mb-6">Encontre processos, documentos, normas e informações em linguagem natural.</p>
+    <div>
+      <CabecalhoPagina
+        titulo="Busca"
+        descricao="Digite uma palavra, um número de processo ou um tema. O LEX procura nos processos, tarefas e normas do seu órgão."
+      />
 
-      {erro && <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{erro}</div>}
+      {erro && <AvisoErro>A busca não respondeu. {erro}</AvisoErro>}
 
-      <div className="grid md:grid-cols-2 gap-4 mb-6">
-        {/* Busca inteligente */}
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-          <div className="flex items-center gap-2 px-4 py-3 bg-[#032650]">
-            <Search size={15} className="text-[#C9A227]" />
-            <h3 className="font-semibold text-white text-sm">Buscar no sistema</h3>
-          </div>
-          <div className="p-4">
-          <div className="flex gap-2">
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        {/* Busca no sistema */}
+        <Secao titulo="Buscar no sistema" descricao="Processos, tarefas e normas." icone={Search} corpoClassName="p-5">
+          <form onSubmit={(e) => { e.preventDefault(); pesquisar(); }} className="flex flex-col gap-2 sm:flex-row">
+            <label htmlFor="busca-sistema" className="sr-only">O que você procura</label>
             <input
+              id="busca-sistema"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && pesquisar()}
-              placeholder="Ex.: processos de aquisição parados há mais de 10 dias"
-              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#C9A227] text-sm"
+              placeholder="Ex.: número do processo, objeto ou tema"
+              className="inp"
             />
-            <button onClick={pesquisar} disabled={buscando} className="px-3 py-2 rounded-lg bg-[#032650] text-white text-xs font-semibold hover:bg-[#042f5e] cursor-pointer disabled:opacity-50">
-              {buscando ? <Loader2 size={13} className="animate-spin" /> : "Buscar"}
+            <button type="submit" disabled={buscando || busca.trim().length < 3} className="btn btn-primary shrink-0">
+              {buscando ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <Search size={16} aria-hidden />}
+              Buscar
             </button>
+          </form>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500">Experimente:</span>
+            {EXEMPLOS_SISTEMA.map((ex) => (
+              <button key={ex} type="button" onClick={() => pesquisar(ex)} className="chip">{ex}</button>
+            ))}
           </div>
+
           {resultadoBusca && (
-            <div className="mt-3 space-y-2 text-xs">
+            <div className="mt-5 space-y-4" aria-live="polite">
               {resultadoBusca.processos?.length > 0 && (
-                <div>
-                  <p className="font-semibold text-slate-600 mb-1">Processos ({resultadoBusca.processos.length})</p>
+                <Grupo titulo="Processos" qtd={resultadoBusca.processos.length} icone={FileText}>
                   {resultadoBusca.processos.map((p: any) => (
-                    <Link key={p.id} href={`/processos/${p.id}/jornada`} className="block px-3 py-1.5 rounded bg-slate-50 hover:bg-slate-100 text-slate-700">
-                      <span className="font-mono">{p.numero}</span> — {p.objeto} <span className="text-slate-400">({p.status})</span>
-                    </Link>
+                    <li key={p.id}>
+                      <Link href={`/processos/${p.id}/jornada`} className="group flex items-center gap-3 px-3.5 py-3 linha-clicavel">
+                        <span className="protocolo">{p.numero}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm text-ink-950">{p.objeto}</span>
+                        <Situacao status={p.status} />
+                        <ChevronRight size={15} className="shrink-0 text-slate-400" aria-hidden />
+                      </Link>
+                    </li>
                   ))}
-                </div>
+                </Grupo>
               )}
               {resultadoBusca.normas?.length > 0 && (
-                <div>
-                  <p className="font-semibold text-slate-600 mb-1">Normas ({resultadoBusca.normas.length})</p>
+                <Grupo titulo="Normas" qtd={resultadoBusca.normas.length} icone={Scale}>
                   {resultadoBusca.normas.map((n: any) => (
-                    <div key={n.id} className="px-3 py-1.5 rounded bg-[#eef2f8] text-[#042f5e]">
-                      <span className="font-semibold">{n.titulo}</span> — {n.conteudo.slice(0, 100)}… <span className="text-[#C9A227]">({n.fonte})</span>
-                    </div>
+                    <li key={n.id} className="px-3.5 py-3">
+                      <p className="text-sm font-medium text-ink-950">{n.titulo}</p>
+                      <p className="mt-1 text-[13px] leading-relaxed text-slate-600">{n.conteudo.slice(0, 160)}…</p>
+                      <p className="mt-1.5 text-xs text-slate-500">Fonte: {n.fonte}</p>
+                    </li>
                   ))}
-                </div>
+                </Grupo>
               )}
               {resultadoBusca.tarefas?.length > 0 && (
-                <div>
-                  <p className="font-semibold text-slate-600 mb-1">Tarefas ({resultadoBusca.tarefas.length})</p>
+                <Grupo titulo="Tarefas" qtd={resultadoBusca.tarefas.length} icone={ListTodo}>
                   {resultadoBusca.tarefas.map((t: any) => (
-                    t.processoId ? (
-                      <Link key={t.id} href={`/processos/${t.processoId}/jornada`} className="block px-3 py-1.5 rounded bg-amber-50 hover:bg-amber-100 text-amber-800">
-                        {t.titulo}
-                      </Link>
-                    ) : (
-                      <div key={t.id} className="px-3 py-1.5 rounded bg-amber-50 text-amber-800">{t.titulo}</div>
-                    )
+                    <li key={t.id}>
+                      {t.processoId ? (
+                        <Link href={`/processos/${t.processoId}/jornada`} className="flex items-center justify-between gap-3 px-3.5 py-3 text-sm text-ink-950 linha-clicavel">
+                          {t.titulo} <ChevronRight size={15} className="shrink-0 text-slate-400" aria-hidden />
+                        </Link>
+                      ) : (
+                        <p className="px-3.5 py-3 text-sm text-slate-700">{t.titulo}</p>
+                      )}
+                    </li>
                   ))}
-                </div>
+                </Grupo>
               )}
-              {!resultadoBusca.processos?.length && !resultadoBusca.normas?.length && !resultadoBusca.tarefas?.length && (
-                <p className="text-slate-400">Nada encontrado para "{busca}".</p>
+              {nadaNoSistema && (
+                <p className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  Nada encontrado para <b className="font-semibold text-ink-950">“{termoBuscado}”</b>. Tente uma palavra mais curta ou outro termo.
+                </p>
               )}
             </div>
           )}
-          </div>
-        </div>
+        </Secao>
 
         {/* Legislação */}
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden shadow-sm">
-          <div className="flex items-center gap-2 px-4 py-3 bg-[#032650]">
-            <BookOpen size={15} className="text-[#C9A227]" />
-            <h3 className="font-semibold text-white text-sm">Pergunte sobre a legislação</h3>
-          </div>
-          <div className="p-4">
-          <div className="flex gap-2">
+        <Secao titulo="Perguntar sobre a legislação" descricao="Leis, instruções normativas e regras internas." icone={BookOpen} corpoClassName="p-5">
+          <form onSubmit={(e) => { e.preventDefault(); perguntarLei(); }} className="flex flex-col gap-2 sm:flex-row">
+            <label htmlFor="busca-lei" className="sr-only">Tema da legislação</label>
             <input
+              id="busca-lei"
               value={perguntaLei}
               onChange={(e) => setPerguntaLei(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && perguntarLei()}
-              placeholder="Ex.: qual o prazo para licitação na modalidade convite?"
-              className="flex-1 px-3 py-2 rounded-lg border border-slate-200 focus:outline-none focus:border-[#C9A227] text-sm"
+              placeholder="Ex.: pesquisa de preços, ME/EPP, ETP"
+              className="inp"
             />
-            <button onClick={perguntarLei} disabled={perguntandoLei} className="px-3 py-2 rounded-lg bg-[#eef2f8] text-[#032650] text-xs font-semibold hover:bg-[#d5dce8] cursor-pointer disabled:opacity-50">
-              {perguntandoLei ? <Loader2 size={13} className="animate-spin" /> : "Perguntar"}
+            <button type="submit" disabled={perguntandoLei || perguntaLei.trim().length < 3} className="btn btn-outline shrink-0">
+              {perguntandoLei ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <BookOpen size={16} aria-hidden />}
+              Consultar
             </button>
+          </form>
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-slate-500">Experimente:</span>
+            {EXEMPLOS_LEI.map((ex) => (
+              <button key={ex} type="button" onClick={() => perguntarLei(ex)} className="chip">{ex}</button>
+            ))}
           </div>
+
           {legis && (
-            <div className="mt-3 space-y-2 text-xs">
-              {legis.length === 0 && <p className="text-slate-400">Nenhuma norma encontrada para essa pergunta.</p>}
-              {legis.map((n, i) => (
-                <div key={i} className="px-3 py-2 rounded bg-[#eef2f8] text-[#032650]">
-                  <p className="font-semibold">{n.titulo} <span className="text-[#032650]/50 font-normal">· {n.fonte}</span></p>
-                  <p className="mt-0.5 text-[#032650]/80">{n.conteudo}</p>
-                </div>
-              ))}
+            <div className="mt-5" aria-live="polite">
+              {legis.length === 0 ? (
+                <p className="rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                  Nenhuma norma encontrada para esse tema. Tente outra palavra, como “pesquisa” ou “ETP”.
+                </p>
+              ) : (
+                <ul className="space-y-5">
+                  {legis.map((n, i) => (
+                    <li key={i} className="border-l-2 border-ink-200 pl-4">
+                      <p className="text-sm font-semibold text-ink-950">{n.titulo}</p>
+                      <p className="mt-1 text-[13px] leading-relaxed text-slate-600">{n.conteudo}</p>
+                      <p className="mt-2 text-xs text-slate-500">Fonte: {n.fonte}</p>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
-          </div>
-        </div>
+        </Secao>
       </div>
     </div>
+  );
+}
+
+export default function BuscaPage() {
+  return (
+    <Suspense fallback={null}>
+      <BuscaConteudo />
+    </Suspense>
   );
 }

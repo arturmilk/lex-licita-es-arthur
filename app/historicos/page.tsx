@@ -4,28 +4,32 @@ import ProcessosPage from "@/app/processos/page";
 import PesquisasPage from "@/app/pesquisas/page";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import { CabecalhoPagina } from "@/components/Pagina";
 
 export default function HistoricosPage() {
   return (
-    <div className="space-y-12">
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800">Históricos</h1>
-          <p className="text-sm text-slate-500 mt-1">Consulte seus processos e, logo abaixo, o histórico das pesquisas de preços realizadas.</p>
-        </div>
-        <Link
-          href="/pesquisa/nova"
-          className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#032650] text-white text-sm font-semibold shadow-sm hover:bg-[#042f5e] hover:shadow-md transition-all"
-        >
-          <Plus size={16} /> Nova pesquisa de preço
-        </Link>
-      </div>
+    <div>
+      <CabecalhoPagina
+        titulo="Histórico"
+        descricao="Seus processos e, logo abaixo, as pesquisas de preços já realizadas."
+        acoes={
+          <Link href="/pesquisa/nova" className="btn btn-primary">
+            <Plus size={16} aria-hidden /> Nova pesquisa de preço
+          </Link>
+        }
+      />
 
-      <section className="scroll-mt-6">
+      {/* Atalhos para as duas partes da página */}
+      <nav aria-label="Seções do histórico" className="-mt-3 mb-8 flex flex-wrap gap-2">
+        <a href="#processos" className="chip">Processos</a>
+        <a href="#pesquisas" className="chip">Pesquisas de preços</a>
+      </nav>
+
+      <section id="processos" className="scroll-mt-6">
         <ProcessosPage />
       </section>
 
-      <section className="pt-10 border-t border-slate-200 scroll-mt-6">
+      <section id="pesquisas" className="mt-12 scroll-mt-6 border-t border-slate-200 pt-10">
         <PesquisasPage />
       </section>
     </div>

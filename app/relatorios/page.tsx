@@ -1,6 +1,8 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { FileText, Table2, Loader2, ExternalLink, Download } from "lucide-react";
+import { EsqueletoLista, EstadoVazio } from "@/components/Estados";
+import { CabecalhoPagina, Secao, AvisoErro } from "@/components/Pagina";
 import { listarPesquisas } from "@/lib/actions";
 import { gerarXLSX, downloadXLSX } from "@/lib/xlsx-generator";
 import { PDFDownloadLink } from "@react-pdf/renderer";
@@ -31,40 +33,38 @@ export default function RelatoriosPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-slate-800">Relatórios</h1>
-      </div>
+      <CabecalhoPagina
+        titulo="Relatórios"
+        descricao="Baixe em PDF ou planilha (XLSX) o relatório de cada pesquisa concluída, com a memória de cálculo."
+      />
 
-      {erro && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">Erro: {erro}</div>
-      )}
+      {erro && <AvisoErro>Não foi possível carregar os relatórios. {erro}</AvisoErro>}
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-slate-100">
-          <p className="text-sm text-slate-500">
-            Relatórios gerados a partir de pesquisas concluídas. Baixe em PDF ou XLSX.
-          </p>
-        </div>
-
+      <Secao titulo="Pesquisas concluídas" descricao="Um relatório por pesquisa, pronto para juntar ao processo.">
         {rows === null ? (
-          <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
-            <Loader2 className="w-5 h-5 animate-spin" /> Carregando...
-          </div>
+          <EsqueletoLista />
         ) : concluidas.length === 0 ? (
-          <div className="py-16 text-center text-sm text-slate-400">
-            Nenhuma pesquisa concluída ainda. Conclua uma pesquisa no wizard para gerar relatórios.
-          </div>
+          <EstadoVazio
+            icone={FileText}
+            titulo="Nenhuma pesquisa concluída ainda"
+            descricao="Relatórios em PDF e XLSX são gerados a partir de pesquisas concluídas. Conclua uma pesquisa para vê-los aqui."
+            href="/pesquisa/nova"
+            acao="Ir para Nova pesquisa"
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+          <div className="scroll-fino overflow-x-auto">
+            <table className="tabela">
+              <thead>
                 <tr>
-                  {["Processo", "Objeto", "Valor estimado", "Refs. aceitas", "Concluída em", "Exportar"].map(h => (
-                    <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
-                  ))}
+                  <th>Processo</th>
+                  <th>Objeto</th>
+                  <th className="text-right">Valor estimado</th>
+                  <th className="text-center">Refs. aceitas</th>
+                  <th>Concluída em</th>
+                  <th>Baixar</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {concluidas.map(r => {
                   const nomeArquivo = `estimativa_${(r.processoNumero || r.id.slice(0, 8)).replace(/\//g, "_")}`;
                   const stats = (r.estatisticas as any) || null;
@@ -84,28 +84,28 @@ export default function RelatoriosPage() {
                   };
 
                   return (
-                    <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2.5 px-4 font-mono text-xs text-slate-600">{r.processoNumero || "—"}</td>
-                      <td className="py-2.5 px-4 max-w-[280px] truncate" title={r.objeto}>{r.objeto}</td>
-                      <td className="py-2.5 px-4 font-mono text-xs">{fmtMoeda(r.precoTotalEstimado)}</td>
-                      <td className="py-2.5 px-4">{r.referenciasAceitas}</td>
-                      <td className="py-2.5 px-4 text-slate-500 text-xs">{fmtData(r.createdAt)}</td>
-                      <td className="py-2.5 px-4">
+                    <tr key={r.id}>
+                      <td><span className="protocolo">{r.processoNumero || "—"}</span></td>
+                      <td className="max-w-[280px] truncate font-medium text-ink-950" title={r.objeto}>{r.objeto}</td>
+                      <td className="text-right"><span className="valor">{fmtMoeda(r.precoTotalEstimado)}</span></td>
+                      <td className="text-center">{r.referenciasAceitas}</td>
+                      <td className="whitespace-nowrap text-[13px] text-slate-500">{fmtData(r.createdAt)}</td>
+                      <td>
                         <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => { const b = gerarXLSX(relData); downloadXLSX(b, `${nomeArquivo}.xlsx`); }}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-                          >
-                            <Table2 className="w-3.5 h-3.5 text-green-600" /> XLSX
-                          </button>
                           <PDFDownloadLink
                             document={<RelatorioPDFDocument {...relData} />}
                             fileName={`${nomeArquivo}.pdf`}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-slate-200 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+                            className="btn btn-outline btn-sm min-h-[44px]"
                           >
-                            <FileText className="w-3.5 h-3.5 text-red-500" /> PDF
+                            <FileText className="h-4 w-4 text-ink-700" aria-hidden /> PDF
                           </PDFDownloadLink>
+                          <button
+                            type="button"
+                            onClick={() => { const b = gerarXLSX(relData); downloadXLSX(b, `${nomeArquivo}.xlsx`); }}
+                            className="btn btn-outline btn-sm min-h-[44px]"
+                          >
+                            <Table2 className="h-4 w-4 text-ink-700" aria-hidden /> XLSX
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -115,7 +115,7 @@ export default function RelatoriosPage() {
             </table>
           </div>
         )}
-      </div>
+      </Secao>
     </div>
   );
 }

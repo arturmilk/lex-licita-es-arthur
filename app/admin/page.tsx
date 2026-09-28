@@ -1,7 +1,9 @@
 "use client";
-import React, { useState, useEffect } from "react";
-import { Users, Settings, Save, Activity, Copy, RefreshCw, CheckCircle2, Loader2, ShieldAlert, UserPlus, MessageCircle, Eye, EyeOff } from "lucide-react";
+import React, { useState, useEffect, useId } from "react";
+import { Users, Settings, Save, Activity, Copy, RefreshCw, CheckCircle2, Loader2, ShieldAlert, UserPlus, MessageCircle, Eye, FileSearch, Bot, AlertTriangle, ScrollText } from "lucide-react";
+import { CabecalhoPagina, Indicador, Situacao } from "@/components/Pagina";
 import { listarUsuarios, criarUsuario, ativarDesativarUsuario, listarFeedbacks, marcarFeedbackLido } from "@/lib/admin-actions";
+import { useDialogos } from "@/components/Dialogos";
 
 interface MonitorData {
   logs: { id: string; ts: string; evento: string; dados: Record<string, unknown> }[];
@@ -22,92 +24,119 @@ interface MonitorData {
 }
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>;
+  return <section className={`card overflow-hidden ${className}`}>{children}</section>;
 }
 
-function CardHeader({ title, icon: Icon, action }: { title: string; icon: React.ElementType; action?: React.ReactNode }) {
+function CardHeader({ title, desc, icon: Icon, action }: { title: string; desc?: string; icon: React.ElementType; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-      <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4 text-[#032650]" />
-        <h2 className="text-base font-semibold text-slate-800">{title}</h2>
+    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="icon-tile h-9 w-9" aria-hidden><Icon size={17} /></span>
+        <div className="min-w-0">
+          <h2 className="section-title">{title}</h2>
+          {desc && <p className="section-desc">{desc}</p>}
+        </div>
       </div>
       {action}
     </div>
   );
 }
 
-function StatBox({ label, value, cls = "" }: { label: string; value: React.ReactNode; cls?: string }) {
+/** Painel de gráfico: título + descrição curta + corpo. */
+function Painel({ titulo, desc, children }: { titulo: string; desc?: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg bg-slate-50 border border-slate-200 p-4">
-      <p className="text-xs text-slate-500 mb-1">{label}</p>
-      <p className={`text-2xl font-bold tabular-nums ${cls}`}>{value}</p>
+    <div className="rounded-xl border border-slate-200 bg-white p-5">
+      <h3 className="text-sm font-semibold text-ink-950">{titulo}</h3>
+      {desc && <p className="mt-0.5 text-xs text-slate-500">{desc}</p>}
+      <div className="mt-4">{children}</div>
     </div>
   );
 }
 
-function BarChart({ data, cor = "bg-[#032650]", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
-  const max = Math.max(1, ...data.map((d) => d.total));
+/** Últimos 7 dias (UTC, como o banco agrupa), preenchendo com zero os dias sem registro. */
+function ultimos7Dias(dados: { dia: string; total: number }[]) {
+  const mapa = new Map(dados.map((d) => [d.dia, Number(d.total) || 0]));
+  return Array.from({ length: 7 }, (_, i) => {
+    const chave = new Date(Date.now() - (6 - i) * 86_400_000).toISOString().slice(0, 10);
+    const [, m, d] = chave.split("-");
+    return { rotulo: `${d}/${m}`, total: mapa.get(chave) ?? 0 };
+  });
+}
+
+/**
+ * Colunas por dia — marcas finas (≤24px), topo arredondado e base reta sobre uma
+ * única linha de base; rótulo só no maior valor; tooltip em cada coluna e tabela
+ * equivalente para leitor de tela.
+ */
+function Colunas({ data, unidade, cor = "bg-ink-800" }: { data: { rotulo: string; total: number }[]; unidade: string; cor?: string }) {
+  const max = Math.max(0, ...data.map((d) => d.total));
+  const altura = 112;
   return (
-    <div className="flex items-end gap-2 h-28">
-      {data.length === 0 ? (
-        <p className="text-xs text-slate-400 self-center">Sem dados</p>
-      ) : data.map((d, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-          <span className="text-[10px] font-semibold text-slate-600 tabular-nums">{d.total}</span>
-          <div
-            className={`w-full rounded-t ${cor} transition-all`}
-            style={{ height: `${Math.max(4, Math.round((d.total / max) * 80))}px`, opacity: d.total === 0 ? 0.15 : 1 }}
-            title={`${d.rotulo}: ${d.total}`}
-          />
-          <span className="text-[9px] text-slate-500 truncate w-full text-center" title={d.rotulo}>{d.rotulo}</span>
+    <figure>
+      <div className="relative" aria-hidden>
+        <div className="flex items-end gap-2 border-b border-slate-300" style={{ height: altura + 18 }}>
+          {data.map((d, i) => {
+            const h = max > 0 ? Math.max(d.total > 0 ? 4 : 0, Math.round((d.total / max) * altura)) : 0;
+            const ehMax = max > 0 && d.total === max;
+            return (
+              <div key={i} className="group flex h-full min-w-0 flex-1 flex-col items-center justify-end" title={`${d.rotulo}: ${d.total} ${unidade}`}>
+                {ehMax && <span className="mb-1 text-xs font-semibold tabular-nums text-ink-950">{d.total}</span>}
+                <div className={`w-full max-w-[24px] rounded-t-[4px] ${cor} transition-opacity group-hover:opacity-80`} style={{ height: h }} />
+              </div>
+            );
+          })}
         </div>
-      ))}
-    </div>
-  );
-}
-
-function BarrasHorizontais({ data, cor = "bg-[#032650]", rotulo }: { data: { rotulo: string; total: number }[]; cor?: string; rotulo: string }) {
-  const max = Math.max(1, ...data.map((d) => d.total));
-  return (
-    <div className="space-y-1.5">
-      {data.length === 0 ? (
-        <p className="text-xs text-slate-400">Sem dados</p>
-      ) : data.map((d, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-600 w-28 truncate text-right" title={d.rotulo}>{d.rotulo}</span>
-          <div className="flex-1 bg-slate-100 rounded h-4 overflow-hidden">
-            <div className={`h-full rounded ${cor}`} style={{ width: `${Math.max(4, Math.round((d.total / max) * 100))}%` }} />
-          </div>
-          <span className="text-[11px] font-semibold text-slate-600 w-6 tabular-nums">{d.total}</span>
+        {max === 0 && (
+          <p className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[13px] text-slate-500">Nenhum registro nos últimos 7 dias</p>
+        )}
+        <div className="mt-2 flex gap-2">
+          {data.map((d, i) => (
+            <span key={i} className="min-w-0 flex-1 text-center text-[11px] tabular-nums text-slate-500">{d.rotulo}</span>
+          ))}
         </div>
-      ))}
-    </div>
+      </div>
+      <table className="sr-only">
+        <caption>{unidade} por dia</caption>
+        <tbody>{data.map((d, i) => <tr key={i}><th>{d.rotulo}</th><td>{d.total}</td></tr>)}</tbody>
+      </table>
+    </figure>
   );
 }
 
-const STATUS_COR: Record<string, string> = {
-  concluido: "bg-green-100 text-green-700",
-  erro: "bg-red-100 text-red-700",
-  executando: "bg-amber-100 text-amber-700",
-  aguardando: "bg-slate-100 text-slate-600",
-  cancelado: "bg-slate-100 text-slate-500",
-};
+/** Barras horizontais de uma série só: uma cor, rótulo em texto neutro, valor na ponta. */
+function Barras({ data, vazio }: { data: { rotulo: string; total: number }[]; vazio: string }) {
+  const max = Math.max(1, ...data.map((d) => d.total));
+  if (data.length === 0) return <p className="py-6 text-center text-[13px] text-slate-500">{vazio}</p>;
+  return (
+    <ul className="space-y-3">
+      {data.map((d, i) => (
+        <li key={i} className="grid grid-cols-[7.5rem_1fr_2.5rem] items-center gap-3" title={`${d.rotulo}: ${d.total}`}>
+          <span className="truncate text-[13px] text-slate-600">{d.rotulo}</span>
+          <span className="h-2 rounded-r-[4px] bg-ink-800" style={{ width: `${Math.max(3, Math.round((d.total / max) * 100))}%` }} aria-hidden />
+          <span className="text-right text-[13px] font-semibold tabular-nums text-ink-950">{d.total}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 
 function Inp({ label, ...props }: { label: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+  const id = useId();
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-      <input className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent transition" {...props} />
+      <label htmlFor={id} className="rotulo">{label}</label>
+      <input id={id} className="inp" {...props} />
     </div>
   );
 }
 
 function Sel({ label, children, ...props }: { label: string } & React.SelectHTMLAttributes<HTMLSelectElement>) {
+  const id = useId();
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
-      <select className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent transition" {...props}>
+      <label htmlFor={id} className="rotulo">{label}</label>
+      <select id={id} className="inp" {...props}>
         {children}
       </select>
     </div>
@@ -146,6 +175,8 @@ export default function AdminPage() {
   const [salvandoConfig, setSalvandoConfig] = useState(false);
   const [configSalva, setConfigSalva] = useState<boolean | null>(null);
   const [configErro, setConfigErro] = useState<string | null>(null);
+  const [aba, setAba] = useState<"monitor" | "usuarios" | "feedbacks" | "config">("monitor");
+  const { avisar } = useDialogos();
 
   // Usuários
   const [listaUsuarios, setListaUsuarios] = useState<Usuario[]>([]);
@@ -249,14 +280,14 @@ export default function AdminPage() {
   const copiarLogs = async () => {
     if (!monitor) return;
     const texto = monitor.logs.length > 0
-      ? monitor.logs.map((l) => `${l.ts} ${l.evento} ${JSON.stringify(l.dados)}`).join("\n")
+      ? monitor.logs.map((l) => `${l.ts} ${rotuloEvento(l.evento)} ${JSON.stringify(l.dados)}`).join("\n")
       : monitor.logsArquivo || "";
     if (!texto) return;
     try {
       await navigator.clipboard.writeText(texto);
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
-    } catch { alert("Selecione e copie manualmente (Ctrl+C)."); }
+    } catch { await avisar("Não consegui copiar automaticamente. Selecione o texto e copie com Ctrl+C.", "Copiar manualmente"); }
   };
 
   const fmtMoeda = (v: string | null) => v == null ? "—" : `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
@@ -270,199 +301,245 @@ export default function AdminPage() {
   });
   const ehErroLog = (l: { dados: Record<string, unknown> }) => (l.dados?.erro != null && l.dados.erro !== "") || l.dados?.ok === false;
 
+  // Linguagem de gente: o evento técnico vira rótulo, e o JSON vira frase.
+  const ROTULO_EVENTO: Record<string, string> = {
+    pesquisa_criada: "Pesquisa iniciada",
+    pesquisa_concluida: "Pesquisa concluída",
+    pncp_busca: "Busca no PNCP",
+    busca_pncp: "Busca no PNCP",
+    sessao_agente: "Busca automática",
+    agente_sessao: "Busca automática",
+    usuario_criado: "Usuário criado",
+    usuario_ativado: "Usuário reativado",
+    usuario_desativado: "Usuário desativado",
+    feedback_criado: "Sugestão recebida",
+    erro: "Erro",
+  };
+  const rotuloEvento = (e: string) =>
+    ROTULO_EVENTO[e] || (ROTULO_EVENTO[e.replace(/[.-]/g, "_")] ?? e.replace(/[._]/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()));
+  const NOME_CAMPO: Record<string, string> = {
+    objeto: "Objeto", fonte: "Fonte", total: "Resultados", encontrados: "Resultados",
+    erro: "Erro", ok: "Ok", ms: "Duração", duracaoMs: "Duração", termo: "Termo",
+    pesquisaId: "Pesquisa", processoId: "Processo", usuario: "Usuário", perfil: "Perfil",
+  };
+  const detalheLog = (l: { dados: Record<string, unknown> }) => {
+    const d = l.dados || {};
+    const partes: string[] = [];
+    for (const [k, v] of Object.entries(d)) {
+      if (v == null || v === "" || k.startsWith("_")) continue;
+      const nome = NOME_CAMPO[k] || k;
+      const val = typeof v === "object"
+        ? (Array.isArray(v) ? `${v.length} item(ns)` : "—")
+        : String(v).replace(/\s+/g, " ").trim();
+      partes.push(`${nome}: ${val.length > 70 ? val.slice(0, 70) + "…" : val}`);
+    }
+    return partes.join(" · ") || "—";
+  };
+
+
+  const PERFIL_TOM: Record<string, string> = { administrador: "pill-gold", gestor: "pill-info", pesquisador: "pill-neutral" };
+  const PERFIL_ROTULO: Record<string, string> = { administrador: "Administrador", gestor: "Gestor", pesquisador: "Pesquisador" };
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Administração</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
-            {monitor ? `Última atualização: ${fmtData(monitor.horario)}` : "Carregando..."}
-          </p>
-        </div>
+    <div>
+      <CabecalhoPagina
+        titulo="Administração"
+        descricao="Monitoramento, usuários, sugestões e configurações do sistema — visível só para administradores."
+      />
+
+      <div role="tablist" aria-label="Seções da administração" className="scroll-fino mb-6 flex gap-1 overflow-x-auto border-b border-slate-200">
+        {([
+          { chave: "monitor", rotulo: "Monitoramento", Icone: Activity },
+          { chave: "usuarios", rotulo: "Usuários", Icone: Users },
+          { chave: "feedbacks", rotulo: "Sugestões", Icone: MessageCircle },
+          { chave: "config", rotulo: "Configurações", Icone: Settings },
+        ] as const).map(({ chave, rotulo, Icone }) => (
+          <button
+            key={chave}
+            role="tab"
+            aria-selected={aba === chave}
+            onClick={() => setAba(chave)}
+            className={`-mb-px inline-flex min-h-[46px] shrink-0 items-center gap-2 border-b-2 px-4 text-sm font-semibold transition-colors ${
+              aba === chave ? "border-ink-900 text-ink-950" : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
+            }`}
+          >
+            <Icone className="h-4 w-4" aria-hidden /> {rotulo}
+            {chave === "feedbacks" && listaFeedbacks.some((f) => !f.lido) && (
+              <span className="rounded-full bg-ink-900 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-white">
+                {listaFeedbacks.filter((f) => !f.lido).length}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       {/* Monitoramento */}
-      <Card>
-        <CardHeader
-          title="Monitoramento do sistema"
-          icon={Activity}
-          action={
-            <button
-              onClick={carregarMonitor}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-[#042f5e] px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Atualizar
+      {aba === "monitor" && (
+        <div className="space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-600">Atualiza sozinho a cada 30 segundos.</p>
+            <button onClick={carregarMonitor} className="btn btn-outline btn-sm min-h-[44px]">
+              <RefreshCw className="h-4 w-4" aria-hidden /> Atualizar agora
             </button>
-          }
-        />
-        <div className="p-6">
+          </div>
+
           {monitorErro && (
-            <div className="mb-4 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
-              <ShieldAlert className="w-4 h-4 shrink-0" /> {monitorErro}
+            <div role="alert" className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <ShieldAlert className="h-4 w-4 shrink-0" aria-hidden /> {monitorErro}
             </div>
           )}
-          {!monitor && !monitorErro ? (
-            <div className="flex items-center justify-center py-10 gap-2 text-slate-400">
-              <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
-            </div>
-          ) : monitor && (
-            <div className="space-y-5">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <StatBox label="Pesquisas" value={monitor.stats?.totalPesquisas ?? monitor.pesquisas.length} />
-                <StatBox label="Sessões de agentes" value={monitor.stats?.totalSessoes ?? monitor.sessoes.length} />
-                <StatBox label="Usuários" value={monitor.usuarios.length} />
-                <StatBox
-                  label="Erros"
-                  value={linhasErro}
-                  cls={linhasErro > 0 ? "text-red-600" : "text-green-600"}
-                />
-              </div>
 
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Indicador rotulo="Pesquisas" valor={monitor ? (monitor.stats?.totalPesquisas ?? monitor.pesquisas.length) : 0} nota="no sistema" icone={FileSearch} carregando={!monitor && !monitorErro} />
+            <Indicador rotulo="Buscas automáticas" valor={monitor ? (monitor.stats?.totalSessoes ?? monitor.sessoes.length) : 0} nota="nas fontes oficiais" icone={Bot} carregando={!monitor && !monitorErro} />
+            <Indicador rotulo="Usuários" valor={monitor ? monitor.usuarios.length : 0} nota="no órgão" icone={Users} carregando={!monitor && !monitorErro} />
+            <Indicador
+              rotulo="Erros"
+              valor={linhasErro}
+              nota={linhasErro > 0 ? "verifique o registro de atividade" : "nenhum erro registrado"}
+              critico={linhasErro > 0}
+              icone={AlertTriangle}
+              carregando={!monitor && !monitorErro}
+            />
+          </div>
+
+          {monitor && (
+            <>
               {/* Gráficos */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="rounded-lg border border-slate-200 p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Pesquisas por dia (7 dias)</p>
-                  <BarChart
-                    rotulo="pesquisas"
-                    data={(monitor.stats?.pesquisasPorDia || []).map((d) => ({ rotulo: d.dia.slice(5), total: d.total }))}
-                  />
-                </div>
-                <div className="rounded-lg border border-slate-200 p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Erros por dia (7 dias)</p>
-                  <BarChart
-                    rotulo="erros"
-                    cor="bg-red-400"
-                    data={(monitor.stats?.errosPorDia || []).map((d) => ({ rotulo: d.dia.slice(5), total: d.total }))}
-                  />
-                </div>
-                <div className="rounded-lg border border-slate-200 p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Sessões por status</p>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {(monitor.stats?.sessoesPorStatus || []).map((s) => (
-                      <span key={s.status} className={`inline-flex items-center gap-1.5 text-xs px-2 py-1 rounded ${STATUS_COR[s.status] || "bg-slate-100 text-slate-600"}`}>
-                        {s.status} <b className="tabular-nums">{s.total}</b>
-                      </span>
-                    ))}
-                    {(monitor.stats?.sessoesPorStatus || []).length === 0 && <span className="text-xs text-slate-400">Sem sessões</span>}
-                  </div>
-                </div>
-                <div className="rounded-lg border border-slate-200 p-4">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Fontes mais usadas</p>
-                  <BarrasHorizontais
-                    rotulo="fontes"
-                    cor="bg-emerald-400"
-                    data={(monitor.stats?.fontesUsadas || []).map((f) => ({ rotulo: f.fonte, total: f.total }))}
-                  />
-                </div>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Painel titulo="Pesquisas por dia" desc="Últimos 7 dias">
+                  <Colunas unidade="pesquisas" data={ultimos7Dias(monitor.stats?.pesquisasPorDia || [])} />
+                </Painel>
+                <Painel titulo="Erros por dia" desc="Últimos 7 dias · registros com erro e buscas que falharam">
+                  <Colunas unidade="erros" cor="bg-red-600" data={ultimos7Dias(monitor.stats?.errosPorDia || [])} />
+                </Painel>
+                <Painel titulo="Buscas automáticas por situação" desc="Todas as execuções registradas">
+                  {(monitor.stats?.sessoesPorStatus || []).length === 0 ? (
+                    <p className="py-6 text-center text-[13px] text-slate-500">Nenhuma busca automática registrada</p>
+                  ) : (
+                    <ul className="divide-y divide-slate-100">
+                      {(monitor.stats?.sessoesPorStatus || []).map((s) => (
+                        <li key={s.status} className="flex items-center justify-between py-2.5">
+                          <Situacao status={s.status} />
+                          <span className="text-sm font-semibold tabular-nums text-ink-950">{s.total}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </Painel>
+                <Painel titulo="Fontes mais usadas" desc="Buscas automáticas por fonte oficial">
+                  <Barras vazio="Nenhuma fonte consultada ainda" data={(monitor.stats?.fontesUsadas || []).map((f) => ({ rotulo: f.fonte, total: f.total }))} />
+                </Painel>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                 {/* Pesquisas recentes */}
-                <div className="rounded-lg border border-slate-200 overflow-hidden">
-                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Pesquisas recentes</p>
-                  </div>
-                  <table className="w-full text-sm">
-                    <thead className="border-b border-slate-100">
-                      <tr>
-                        {["Processo", "Objeto", "Status", "Total"].map(h => (
-                          <th key={h} className="text-left py-2 px-3 text-xs font-medium text-slate-500">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {monitor.pesquisas.length === 0 ? (
-                        <tr><td colSpan={4} className="py-6 text-center text-xs text-slate-400">Sem pesquisas</td></tr>
-                      ) : monitor.pesquisas.map((p) => (
-                        <tr key={p.id} className="hover:bg-slate-50">
-                          <td className="py-2 px-3 font-mono text-xs">{p.processoNumero || "—"}</td>
-                          <td className="py-2 px-3 max-w-[140px] truncate text-xs" title={p.objeto}>{p.objeto}</td>
-                          <td className="py-2 px-3">
-                            <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">{p.status}</span>
-                          </td>
-                          <td className="py-2 px-3 text-xs font-mono">{fmtMoeda(p.precoTotalEstimado)}</td>
+                <Card>
+                  <CardHeader title="Pesquisas recentes" icon={FileSearch} />
+                  <div className="scroll-fino overflow-x-auto">
+                    <table className="tabela">
+                      <thead>
+                        <tr>
+                          <th>Processo</th>
+                          <th>Objeto</th>
+                          <th>Situação</th>
+                          <th className="text-right">Total</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {monitor.pesquisas.length === 0 ? (
+                          <tr><td colSpan={4} className="py-8 text-center text-[13px] text-slate-500">Nenhuma pesquisa ainda</td></tr>
+                        ) : monitor.pesquisas.map((p) => (
+                          <tr key={p.id}>
+                            <td><span className="protocolo">{p.processoNumero || "—"}</span></td>
+                            <td className="max-w-[160px] truncate" title={p.objeto}>{p.objeto}</td>
+                            <td><Situacao status={p.status} /></td>
+                            <td className="text-right"><span className="valor">{fmtMoeda(p.precoTotalEstimado)}</span></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
 
                 {/* Sessões */}
-                <div className="rounded-lg border border-slate-200 overflow-hidden">
-                  <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Sessões de agentes</p>
-                  </div>
-                  <table className="w-full text-sm">
-                    <thead className="border-b border-slate-100">
-                      <tr>
-                        {["Agente", "Fonte", "Status", "Total", "Erro"].map(h => (
-                          <th key={h} className="text-left py-2 px-3 text-xs font-medium text-slate-500">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {monitor.sessoes.length === 0 ? (
-                        <tr><td colSpan={5} className="py-6 text-center text-xs text-slate-400">Sem sessões</td></tr>
-                      ) : monitor.sessoes.map((s) => (
-                        <tr key={s.id} className="hover:bg-slate-50">
-                          <td className="py-2 px-3 text-xs">{s.nomeAgente}</td>
-                          <td className="py-2 px-3 text-xs text-slate-500">{s.fonte}</td>
-                          <td className="py-2 px-3">
-                            <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COR[s.status] || "bg-slate-100 text-slate-600"}`}>
-                              {s.status}
-                            </span>
-                          </td>
-                          <td className="py-2 px-3 text-xs tabular-nums">{s.totalEncontrado ?? "—"}</td>
-                          <td className="py-2 px-3">
-                            {s.erro ? (
-                              <span className="text-[11px] text-red-600 max-w-[160px] truncate block" title={s.erro}>{s.erro}</span>
-                            ) : (
-                              <span className="text-[11px] text-slate-400">{s.concluidoEm ? fmtHora(s.concluidoEm) : "—"}</span>
-                            )}
-                          </td>
+                <Card>
+                  <CardHeader title="Buscas automáticas" desc="Rotinas que consultam as fontes oficiais" icon={Bot} />
+                  <div className="scroll-fino overflow-x-auto">
+                    <table className="tabela">
+                      <thead>
+                        <tr>
+                          <th>Rotina</th>
+                          <th>Fonte</th>
+                          <th>Situação</th>
+                          <th className="text-right">Resultados</th>
+                          <th>Observação</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {monitor.sessoes.length === 0 ? (
+                          <tr><td colSpan={5} className="py-8 text-center text-[13px] text-slate-500">Nenhuma busca automática ainda</td></tr>
+                        ) : monitor.sessoes.map((s) => (
+                          <tr key={s.id}>
+                            <td className="text-[13px]">{s.nomeAgente}</td>
+                            <td className="text-[13px] text-slate-500">{s.fonte}</td>
+                            <td><Situacao status={s.status} /></td>
+                            <td className="text-right tabular-nums">{s.totalEncontrado ?? "—"}</td>
+                            <td>
+                              {s.erro ? (
+                                <span className="block max-w-[180px] truncate text-xs text-red-700" title={s.erro}>{s.erro}</span>
+                              ) : (
+                                <span className="text-xs text-slate-500">{s.concluidoEm ? `Concluída às ${fmtHora(s.concluidoEm)}` : "—"}</span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
               </div>
 
-              {/* Logs */}
-              <div className="rounded-lg border border-slate-200 overflow-hidden">
-                <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Logs do sistema ({monitor.logs.length})</p>
-                  <div className="flex items-center gap-2">
-                    <input
-                      value={filtroLogs}
-                      onChange={(e) => setFiltroLogs(e.target.value)}
-                      placeholder="Filtrar logs..."
-                      className="text-xs px-2 py-1 rounded border border-slate-200 bg-white focus:outline-none focus:ring-1 focus:ring-[#C9A227] w-40"
-                    />
-                    <button onClick={copiarLogs} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-[#042f5e] transition-colors">
-                      <Copy className="w-3.5 h-3.5" /> {copiado ? "Copiado!" : "Copiar"}
-                    </button>
-                  </div>
-                </div>
-                <div className="max-h-64 overflow-auto bg-slate-50">
+              {/* Registro de atividade */}
+              <Card>
+                <CardHeader
+                  title="Registro de atividade"
+                  desc={`${monitor.logs.length} eventos mais recentes`}
+                  icon={ScrollText}
+                  action={
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="filtro-logs" className="sr-only">Filtrar atividade</label>
+                      <input
+                        id="filtro-logs"
+                        value={filtroLogs}
+                        onChange={(e) => setFiltroLogs(e.target.value)}
+                        placeholder="Filtrar…"
+                        className="inp w-44"
+                      />
+                      <button onClick={copiarLogs} className="btn btn-outline btn-sm min-h-[44px]">
+                        <Copy className="h-4 w-4" aria-hidden /> {copiado ? "Copiado!" : "Copiar"}
+                      </button>
+                    </div>
+                  }
+                />
+                <div className="scroll-fino max-h-72 overflow-auto">
                   {logsFiltrados.length === 0 ? (
-                    <pre className="text-[11px] leading-relaxed font-mono text-slate-700 p-4 whitespace-pre-wrap">
+                    <pre className="whitespace-pre-wrap p-5 font-mono text-xs leading-relaxed text-slate-600">
                       {monitor.logsArquivo
                         ? monitor.logsArquivo
-                        : "(sem logs ainda — execute uma pesquisa para gerar atividade)"}
+                        : "Sem atividade registrada ainda — faça uma pesquisa para gerar registros."}
                     </pre>
                   ) : (
-                    <table className="w-full text-[11px] font-mono">
+                    <table className="w-full text-xs">
                       <tbody className="divide-y divide-slate-100">
                         {logsFiltrados.slice(0, 100).map((l) => (
-                          <tr key={l.id} className={ehErroLog(l) ? "bg-red-50/70" : "hover:bg-slate-100"}>
-                            <td className="py-1 px-3 whitespace-nowrap text-slate-400">{fmtData(l.ts)}</td>
-                            <td className="py-1 px-2 whitespace-nowrap">
-                              <span className={`px-1.5 py-0.5 rounded text-[10px] ${ehErroLog(l) ? "bg-red-100 text-red-700" : "bg-[#eef2f8] text-[#032650]"}`}>
-                                {l.evento}
-                              </span>
+                          <tr key={l.id} className={ehErroLog(l) ? "bg-red-50/60" : "hover:bg-slate-50"}>
+                            <td className="whitespace-nowrap px-5 py-2 font-mono text-slate-500">{fmtData(l.ts)}</td>
+                            <td className="whitespace-nowrap px-2 py-2">
+                              <span className={`pill ${ehErroLog(l) ? "pill-danger" : "pill-info"}`}>{rotuloEvento(l.evento)}</span>
                             </td>
-                            <td className={`py-1 px-2 truncate max-w-[420px] ${ehErroLog(l) ? "text-red-700" : "text-slate-600"}`} title={JSON.stringify(l.dados)}>
-                              {JSON.stringify(l.dados)}
+                            <td className={`max-w-[480px] truncate px-2 py-2 ${ehErroLog(l) ? "text-red-700" : "text-slate-600"}`} title={JSON.stringify(l.dados)}>
+                              {detalheLog(l)}
                             </td>
                           </tr>
                         ))}
@@ -470,196 +547,195 @@ export default function AdminPage() {
                     </table>
                   )}
                 </div>
+              </Card>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Usuários */}
+      {aba === "usuarios" && (
+        <Card>
+          <CardHeader
+            title="Usuários do órgão"
+            desc="Quem acessa o LEX e com qual perfil."
+            icon={Users}
+            action={
+              <div className="flex items-center gap-3">
+                {usuarioSucesso && (
+                  <span role="status" className="flex items-center gap-1.5 text-sm text-green-700">
+                    <CheckCircle2 className="h-4 w-4" aria-hidden /> Usuário criado
+                  </span>
+                )}
+                <button
+                  onClick={() => { setMostrarFormUsuario(!mostrarFormUsuario); setUsuarioErro(null); }}
+                  aria-expanded={mostrarFormUsuario}
+                  className={`btn btn-sm min-h-[44px] ${mostrarFormUsuario ? "btn-outline" : "btn-primary"}`}
+                >
+                  <UserPlus className="h-4 w-4" aria-hidden /> Novo usuário
+                </button>
+              </div>
+            }
+          />
+
+          {/* Formulário de criação */}
+          {mostrarFormUsuario && (
+            <div className="border-b border-slate-100 bg-slate-50/70 px-5 py-5">
+              <p className="mb-4 text-sm font-semibold text-ink-950">Novo usuário</p>
+              <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <Inp label="Nome completo *" value={novoUsuario.nome} onChange={e => setNovoUsuario(p => ({ ...p, nome: e.target.value }))} placeholder="Nome e sobrenome" />
+                <Inp label="E-mail *" type="email" value={novoUsuario.email} onChange={e => setNovoUsuario(p => ({ ...p, email: e.target.value }))} placeholder="nome@orgao.gov.br" />
+                <Inp label="Senha inicial *" type="password" value={novoUsuario.senha} onChange={e => setNovoUsuario(p => ({ ...p, senha: e.target.value }))} placeholder="Mínimo 6 caracteres" />
+                <Sel label="Perfil *" value={novoUsuario.perfil} onChange={e => setNovoUsuario(p => ({ ...p, perfil: e.target.value as any }))}>
+                  <option value="pesquisador">Pesquisador</option>
+                  <option value="gestor">Gestor</option>
+                  <option value="administrador">Administrador</option>
+                </Sel>
+                <Inp label="Cargo" value={novoUsuario.cargo} onChange={e => setNovoUsuario(p => ({ ...p, cargo: e.target.value }))} placeholder="Ex.: Analista de compras" />
+                <Inp label="Matrícula" value={novoUsuario.matricula} onChange={e => setNovoUsuario(p => ({ ...p, matricula: e.target.value }))} placeholder="Ex.: 123456" />
+              </div>
+              {usuarioErro && <p role="alert" className="mb-3 text-sm text-red-700">{usuarioErro}</p>}
+              <div className="flex flex-wrap gap-2">
+                <button onClick={handleCriarUsuario} disabled={criandoUsuario} className="btn btn-primary">
+                  {criandoUsuario ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <UserPlus className="h-4 w-4" aria-hidden />}
+                  {criandoUsuario ? "Criando..." : "Criar usuário"}
+                </button>
+                <button onClick={() => setMostrarFormUsuario(false)} className="btn btn-outline">
+                  Cancelar
+                </button>
               </div>
             </div>
           )}
-        </div>
-      </Card>
 
-      {/* Usuários */}
-      <Card>
-        <CardHeader
-          title="Usuários do órgão"
-          icon={Users}
-          action={
-            <div className="flex items-center gap-2">
-              {usuarioSucesso && (
-                <span className="flex items-center gap-1 text-xs text-green-700">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Usuário criado!
-                </span>
-              )}
-              <button
-                onClick={() => { setMostrarFormUsuario(!mostrarFormUsuario); setUsuarioErro(null); }}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-[#042f5e] px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors"
-              >
-                <UserPlus className="w-3.5 h-3.5" /> Novo usuário
-              </button>
-            </div>
-          }
-        />
-
-        {/* Formulário de criação */}
-        {mostrarFormUsuario && (
-          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-3">Novo usuário</p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
-              <Inp label="Nome completo *" value={novoUsuario.nome} onChange={e => setNovoUsuario(p => ({ ...p, nome: e.target.value }))} placeholder="João Silva" />
-              <Inp label="E-mail *" type="email" value={novoUsuario.email} onChange={e => setNovoUsuario(p => ({ ...p, email: e.target.value }))} placeholder="joao@orgao.gov.br" />
-              <Inp label="Senha inicial *" type="password" value={novoUsuario.senha} onChange={e => setNovoUsuario(p => ({ ...p, senha: e.target.value }))} placeholder="Mínimo 6 caracteres" />
-              <Sel label="Perfil *" value={novoUsuario.perfil} onChange={e => setNovoUsuario(p => ({ ...p, perfil: e.target.value as any }))}>
-                <option value="pesquisador">Pesquisador</option>
-                <option value="gestor">Gestor</option>
-                <option value="administrador">Administrador</option>
-              </Sel>
-              <Inp label="Cargo" value={novoUsuario.cargo} onChange={e => setNovoUsuario(p => ({ ...p, cargo: e.target.value }))} placeholder="Analista de compras" />
-              <Inp label="Matrícula" value={novoUsuario.matricula} onChange={e => setNovoUsuario(p => ({ ...p, matricula: e.target.value }))} placeholder="123456" />
-            </div>
-            {usuarioErro && <p className="text-xs text-red-600 mb-2">{usuarioErro}</p>}
-            <div className="flex gap-2">
-              <button
-                onClick={handleCriarUsuario}
-                disabled={criandoUsuario}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-semibold hover:bg-[#032650] disabled:opacity-60 transition-colors"
-              >
-                {criandoUsuario ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-                {criandoUsuario ? "Criando..." : "Criar usuário"}
-              </button>
-              <button onClick={() => setMostrarFormUsuario(false)} className="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 text-sm hover:bg-slate-100 transition-colors">
-                Cancelar
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                {["Nome", "E-mail", "Perfil", "Cargo", "Status", "Ação"].map(h => (
-                  <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {listaUsuarios.length === 0 ? (
-                <tr><td colSpan={6} className="py-8 text-center text-xs text-slate-400">Sem usuários</td></tr>
-              ) : listaUsuarios.map(u => (
-                <tr key={u.id} className="hover:bg-slate-50 transition-colors">
-                  <td className="py-2.5 px-4 text-slate-800 font-medium">{u.nome}</td>
-                  <td className="py-2.5 px-4 text-slate-500 text-xs">{u.email}</td>
-                  <td className="py-2.5 px-4">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded border ${u.perfil === "administrador" ? "bg-purple-50 text-purple-700 border-purple-200" : u.perfil === "gestor" ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-blue-50 text-blue-700 border-blue-200"}`}>{u.perfil}</span>
-                  </td>
-                  <td className="py-2.5 px-4 text-slate-500 text-xs">{u.cargo || "—"}</td>
-                  <td className="py-2.5 px-4">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded border ${u.ativo ? "bg-green-50 text-green-700 border-green-200" : "bg-red-50 text-red-700 border-red-200"}`}>{u.ativo ? "Ativo" : "Inativo"}</span>
-                  </td>
-                  <td className="py-2.5 px-4">
-                    <button
-                      onClick={() => handleAtivarDesativar(u.id, u.ativo)}
-                      className={`text-xs px-2 py-1 rounded border transition-colors ${u.ativo ? "border-red-200 text-red-600 hover:bg-red-50" : "border-green-200 text-green-600 hover:bg-green-50"}`}
-                    >
-                      {u.ativo ? "Desativar" : "Ativar"}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {/* Feedbacks */}
-      <Card>
-        <CardHeader
-          title="Sugestões e feedbacks"
-          icon={MessageCircle}
-          action={
-            <button onClick={carregarFeedbacks} className="inline-flex items-center gap-1.5 text-xs font-medium text-[#032650] hover:text-[#042f5e] px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 transition-colors">
-              <RefreshCw className="w-3.5 h-3.5" /> Atualizar
-            </button>
-          }
-        />
-        <div className="overflow-x-auto">
-          {carregandoFeedbacks ? (
-            <div className="flex items-center justify-center py-10 gap-2 text-slate-400">
-              <Loader2 className="w-4 h-4 animate-spin" /> Carregando...
-            </div>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+          <div className="scroll-fino overflow-x-auto">
+            <table className="tabela">
+              <thead>
                 <tr>
-                  {["Usuário", "Mensagem", "Página", "Data", "Status", "Ação"].map(h => (
-                    <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
-                  ))}
+                  <th>Nome</th>
+                  <th>E-mail</th>
+                  <th>Perfil</th>
+                  <th>Cargo</th>
+                  <th>Situação</th>
+                  <th><span className="sr-only">Ação</span></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {listaFeedbacks.length === 0 ? (
-                  <tr><td colSpan={6} className="py-8 text-center text-xs text-slate-400">Nenhuma sugestão ainda</td></tr>
-                ) : listaFeedbacks.map(f => (
-                  <tr key={f.id} className={`hover:bg-slate-50 transition-colors ${!f.lido ? "bg-[#eef2f8]/30" : ""}`}>
-                    <td className="py-2.5 px-4 text-slate-700 text-xs font-medium">{f.usuarioNome}</td>
-                    <td className="py-2.5 px-4 text-slate-600 text-xs max-w-xs">{f.mensagem}</td>
-                    <td className="py-2.5 px-4 text-slate-400 text-xs font-mono">{f.pagina || "—"}</td>
-                    <td className="py-2.5 px-4 text-slate-400 text-xs">{new Date(f.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
-                    <td className="py-2.5 px-4">
-                      <span className={`text-xs font-medium px-2 py-0.5 rounded border ${f.lido ? "bg-slate-50 text-slate-500 border-slate-200" : "bg-[#eef2f8] text-[#032650] border-[#d5dce8]"}`}>
-                        {f.lido ? "Lido" : "Novo"}
-                      </span>
-                    </td>
-                    <td className="py-2.5 px-4">
-                      {!f.lido && (
-                        <button onClick={() => handleMarcarLido(f.id)} className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 transition-colors">
-                          <Eye className="w-3.5 h-3.5" /> Marcar lido
-                        </button>
-                      )}
+              <tbody>
+                {listaUsuarios.length === 0 ? (
+                  <tr><td colSpan={6} className="py-8 text-center text-[13px] text-slate-500">Nenhum usuário cadastrado</td></tr>
+                ) : listaUsuarios.map(u => (
+                  <tr key={u.id}>
+                    <td className="font-medium text-ink-950">{u.nome}</td>
+                    <td className="text-[13px] text-slate-500">{u.email}</td>
+                    <td><span className={`pill ${PERFIL_TOM[u.perfil] || "pill-neutral"}`}>{PERFIL_ROTULO[u.perfil] || u.perfil}</span></td>
+                    <td className="text-[13px] text-slate-500">{u.cargo || "—"}</td>
+                    <td><span className={`pill ${u.ativo ? "pill-success" : "pill-neutral"}`}>{u.ativo ? "Ativo" : "Inativo"}</span></td>
+                    <td className="text-right">
+                      <button
+                        onClick={() => handleAtivarDesativar(u.id, u.ativo)}
+                        className={`btn btn-sm min-h-[44px] ${u.ativo ? "btn-danger" : "btn-outline"}`}
+                      >
+                        {u.ativo ? "Desativar" : "Reativar"}
+                      </button>
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          )}
-        </div>
-      </Card>
+          </div>
+        </Card>
+      )}
+
+      {/* Sugestões */}
+      {aba === "feedbacks" && (
+        <Card>
+          <CardHeader
+            title="Sugestões dos usuários"
+            desc="Enviadas pelo campo no fim da barra lateral."
+            icon={MessageCircle}
+            action={
+              <button onClick={carregarFeedbacks} className="btn btn-outline btn-sm min-h-[44px]">
+                <RefreshCw className="h-4 w-4" aria-hidden /> Atualizar
+              </button>
+            }
+          />
+          <div className="scroll-fino overflow-x-auto">
+            {carregandoFeedbacks ? (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-slate-500" role="status">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Carregando…
+              </div>
+            ) : (
+              <table className="tabela">
+                <thead>
+                  <tr>
+                    <th>Usuário</th>
+                    <th>Mensagem</th>
+                    <th>Tela</th>
+                    <th>Data</th>
+                    <th>Situação</th>
+                    <th><span className="sr-only">Ação</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {listaFeedbacks.length === 0 ? (
+                    <tr><td colSpan={6} className="py-8 text-center text-[13px] text-slate-500">Nenhuma sugestão ainda</td></tr>
+                  ) : listaFeedbacks.map(f => (
+                    <tr key={f.id} className={!f.lido ? "bg-ink-50/40" : ""}>
+                      <td className="whitespace-nowrap text-[13px] font-medium text-ink-950">{f.usuarioNome}</td>
+                      <td className="min-w-[240px] max-w-md text-[13px] leading-relaxed text-slate-700">{f.mensagem}</td>
+                      <td className="font-mono text-xs text-slate-500">{f.pagina || "—"}</td>
+                      <td className="whitespace-nowrap text-[13px] text-slate-500">{new Date(f.createdAt).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</td>
+                      <td><span className={`pill ${f.lido ? "pill-neutral" : "pill-info"}`}>{f.lido ? "Lida" : "Nova"}</span></td>
+                      <td className="text-right">
+                        {!f.lido && (
+                          <button onClick={() => handleMarcarLido(f.id)} className="btn btn-ghost btn-sm min-h-[44px]">
+                            <Eye className="h-4 w-4" aria-hidden /> Marcar como lida
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </Card>
+      )}
 
       {/* Configurações */}
-      <Card>
-        <CardHeader title="Configurações do sistema" icon={Settings} />
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <Inp label="Similaridade mínima (%)" type="number" min={0} max={100} value={similaridadeMinima} onChange={e => setSimilaridadeMinima(Number(e.target.value))} />
-            <Inp label="CV — limite de alerta (%)" type="number" min={0} max={100} value={cvAlerta} onChange={e => setCvAlerta(Number(e.target.value))} />
-            <Sel label="Período padrão" value={periodoPadrao} onChange={e => setPeriodoPadrao(e.target.value)}>
-              <option value="6_meses">Últimos 6 meses</option>
-              <option value="12_meses">Últimos 12 meses</option>
-              <option value="24_meses">Últimos 24 meses</option>
-            </Sel>
-            <Sel label="Método padrão" value={metodoPadrao} onChange={e => setMetodoPadrao(e.target.value)}>
-              <option value="media_aritmetica">Média aritmética</option>
-              <option value="mediana">Mediana</option>
-              <option value="media_ponderada">Média ponderada</option>
-              <option value="menor_preco">Menor preço</option>
-            </Sel>
-          </div>
-          {configErro && <p className="text-sm text-red-600 mb-3">{configErro}</p>}
-          {configSalva && (
-            <div className="flex items-center gap-2 text-sm text-green-700 mb-3">
-              <CheckCircle2 className="w-4 h-4" /> Configurações salvas com sucesso.
+      {aba === "config" && (
+        <Card>
+          <CardHeader title="Configurações da pesquisa" desc="Valores padrão aplicados às novas pesquisas de preços." icon={Settings} />
+          <div className="p-5">
+            <div className="mb-6 grid max-w-3xl grid-cols-1 gap-5 md:grid-cols-2">
+              <Inp label="Similaridade mínima (%)" type="number" min={0} max={100} value={similaridadeMinima} onChange={e => setSimilaridadeMinima(Number(e.target.value))} />
+              <Inp label="Coeficiente de variação — limite de alerta (%)" type="number" min={0} max={100} value={cvAlerta} onChange={e => setCvAlerta(Number(e.target.value))} />
+              <Sel label="Período padrão" value={periodoPadrao} onChange={e => setPeriodoPadrao(e.target.value)}>
+                <option value="6_meses">Últimos 6 meses</option>
+                <option value="12_meses">Últimos 12 meses</option>
+                <option value="24_meses">Últimos 24 meses</option>
+              </Sel>
+              <Sel label="Método padrão" value={metodoPadrao} onChange={e => setMetodoPadrao(e.target.value)}>
+                <option value="media_aritmetica">Média aritmética</option>
+                <option value="mediana">Mediana</option>
+                <option value="media_ponderada">Média ponderada</option>
+                <option value="menor_preco">Menor preço</option>
+              </Sel>
             </div>
-          )}
-          <div className="flex justify-end">
-            <button
-              onClick={salvarConfig}
-              disabled={salvandoConfig}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#032650] text-white text-sm font-semibold hover:bg-[#032650] disabled:opacity-60 transition-colors"
-            >
-              {salvandoConfig ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {salvandoConfig ? "Salvando..." : "Salvar configurações"}
-            </button>
+            {configErro && <p role="alert" className="mb-3 text-sm text-red-700">{configErro}</p>}
+            {configSalva && (
+              <p role="status" className="mb-3 flex items-center gap-2 text-sm text-green-700">
+                <CheckCircle2 className="h-4 w-4" aria-hidden /> Configurações salvas.
+              </p>
+            )}
+            <div className="flex border-t border-slate-100 pt-5">
+              <button onClick={salvarConfig} disabled={salvandoConfig} className="btn btn-primary">
+                {salvandoConfig ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Save className="h-4 w-4" aria-hidden />}
+                {salvandoConfig ? "Salvando..." : "Salvar configurações"}
+              </button>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
     </div>
   );
 }

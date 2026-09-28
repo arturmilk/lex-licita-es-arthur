@@ -1,22 +1,18 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Loader2, Plus } from "lucide-react";
+import { ArrowRight, FileSearch, Hourglass, CheckCircle2, Landmark, Search } from "lucide-react";
+import { EsqueletoLista, EstadoVazio } from "@/components/Estados";
+import { CabecalhoPagina, Indicador, Secao, Situacao, AvisoErro } from "@/components/Pagina";
 import { listarDashboard } from "@/lib/actions";
 
 type DashData = Awaited<ReturnType<typeof listarDashboard>>;
 
-const STATUS_MAP: Record<string, { label: string; cls: string }> = {
-  concluida:    { label: "Concluída",     cls: "bg-green-50 text-green-700 border-green-200" },
-  em_andamento: { label: "Em andamento",  cls: "bg-blue-50 text-blue-700 border-blue-200" },
-  cancelada:    { label: "Cancelada",     cls: "bg-red-50 text-red-700 border-red-200" },
-};
-
 function fmtMoeda(v: number) {
   if (v === 0) return "—";
   return v >= 1_000_000
-    ? `R$ ${(v / 1_000_000).toFixed(1).replace(".", ",")}M`
-    : `R$ ${(v / 1_000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")}k`;
+    ? `R$ ${(v / 1_000_000).toFixed(1).replace(".", ",")} mi`
+    : `R$ ${(v / 1_000).toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ".")} mil`;
 }
 
 function fmtData(d: Date | string) {
@@ -33,91 +29,79 @@ export default function DashboardPage() {
       .catch(e => setErro(String(e?.message || e)));
   }, []);
 
+  const carregando = !data && !erro;
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-semibold text-slate-800">Dashboard</h1>
-        <Link href="/pesquisa/nova" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-medium hover:bg-[#032650] transition-colors">
-          <Plus className="w-4 h-4" /> Nova pesquisa
-        </Link>
-      </div>
-
-      {erro && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          Erro ao carregar dados: {erro}
-        </div>
-      )}
-
-      {/* Stat cards — formato dashboard (números grandes) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-8">
-        <div className="rounded-2xl bg-[#032650] text-white p-5 shadow-sm">
-          <p className="text-white/60 text-[11px] font-medium uppercase tracking-wide">Total de pesquisas</p>
-          {!data ? <div className="h-9 w-14 rounded bg-white/20 animate-pulse mt-1" /> : <p className="text-4xl font-bold mt-1 tabular-nums">{data.total}</p>}
-          <p className="text-white/50 text-xs mt-1">realizadas</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-blue-500 text-[11px] font-medium uppercase tracking-wide">Em andamento</p>
-          {!data ? <div className="h-9 w-14 rounded bg-slate-100 animate-pulse mt-1" /> : <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{data.emAndamento}</p>}
-          <p className="text-slate-400 text-xs mt-1">ativas</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-green-500 text-[11px] font-medium uppercase tracking-wide">Concluídas</p>
-          {!data ? <div className="h-9 w-14 rounded bg-slate-100 animate-pulse mt-1" /> : <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{data.concluidas}</p>}
-          <p className="text-slate-400 text-xs mt-1">finalizadas</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-amber-500 text-[11px] font-medium uppercase tracking-wide">Valor total estimado</p>
-          {!data ? <div className="h-9 w-20 rounded bg-slate-100 animate-pulse mt-1" /> : <p className="text-3xl font-bold mt-1 text-slate-800 tabular-nums">{fmtMoeda(data.valorTotal)}</p>}
-          <p className="text-slate-400 text-xs mt-1">em contratações</p>
-        </div>
-      </div>
-
-      {/* Atividades recentes */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-          <h2 className="text-base font-semibold text-slate-800">Pesquisas recentes</h2>
-          <Link href="/pesquisas" className="text-sm text-[#032650] hover:text-[#042f5e] flex items-center gap-1 font-medium">
-            Ver todas <ArrowRight className="w-4 h-4" />
+      <CabecalhoPagina
+        titulo="Indicadores"
+        descricao={
+          <>
+            Visão consolidada das pesquisas do órgão, para acompanhamento da gestão. Suas tarefas do dia ficam em{" "}
+            <Link href="/painel" className="link">Meu dia</Link>.
+          </>
+        }
+        acoes={
+          <Link href="/pesquisas" className="btn btn-outline">
+            Ver pesquisas <ArrowRight size={15} aria-hidden />
           </Link>
-        </div>
+        }
+      />
 
+      {erro && <AvisoErro>Não foi possível carregar os indicadores. {erro}</AvisoErro>}
+
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Indicador destaque rotulo="Total de pesquisas" valor={data?.total ?? 0} nota="realizadas pelo órgão" icone={FileSearch} carregando={carregando} />
+        <Indicador rotulo="Em andamento" valor={data?.emAndamento ?? 0} nota="pesquisas ativas" icone={Hourglass} carregando={carregando} />
+        <Indicador rotulo="Concluídas" valor={data?.concluidas ?? 0} nota="com relatório final" icone={CheckCircle2} carregando={carregando} />
+        <Indicador rotulo="Valor total estimado" valor={data ? fmtMoeda(data.valorTotal) : "—"} nota="somado nas contratações" icone={Landmark} carregando={carregando} />
+      </div>
+
+      <Secao
+        titulo="Pesquisas recentes"
+        descricao="As últimas pesquisas de preços do órgão."
+        acoes={
+          <Link href="/pesquisas" className="btn btn-ghost btn-sm">
+            Ver todas <ArrowRight size={14} aria-hidden />
+          </Link>
+        }
+      >
         {!data ? (
-          <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
-            <Loader2 className="w-5 h-5 animate-spin" /> Carregando...
-          </div>
+          <EsqueletoLista linhas={5} />
         ) : data.pesquisasRecentes.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="text-sm text-slate-500 mb-4">Nenhuma pesquisa realizada ainda.</p>
-            <Link href="/pesquisa/nova" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-medium hover:bg-[#032650]">
-              <Plus className="w-4 h-4" /> Iniciar primeira pesquisa
-            </Link>
-          </div>
+          <EstadoVazio
+            icone={Search}
+            titulo="Nenhuma pesquisa realizada ainda"
+            descricao="Quando a primeira pesquisa for iniciada, os números e a lista aparecem aqui."
+            href="/pesquisa/nova"
+            acao="Iniciar primeira pesquisa"
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+          <div className="scroll-fino overflow-x-auto">
+            <table className="tabela">
+              <thead>
                 <tr>
-                  {["Processo", "Objeto", "Status", "Valor estimado", "Data", "Responsável"].map(h => (
-                    <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
-                  ))}
+                  <th>Processo</th>
+                  <th>Objeto</th>
+                  <th>Situação</th>
+                  <th className="text-right">Valor estimado</th>
+                  <th>Data</th>
+                  <th>Responsável</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody>
                 {data.pesquisasRecentes.map(a => {
-                  const st = STATUS_MAP[a.status] || { label: a.status, cls: "bg-slate-100 text-slate-600 border-slate-200" };
                   const valor = a.precoTotalEstimado
                     ? `R$ ${Number(a.precoTotalEstimado).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
                     : "—";
                   return (
-                    <tr key={a.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2.5 px-4 font-mono text-xs text-slate-600">{a.processoNumero || "—"}</td>
-                      <td className="py-2.5 px-4 max-w-[260px] truncate" title={a.objeto}>{a.objeto}</td>
-                      <td className="py-2.5 px-4">
-                        <span className={`text-xs font-medium px-2 py-0.5 rounded border ${st.cls}`}>{st.label}</span>
-                      </td>
-                      <td className="py-2.5 px-4 font-mono text-xs">{valor}</td>
-                      <td className="py-2.5 px-4 text-slate-500 text-xs">{fmtData(a.createdAt)}</td>
-                      <td className="py-2.5 px-4 text-slate-500">{a.usuarioNome || "—"}</td>
+                    <tr key={a.id}>
+                      <td><span className="protocolo">{a.processoNumero || "—"}</span></td>
+                      <td className="max-w-[280px] truncate text-ink-950" title={a.objeto}>{a.objeto}</td>
+                      <td><Situacao status={a.status} /></td>
+                      <td className="text-right"><span className="valor">{valor}</span></td>
+                      <td className="whitespace-nowrap text-[13px] text-slate-500">{fmtData(a.createdAt)}</td>
+                      <td className="text-[13px] text-slate-600">{a.usuarioNome || "—"}</td>
                     </tr>
                   );
                 })}
@@ -125,7 +109,7 @@ export default function DashboardPage() {
             </table>
           </div>
         )}
-      </div>
+      </Secao>
     </div>
   );
 }

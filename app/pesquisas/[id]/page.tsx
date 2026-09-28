@@ -1,8 +1,11 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { ArrowLeft, Loader2, ExternalLink, Check, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, ExternalLink, Check, Trash2, AlertTriangle, Landmark, ListOrdered, FileSearch, Layers } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { buscarPesquisa, apagarPesquisa } from "@/lib/actions";
+import { useDialogos } from "@/components/Dialogos";
+import { CabecalhoPagina, Secao, Situacao, AvisoErro } from "@/components/Pagina";
+import { EsqueletoLista } from "@/components/Estados";
 
 function fmtMoeda(v: number | null | undefined) {
   if (v == null || isNaN(Number(v))) return "—";
@@ -27,10 +30,32 @@ interface ResultadoRow {
   cnpj?: string | null;
 }
 
+const METODO: Record<string, string> = {
+  media_aritmetica: "Média aritmética",
+  mediana: "Mediana",
+  media_ponderada: "Média ponderada",
+  menor_preco: "Menor preço",
+};
+
+const AVALIACAO: Record<string, { rotulo: string; classe: string }> = {
+  aceito: { rotulo: "Aceita", classe: "pill-success" },
+  rejeitado: { rotulo: "Rejeitada", classe: "pill-danger" },
+};
+
+function Dado({ rotulo, children }: { rotulo: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-xs font-medium text-slate-500">{rotulo}</dt>
+      <dd className="mt-1 truncate text-sm font-medium text-ink-950">{children}</dd>
+    </div>
+  );
+}
+
 export default function PesquisaDetalhePage({ params }: { params: { id: string } }) {
   const [dados, setDados] = useState<any | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [apagando, setApagando] = useState(false);
+  const { confirmar } = useDialogos();
   const router = useRouter();
 
   useEffect(() => {
@@ -40,7 +65,13 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
   }, [params.id]);
 
   async function apagar() {
-    if (!window.confirm("Tem certeza que deseja apagar esta pesquisa? Os resultados vinculados também serão removidos. Esta ação não pode ser desfeita.")) return;
+    const ok = await confirmar({
+      titulo: "Apagar pesquisa?",
+      mensagem: "Os resultados vinculados também serão removidos. Esta ação não pode ser desfeita.",
+      confirmar: "Apagar pesquisa",
+      perigoso: true,
+    });
+    if (!ok) return;
     setApagando(true);
     try {
       await apagarPesquisa(params.id);
@@ -54,120 +85,147 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
   const fmt = (v: string | null | number | undefined) =>
     v == null ? "—" : `R$ ${Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+  const nomeItem = (itemId?: string | null) =>
+    (dados?.itens || []).find((i: any) => i.id === itemId)?.descricao || (itemId === "global" ? "Objeto (global)" : "—");
+
   return (
     <div>
-      <button onClick={() => history.back()} className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 mb-4">
-        <ArrowLeft className="w-4 h-4" /> Voltar
+      <button onClick={() => history.back()} className="btn btn-ghost btn-sm -ml-3 mb-3 min-h-[44px]">
+        <ArrowLeft className="h-4 w-4" aria-hidden /> Voltar
       </button>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-medium">Pesquisa: {params.id.slice(0, 8)}</h1>
-        <button
-          onClick={apagar}
-          disabled={apagando}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-2 rounded-lg cursor-pointer disabled:opacity-50 transition-colors"
-        >
-          {apagando ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-          {apagando ? "Apagando…" : "Apagar pesquisa"}
-        </button>
-      </div>
-      {erro && <p className="text-sm text-red-600 mb-3">Erro: {erro}</p>}
+
+      <CabecalhoPagina
+        sobretitulo={dados?.processoNumero ? <>Pesquisa de preços · Processo <span className="font-mono normal-case tracking-normal">{dados.processoNumero}</span></> : "Pesquisa de preços"}
+        titulo={<span className="line-clamp-2">{dados?.objeto || "Carregando pesquisa…"}</span>}
+        acoes={
+          <button onClick={apagar} disabled={apagando || !dados} className="btn btn-danger">
+            {apagando ? <Loader2 size={15} className="animate-spin" aria-hidden /> : <Trash2 size={15} aria-hidden />}
+            {apagando ? "Apagando…" : "Apagar pesquisa"}
+          </button>
+        }
+      />
+
+      {erro && <AvisoErro>Não foi possível abrir a pesquisa. {erro}</AvisoErro>}
+
       {!dados && !erro && (
-        <div className="flex items-center justify-center py-16 gap-2 text-neutral-400">
-          <Loader2 className="w-5 h-5 animate-spin" /> Carregando...
+        <div className="card overflow-hidden">
+          <EsqueletoLista linhas={5} />
         </div>
       )}
+
       {dados && (
-        <div className="space-y-4">
-          <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div><p className="text-xs text-neutral-500 uppercase">Processo</p><p className="font-medium">{dados.processoNumero}</p></div>
-              <div><p className="text-xs text-neutral-500 uppercase">Unidade</p><p className="font-medium">{dados.processoUnidade || "—"}</p></div>
-              <div><p className="text-xs text-neutral-500 uppercase">Quantidade</p><p className="font-medium">{dados.quantidade} {dados.unidadeMedida}</p></div>
-              <div><p className="text-xs text-neutral-500 uppercase">Metodo</p><p className="font-medium">{String(dados.metodoCalculo || "").replace("_", " ")}</p></div>
-              <div><p className="text-xs text-neutral-500 uppercase">Parcelamento</p><p className="font-medium">{dados.formaParcelamento || "—"}</p></div>
-              <div><p className="text-xs text-neutral-500 uppercase">Local de entrega</p><p className="font-medium">{dados.localEntrega || "—"}</p></div>
-              <div><p className="text-xs text-neutral-500 uppercase">Limite de CV</p><p className="font-medium">{dados.cvLimite ?? 20}%</p></div>
-              <div><p className="text-xs text-neutral-500 uppercase">Período</p><p className="font-medium">{dados.premissas?.periodoPesquisa || "—"}</p></div>
-            </div>
-            <p className="mt-4 text-sm text-neutral-700">{dados.objeto}</p>
+        <div className="space-y-6">
+          {/* Resumo + preço */}
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+            <Secao titulo="Dados da pesquisa" icone={FileSearch} corpoClassName="p-5">
+              <dl className="grid grid-cols-2 gap-x-6 gap-y-5 md:grid-cols-4">
+                <Dado rotulo="Processo"><span className="protocolo">{dados.processoNumero || "—"}</span></Dado>
+                <Dado rotulo="Unidade">{dados.processoUnidade || "—"}</Dado>
+                <Dado rotulo="Quantidade">{dados.quantidade} {dados.unidadeMedida}</Dado>
+                <Dado rotulo="Método">{METODO[dados.metodoCalculo] || String(dados.metodoCalculo || "—").replace(/_/g, " ")}</Dado>
+                <Dado rotulo="Parcelamento"><span className="capitalize">{dados.formaParcelamento || "—"}</span></Dado>
+                <Dado rotulo="Local de entrega">{dados.localEntrega || "—"}</Dado>
+                <Dado rotulo="Limite de CV">{dados.cvLimite ?? 20}%</Dado>
+                <Dado rotulo="Período">{dados.premissas?.periodoPesquisa || "—"}</Dado>
+              </dl>
+            </Secao>
+
+            <section className="rounded-xl border border-ink-900 bg-ink-900 p-5 text-white shadow-raise" aria-labelledby="preco-titulo">
+              <div className="flex items-center justify-between gap-3">
+                <h2 id="preco-titulo" className="text-[13px] font-medium text-white/70">Preço estimado</h2>
+                <Landmark size={16} className="text-gold-400" aria-hidden />
+              </div>
+              <p className="mt-3 text-[2rem] font-semibold leading-none tracking-[-0.03em] text-white">{fmt(dados.precoTotalEstimado)}</p>
+              <p className="mt-2 text-xs text-white/60">valor total</p>
+              <div className="mt-5 flex items-end justify-between gap-3 border-t border-white/10 pt-4">
+                <div>
+                  <p className="text-xs text-white/60">Unitário</p>
+                  <p className="mt-0.5 font-mono text-[15px] font-medium text-white">{fmt(dados.precoUnitarioEstimado)}</p>
+                </div>
+                <Situacao status={dados.status} />
+              </div>
+            </section>
           </div>
 
+          {(dados.justificativa || dados.meEpp?.aplicar || dados.premissas?.alertaCv) && (
+            <Secao titulo="Fundamentação" descricao="Justificativa e observações que acompanham o valor estimado." corpoClassName="space-y-4 p-5">
+              {dados.premissas?.alertaCv && (
+                <div role="alert" className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                  <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden />
+                  <p>
+                    <b className="font-semibold">Alerta de coeficiente de variação:</b> dispersão de {Number(dados.premissas.alertaCv.cv).toFixed(1).replace(".", ",")}%
+                    ultrapassou o limite ({dados.premissas.alertaCv.limite}%) — foi aplicado o menor preço.
+                  </p>
+                </div>
+              )}
+              {dados.meEpp?.aplicar && (
+                <div className="rounded-lg border border-ink-100 bg-ink-50 px-4 py-3 text-sm text-ink-800">
+                  <b className="font-semibold">ME/EPP (LC 123/2006):</b>{" "}
+                  {dados.meEpp.tipo === "exclusividade" ? "exclusividade" : "reserva de 25%"} —{" "}
+                  {fmtMoeda(dados.meEpp.valorReservado)} reservados · base legal: {dados.meEpp.baseLegal || "LC 123/2006, art. 48"}
+                </div>
+              )}
+              {dados.justificativa && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Justificativa (gerada com IA)</p>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{dados.justificativa}</p>
+                </div>
+              )}
+            </Secao>
+          )}
+
           {(dados.itens || []).length > 0 && (
-            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-              <h2 className="text-sm font-semibold mb-3">Itens / lotes da contratação ({dados.itens.length})</h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-neutral-200">
-                    {["#", "Descrição", "Especificação", "Qtd", "Un.", "Item edital", "Obrigatório"].map(h => (
-                      <th key={h} className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">{h}</th>
-                    ))}
-                  </tr></thead>
+            <Secao titulo={`Itens e lotes da contratação (${dados.itens.length})`} icone={ListOrdered}>
+              <div className="scroll-fino overflow-x-auto">
+                <table className="tabela">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Descrição</th>
+                      <th>Especificação</th>
+                      <th className="text-right">Qtd.</th>
+                      <th>Un.</th>
+                      <th>Item do edital</th>
+                      <th>Obrigatório</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {(dados.itens || []).map((i: any, idx: number) => (
-                      <tr key={i.id} className="border-b border-neutral-100">
-                        <td className="py-2 px-3">{idx + 1}</td>
-                        <td className="py-2 px-3 font-medium">{i.descricao}</td>
-                        <td className="py-2 px-3 max-w-[280px] text-neutral-600">{i.especificacao || "—"}</td>
-                        <td className="py-2 px-3">{i.quantidade}</td>
-                        <td className="py-2 px-3">{i.unidadeMedida || "un"}</td>
-                        <td className="py-2 px-3">
+                      <tr key={i.id}>
+                        <td className="font-mono text-[13px] text-slate-500">{idx + 1}</td>
+                        <td className="font-medium text-ink-950">{i.descricao}</td>
+                        <td className="max-w-[280px] text-[13px] text-slate-600">{i.especificacao || "—"}</td>
+                        <td className="text-right tabular-nums">{i.quantidade}</td>
+                        <td className="text-[13px]">{i.unidadeMedida || "un"}</td>
+                        <td>
                           {i.itemEdital ? (
-                            <a href={`https://pncp.gov.br/app/editais?q=${encodeURIComponent(i.itemEdital)}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[#032650] hover:text-[#042f5e] text-xs font-medium whitespace-nowrap">
-                              {i.itemEdital} <ExternalLink className="w-3 h-3" />
+                            <a href={`https://pncp.gov.br/app/editais?q=${encodeURIComponent(i.itemEdital)}`} target="_blank" rel="noopener noreferrer" className="link inline-flex items-center gap-1 whitespace-nowrap text-[13px]">
+                              {i.itemEdital} <ExternalLink className="h-3 w-3" aria-hidden />
                             </a>
-                          ) : <span className="text-xs text-neutral-400">—</span>}
+                          ) : <span className="text-slate-400">—</span>}
                         </td>
-                        <td className="py-2 px-3">{i.obrigatorio ? "Sim" : "Não"}</td>
+                        <td className="text-[13px]">{i.obrigatorio ? "Sim" : "Não"}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </Secao>
           )}
 
-          <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-semibold mb-3">Preco estimado</h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-              <div><p className="text-xs text-neutral-500 uppercase">Unitario</p><p className="text-lg font-semibold">{fmt(dados.precoUnitarioEstimado)}</p></div>
-              <div><p className="text-xs text-neutral-500 uppercase">Total</p><p className="text-lg font-semibold">{fmt(dados.precoTotalEstimado)}</p></div>
-              <div><p className="text-xs text-neutral-500 uppercase">Status</p><p className="font-medium">{dados.status}</p></div>
-            </div>
-            {dados.justificativa && (
-              <div className="mt-4 rounded-lg bg-neutral-50 border border-neutral-200 p-4 text-sm text-neutral-700 whitespace-pre-wrap">
-                <strong className="block mb-2 text-neutral-800">Justificativa (IA):</strong>
-                {dados.justificativa}
-              </div>
-            )}
-            {dados.meEpp?.aplicar && (
-              <div className="mt-4 rounded-lg bg-[#eef2f8] border border-[#d5dce8] p-4 text-sm text-[#042f5e]">
-                <strong>ME/EPP (LC 123/2006):</strong>{" "}
-                {dados.meEpp.tipo === "exclusividade" ? "exclusividade" : "reserva de 25%"} —{" "}
-                {fmtMoeda(dados.meEpp.valorReservado)} reservados · base legal: {dados.meEpp.baseLegal || "LC 123/2006, art. 48"}
-              </div>
-            )}
-            {dados.premissas?.alertaCv && (
-              <div className="mt-4 rounded-lg bg-red-50 border border-red-200 p-4 text-sm text-red-700">
-                <strong>Alerta de CV:</strong> dispersão de {Number(dados.premissas.alertaCv.cv).toFixed(1).replace(".", ",")}%
-                ultrapassou o limite ({dados.premissas.alertaCv.limite}%) — foi aplicado o menor preço.
-              </div>
-            )}
-          </div>
-
           {(dados.decomposicaoCustos || []).length > 0 && (
-            <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-              <h2 className="text-sm font-semibold mb-3">Decomposição de custos ({dados.decomposicaoCustos.length})</h2>
+            <Secao titulo={`Decomposição de custos (${dados.decomposicaoCustos.length})`} icone={Layers} corpoClassName="space-y-3 p-5">
               {(dados.decomposicaoCustos || []).map((c: any) => (
-                <div key={c.id} className="mb-4 rounded-lg bg-neutral-50 border border-neutral-200 p-4">
-                  <p className="text-sm font-medium mb-2">
-                    {(dados.itens || []).find((i: any) => i.id === c.itemId)?.descricao || "Objeto (global)"}
+                <div key={c.id} className="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+                  <p className="mb-2 text-sm font-semibold text-ink-950">
+                    {nomeItem(c.itemId) === "—" ? "Objeto (global)" : nomeItem(c.itemId)}
                     {c.nome ? ` — ${c.nome}` : ""}
                   </p>
-                  <ul className="text-xs text-neutral-600 space-y-1">
+                  <ul className="space-y-1.5 text-[13px] text-slate-600">
                     {(c.custos || []).map((x: any) => (
                       <li key={x.id} className="flex gap-2">
-                        <Check size={12} className="text-green-500 shrink-0 mt-0.5" />
-                        <span><strong>{x.tipo}:</strong> {x.descricao}
+                        <Check size={14} className="mt-0.5 shrink-0 text-green-700" aria-hidden />
+                        <span><b className="font-semibold text-slate-800">{x.tipo}:</b> {x.descricao}
                           {x.custoUnitario != null ? ` · ${fmtMoeda(x.custoUnitario)}` : ""}
                           {x.percentual != null ? ` · ${x.percentual}%` : ""}
                         </span>
@@ -176,58 +234,63 @@ export default function PesquisaDetalhePage({ params }: { params: { id: string }
                   </ul>
                 </div>
               ))}
-            </div>
+            </Secao>
           )}
 
-          <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <h2 className="text-sm font-semibold mb-3">Referencias ({dados.resultados?.length || 0})</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-neutral-200">
-                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Orgao</th>
-                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Item</th>
-                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Descricao</th>
-                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Qtd</th>
-                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Data</th>
-                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Valor unit.</th>
-                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Local</th>
-                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Sim.</th>
-                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">CNPJ</th>
-                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Edital</th>
-                  <th className="text-left py-2 px-3 font-medium text-neutral-500 text-xs uppercase">Avaliacao</th>
-                </tr></thead>
-                <tbody>
-                  {(dados.resultados || []).map((r: ResultadoRow) => (
-                    <tr key={r.id} className="border-b border-neutral-100">
-                      <td className="py-2 px-3">{r.orgao}</td>
-                      <td className="py-2 px-3 text-xs text-neutral-500">
-                        {(dados.itens || []).find((i: any) => i.id === r.itemId)?.descricao || (r.itemId === "global" ? "Objeto (global)" : "—")}
-                      </td>
-                      <td className="py-2 px-3 max-w-[220px] truncate" title={r.descricao}>{r.descricao}</td>
-                      <td className="py-2 px-3">{r.quantidade ?? "—"}</td>
-                      <td className="py-2 px-3">{r.dataContrato || "—"}</td>
-                      <td className="py-2 px-3">{fmt(r.valorUnitario)}</td>
-                      <td className="py-2 px-3">{r.localizacao || "—"}</td>
-                      <td className="py-2 px-3">{r.similaridade ?? "—"}%</td>
-                      <td className="py-2 px-3 text-xs font-mono text-neutral-500">{r.cnpj || "—"}</td>
-                      <td className="py-2 px-3">
-                        {r.linkEdital ? (
-                          <a href={r.linkEdital} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[#032650] hover:text-[#042f5e] text-xs font-medium whitespace-nowrap">
-                            <ExternalLink className="w-3 h-3" /> Ver
-                          </a>
-                        ) : (
-                          <span className="text-xs text-neutral-400">—</span>
-                        )}
-                      </td>
-                      <td className="py-2 px-3">
-                        <span className={`text-xs px-2 py-0.5 rounded ${r.avaliacao === "aceito" ? "bg-green-100 text-green-700" : r.avaliacao === "rejeitado" ? "bg-red-100 text-red-700" : "bg-neutral-100 text-neutral-600"}`}>{r.avaliacao}</span>
-                      </td>
+          <Secao titulo={`Referências de preço (${dados.resultados?.length || 0})`} descricao="Preços coletados nas fontes, com a avaliação de cada um.">
+            {(dados.resultados || []).length === 0 ? (
+              <p className="px-5 py-8 text-center text-[13px] text-slate-500">Nenhuma referência registrada nesta pesquisa.</p>
+            ) : (
+              <div className="scroll-fino overflow-x-auto">
+                <table className="tabela">
+                  <thead>
+                    <tr>
+                      <th>Órgão</th>
+                      <th>Item</th>
+                      <th>Descrição</th>
+                      <th className="text-right">Qtd.</th>
+                      <th>Data</th>
+                      <th className="text-right">Valor unit.</th>
+                      <th>Local</th>
+                      <th className="text-right">Similar.</th>
+                      <th>CNPJ</th>
+                      <th>Edital</th>
+                      <th>Avaliação</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                  </thead>
+                  <tbody>
+                    {(dados.resultados || []).map((r: ResultadoRow) => (
+                      <tr key={r.id}>
+                        <td className="max-w-[180px] truncate text-[13px]" title={r.orgao}>{r.orgao}</td>
+                        <td className="max-w-[160px] truncate text-[13px] text-slate-500">{nomeItem(r.itemId)}</td>
+                        <td className="max-w-[220px] truncate" title={r.descricao}>{r.descricao}</td>
+                        <td className="text-right tabular-nums">{r.quantidade ?? "—"}</td>
+                        <td className="whitespace-nowrap text-[13px] text-slate-500">{r.dataContrato || "—"}</td>
+                        <td className="text-right"><span className="valor">{fmt(r.valorUnitario)}</span></td>
+                        <td className="text-[13px]">{r.localizacao || "—"}</td>
+                        <td className="text-right tabular-nums">{r.similaridade != null ? `${r.similaridade}%` : "—"}</td>
+                        <td className="whitespace-nowrap font-mono text-xs text-slate-500">{r.cnpj || "—"}</td>
+                        <td>
+                          {r.linkEdital ? (
+                            <a href={r.linkEdital} target="_blank" rel="noopener noreferrer" className="link inline-flex items-center gap-1 whitespace-nowrap text-[13px]">
+                              Ver <ExternalLink className="h-3 w-3" aria-hidden />
+                            </a>
+                          ) : (
+                            <span className="text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <span className={`pill ${AVALIACAO[r.avaliacao]?.classe || "pill-neutral"}`} title={r.justificativaRejeicao || undefined}>
+                            {AVALIACAO[r.avaliacao]?.rotulo || "Pendente"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Secao>
         </div>
       )}
     </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ExternalLink, Paperclip, Trash2, Upload, FileText, Image, Table, Link as LinkIcon } from "lucide-react";
+import { useDialogos } from "@/components/Dialogos";
 
 const TIPO_ICONE: Record<string, React.ElementType> = {
   pdf: FileText,
@@ -40,10 +41,17 @@ interface Props {
 
 export default function EvidenciasClient({ links: initialLinks, docs: initialDocs }: Props) {
   const [docs, setDocs] = useState(initialDocs);
+  const { confirmar, avisar } = useDialogos();
   const [uploading, setUploading] = useState(false);
 
   async function handleDelete(id: string) {
-    if (!confirm("Remover esta evidência?")) return;
+    const ok = await confirmar({
+      titulo: "Remover evidência?",
+      mensagem: "A evidência será removida deste processo. Esta ação não pode ser desfeita.",
+      confirmar: "Remover",
+      perigoso: true,
+    });
+    if (!ok) return;
     await fetch(`/api/evidencias/${id}`, { method: "DELETE" });
     setDocs((prev) => prev.filter((e) => e.id !== id));
   }
@@ -58,9 +66,9 @@ export default function EvidenciasClient({ links: initialLinks, docs: initialDoc
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      alert(`Arquivo "${file.name}" enviado. Associe-o a uma pesquisa específica dentro do wizard.`);
+      await avisar(`Arquivo "${file.name}" enviado. Associe-o a uma pesquisa específica dentro do wizard.`, "Arquivo enviado");
     } catch (err) {
-      alert("Erro no upload: " + err);
+      await avisar("Erro no upload: " + err, "Não deu certo");
     } finally {
       setUploading(false);
       e.target.value = "";

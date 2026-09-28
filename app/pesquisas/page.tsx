@@ -1,9 +1,12 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { Search, Loader2, Plus, Trash2, ChevronRight } from "lucide-react";
+import { EsqueletoLista, EstadoVazio } from "@/components/Estados";
+import { CabecalhoPagina, Situacao, AvisoErro } from "@/components/Pagina";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { listarPesquisas, apagarPesquisa } from "@/lib/actions";
+import { useDialogos } from "@/components/Dialogos";
 
 interface PesquisaRow {
   id: string;
@@ -17,17 +20,12 @@ interface PesquisaRow {
   referenciasAceitas: number;
 }
 
-const STATUS_CFG: Record<string, { label: string; cls: string }> = {
-  em_andamento: { label: "Em andamento", cls: "bg-blue-50 text-blue-700 border-blue-200" },
-  concluida:    { label: "Concluída",    cls: "bg-green-50 text-green-700 border-green-200" },
-  cancelada:    { label: "Cancelada",    cls: "bg-red-50 text-red-700 border-red-200" },
-};
-
 export default function PesquisasPage() {
   const [rows, setRows] = useState<PesquisaRow[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [apagando, setApagando] = useState<string | null>(null);
   const dentroHistoricos = usePathname() === "/historicos";
+  const { confirmar } = useDialogos();
 
   useEffect(() => {
     listarPesquisas()
@@ -36,7 +34,13 @@ export default function PesquisasPage() {
   }, []);
 
   async function apagar(id: string) {
-    if (!window.confirm("Tem certeza que deseja apagar esta pesquisa? Os resultados vinculados também serão removidos. Esta ação não pode ser desfeita.")) return;
+    const ok = await confirmar({
+      titulo: "Apagar pesquisa?",
+      mensagem: "Os resultados vinculados também serão removidos. Esta ação não pode ser desfeita.",
+      confirmar: "Apagar pesquisa",
+      perigoso: true,
+    });
+    if (!ok) return;
     setApagando(id);
     try {
       await apagarPesquisa(id);
@@ -54,118 +58,91 @@ export default function PesquisasPage() {
 
   const concluidas = rows?.filter(r => r.status === "concluida").length ?? 0;
   const emAndamento = rows?.filter(r => r.status === "em_andamento").length ?? 0;
+  const refs = rows?.reduce((s, r) => s + (r.referenciasAceitas || 0), 0) ?? 0;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xl font-semibold text-slate-800">Histórico de pesquisas</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Histórico de pesquisas de preços realizadas</p>
-        </div>
-        {!dentroHistoricos && (
-          <Link
-            href="/pesquisa/nova"
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#032650] text-white text-sm font-semibold shadow-sm hover:bg-[#042f5e] hover:shadow-md transition-all"
-          >
-            <Plus className="w-4 h-4" /> Nova pesquisa de preço
-          </Link>
-        )}
-      </div>
+      <CabecalhoPagina
+        nivel={dentroHistoricos ? 2 : 1}
+        titulo="Pesquisas de preços"
+        descricao="Todas as pesquisas realizadas, com valor estimado e referências aceitas."
+        acoes={
+          !dentroHistoricos && (
+            <Link href="/pesquisa/nova" className="btn btn-primary">
+              <Plus size={16} aria-hidden /> Nova pesquisa de preço
+            </Link>
+          )
+        }
+      />
 
-      {erro && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">Erro: {erro}</div>
-      )}
+      {erro && <AvisoErro>{erro}</AvisoErro>}
 
       {rows !== null && rows.length > 0 && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-          <div className="rounded-2xl bg-[#032650] text-white p-5 shadow-sm">
-            <p className="text-white/60 text-[11px] font-medium uppercase tracking-wide">Total de pesquisas</p>
-            <p className="text-4xl font-bold mt-1 tabular-nums">{rows.length}</p>
-            <p className="text-white/50 text-xs mt-1">realizadas</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-blue-500 text-[11px] font-medium uppercase tracking-wide">Em andamento</p>
-            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{emAndamento}</p>
-            <p className="text-slate-400 text-xs mt-1">ativas</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-green-500 text-[11px] font-medium uppercase tracking-wide">Concluídas</p>
-            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{concluidas}</p>
-            <p className="text-slate-400 text-xs mt-1">finalizadas</p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-            <p className="text-amber-500 text-[11px] font-medium uppercase tracking-wide">Referências aceitas</p>
-            <p className="text-4xl font-bold mt-1 text-slate-800 tabular-nums">{rows.reduce((s, r) => s + (r.referenciasAceitas || 0), 0)}</p>
-            <p className="text-slate-400 text-xs mt-1">no total</p>
-          </div>
-        </div>
+        <p className="mb-4 flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-600">
+          <span><b className="font-semibold text-ink-950">{rows.length}</b> realizadas</span>
+          <span aria-hidden className="text-slate-300">·</span>
+          <span><b className="font-semibold text-ink-950">{emAndamento}</b> em andamento</span>
+          <span aria-hidden className="text-slate-300">·</span>
+          <span><b className="font-semibold text-ink-950">{concluidas}</b> concluídas</span>
+          <span aria-hidden className="text-slate-300">·</span>
+          <span><b className="font-semibold text-ink-950">{refs}</b> referências aceitas</span>
+        </p>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="card overflow-hidden">
         {rows === null ? (
-          <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
-            <Loader2 className="w-5 h-5 animate-spin" /> Carregando...
-          </div>
+          <EsqueletoLista />
         ) : rows.length === 0 ? (
-          <div className="py-16 flex flex-col items-center gap-4 text-center">
-            <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center">
-              <Search className="w-5 h-5 text-slate-400" />
-            </div>
-            <div>
-              <p className="text-sm font-medium text-slate-600">Nenhuma pesquisa realizada</p>
-              <p className="text-xs text-slate-400 mt-1">Inicie uma nova pesquisa de preços para começar</p>
-            </div>
-            <Link href="/pesquisa/nova" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#032650] text-white text-sm font-medium hover:bg-[#032650] transition-colors">
-              <Plus className="w-4 h-4" /> Iniciar pesquisa
-            </Link>
-          </div>
+          <EstadoVazio
+            icone={Search}
+            titulo="Nenhuma pesquisa realizada"
+            descricao="Faça a primeira pesquisa de preços e ela aparece aqui, com o valor estimado e as referências aceitas."
+            href="/pesquisa/nova"
+            acao="Iniciar pesquisa"
+          />
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 border-b border-slate-200">
+          <div className="scroll-fino overflow-x-auto">
+            <table className="tabela">
+              <thead>
                 <tr>
-                  {["Processo", "Objeto", "Refs. aceitas", "Preço estimado", "Status", "Data", "Ações"].map(h => (
-                    <th key={h} className="text-left py-2.5 px-4 text-xs font-semibold text-slate-500 uppercase tracking-wide">{h}</th>
-                  ))}
+                  <th>Processo</th>
+                  <th>Objeto</th>
+                  <th className="text-center">Refs. aceitas</th>
+                  <th className="text-right">Preço estimado</th>
+                  <th>Situação</th>
+                  <th>Data</th>
+                  <th><span className="sr-only">Ações</span></th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
-                {rows.map((r) => {
-                  const st = STATUS_CFG[r.status] || { label: r.status, cls: "bg-slate-100 text-slate-600 border-slate-200" };
-                  return (
-                    <tr key={r.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-2.5 px-4 font-mono text-xs text-slate-600 font-medium">{r.processoNumero || "—"}</td>
-                      <td className="py-2.5 px-4 max-w-[300px] truncate text-slate-800" title={r.objeto}>{r.objeto}</td>
-                      <td className="py-2.5 px-4 text-center">
-                        <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-100 text-slate-600 text-xs font-semibold">{r.referenciasAceitas}</span>
-                      </td>
-                      <td className="py-2.5 px-4 font-mono text-xs text-slate-700">{fmt(r.precoTotalEstimado)}</td>
-                      <td className="py-2.5 px-4">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded border text-xs font-medium ${st.cls}`}>{st.label}</span>
-                      </td>
-                      <td className="py-2.5 px-4 text-slate-500 text-xs">{fmtData(r.createdAt)}</td>
-                      <td className="py-2.5 px-4">
-                        <div className="flex items-center gap-2">
-                          <Link
-                            href={`/pesquisas/${r.id}`}
-                            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg border border-[#d5dce8] bg-white text-xs font-semibold text-[#032650] hover:bg-[#eef2f8] hover:border-[#b8c5d6] transition-colors"
-                          >
-                            Abrir pesquisa <ChevronRight size={12} />
-                          </Link>
-                          <button
-                            onClick={() => apagar(r.id)}
-                            disabled={apagando === r.id}
-                            className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold text-red-600 bg-white border border-red-100 hover:bg-red-50 hover:border-red-200 cursor-pointer disabled:opacity-50 transition-colors"
-                            title="Excluir pesquisa e resultados vinculados"
-                          >
-                            {apagando === r.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                            Excluir
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id}>
+                    <td><span className="protocolo">{r.processoNumero || "—"}</span></td>
+                    <td className="max-w-[300px] truncate font-medium text-ink-950" title={r.objeto}>{r.objeto}</td>
+                    <td className="text-center">
+                      <span className="inline-flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-slate-100 px-1.5 text-xs font-semibold text-slate-700">{r.referenciasAceitas}</span>
+                    </td>
+                    <td className="text-right"><span className="valor">{fmt(r.precoTotalEstimado)}</span></td>
+                    <td><Situacao status={r.status} /></td>
+                    <td className="whitespace-nowrap text-[13px] text-slate-500">{fmtData(r.createdAt)}</td>
+                    <td>
+                      <div className="flex items-center justify-end gap-1">
+                        <Link href={`/pesquisas/${r.id}`} className="btn btn-outline btn-sm">
+                          Abrir <ChevronRight size={14} aria-hidden />
+                        </Link>
+                        <button
+                          onClick={() => apagar(r.id)}
+                          disabled={apagando === r.id}
+                          className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                          title="Excluir pesquisa e resultados vinculados"
+                          aria-label="Excluir pesquisa"
+                        >
+                          {apagando === r.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

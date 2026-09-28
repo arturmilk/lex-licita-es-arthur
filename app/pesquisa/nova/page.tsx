@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { calcularEstatisticas, calcularPrecoEstimado, formatarMoeda, calcularComRegraCv } from "@/lib/math";
 import { analisarReferencias, type ResultadoAnaliseCritica } from "@/lib/analise-critica";
+import { useDialogos } from "@/components/Dialogos";
 import { gerarXLSX, downloadXLSX } from "@/lib/xlsx-generator";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import { RelatorioPDFDocument } from "@/lib/pdf-generator";
@@ -151,6 +152,7 @@ const GUIA_STEP: Record<number, { pergunta: string; orientacao: string }> = {
 };
 
 export default function NovaPesquisaPage() {
+  const { avisar } = useDialogos();
   const [step, setStep] = useState(1);
   const totalSteps = 16;
   const [processo, setProcesso] = useState({ numero: "", orgao: "", unidade: "", responsavel: "", email: "" });
@@ -1333,25 +1335,25 @@ export default function NovaPesquisaPage() {
           }} icon={<ChevronRight size={15}/>}>Revisar itens</Btn></>}
         >
           <div className="space-y-5">
-            <div className="rounded-2xl border-2 border-[#d5dce8] bg-gradient-to-br from-[#eef2f8] to-white p-5 md:p-6 shadow-sm">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-[#032650] text-white flex items-center justify-center shrink-0">
+            <div>
+              <div className="mb-5 flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ink-900 text-gold-400" aria-hidden>
                   <Sparkles size={18} />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-[#032650]">Conte para o LEX do seu jeito</p>
-                  <p className="text-xs text-slate-500 mt-1 leading-relaxed">Você pode escrever como falaria com uma pessoa. Eu identifico as variáveis da pesquisa e preencho somente o que estiver claro. O restante eu transformo em perguntas.</p>
+                  <p className="text-[15px] font-semibold text-ink-950">Conte para o LEX do seu jeito</p>
+                  <p className="mt-1 text-sm leading-relaxed text-slate-600">Você pode escrever como falaria com uma pessoa. Eu identifico as variáveis da pesquisa e preencho somente o que estiver claro. O restante eu transformo em perguntas.</p>
                 </div>
               </div>
-              <div className="mb-3">
-                <p className="text-[11px] font-bold uppercase tracking-widest text-slate-600 mb-2">Exemplos para começar</p>
-                <div className="flex flex-wrap gap-2">
+              <div className="mb-4">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500">Exemplos para começar</p>
+                <div className="grid gap-2 sm:grid-cols-3">
                   {[
                     "Preciso pesquisar 30 notebooks com 16 GB de RAM e SSD de 512 GB para entrega em Porto Velho/RO.",
                     "Quero contratar manutenção preventiva e corretiva de 40 aparelhos de ar-condicionado por 12 meses.",
                     "Precisamos comprar 500 resmas de papel A4 75 g/m² para o almoxarifado central.",
                   ].map((ex, i) => (
-                    <button key={i} type="button" onClick={() => setPedidoGuiado(ex)} className="text-left text-[11px] leading-snug px-3 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 hover:border-[#C9A227] hover:bg-amber-50/40 transition-colors max-w-[250px]">
+                    <button key={i} type="button" onClick={() => setPedidoGuiado(ex)} className="rounded-lg border border-slate-200 bg-slate-50/60 px-3.5 py-2.5 text-left text-[13px] leading-snug text-slate-600 transition-colors hover:border-ink-200 hover:bg-ink-50 hover:text-ink-900">
                       {ex}
                     </button>
                   ))}
@@ -1362,19 +1364,20 @@ export default function NovaPesquisaPage() {
                 value={pedidoGuiado}
                 onChange={e => setPedidoGuiado(e.target.value)}
                 placeholder="Ex.: Preciso pesquisar 30 notebooks para a Secretaria de Administração, entrega em Porto Velho. Cada um com 16 GB de RAM e SSD de 512 GB. Ainda não sei se faço por item ou lote."
-                className="w-full min-h-[120px] resize-y rounded-xl border-2 border-white bg-white px-4 py-3 text-sm text-slate-700 shadow-sm outline-none focus:border-[#0a3a6e] focus:ring-4 focus:ring-[#0a3a6e]/10"
+                aria-label="Descreva o que você precisa pesquisar"
+                className="inp min-h-[120px] px-4 py-3 leading-relaxed"
               />
               <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3">
                 <button
                   type="button"
                   onClick={interpretarPedidoGuiado}
                   disabled={interpretandoGuiado || pedidoGuiado.trim().length < 8}
-                  className="inline-flex items-center justify-center gap-2 min-h-[44px] px-5 py-2.5 rounded-xl bg-[#032650] text-white text-sm font-semibold shadow-sm hover:bg-[#042f5e] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  className="btn btn-primary px-5 disabled:opacity-40"
                 >
                   {interpretandoGuiado ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
                   {interpretandoGuiado ? "Analisando sua solicitação…" : "Organizar meu pedido"}
                 </button>
-                <p className="text-[11px] text-slate-600">Nada é apagado e nenhum dado ausente é inventado.</p>
+                <p className="text-[13px] text-slate-500">Nada é apagado e nenhum dado ausente é inventado.</p>
               </div>
 
               {erroGuiado && (
@@ -1521,10 +1524,10 @@ export default function NovaPesquisaPage() {
           }
           footer={<>
             <Btn onClick={prevStep}>Voltar</Btn>
-            <Btn primary onClick={() => {
+            <Btn primary onClick={async () => {
               const validos = itensEfetivos.filter(i => i.descricao.trim() && i.quantidade > 0 && i.unidadeMedida);
               if (validos.length === 0) {
-                alert(formaParcelamento === "lote" ? "Adicione pelo menos um item dentro do lote com descrição, quantidade e unidade." : "Adicione pelo menos um item com descrição, quantidade e unidade.");
+                await avisar(formaParcelamento === "lote" ? "Adicione pelo menos um item dentro do lote com descrição, quantidade e unidade." : "Adicione pelo menos um item com descrição, quantidade e unidade.", "Falta um item");
                 return;
               }
               nextStep();
@@ -1559,7 +1562,7 @@ export default function NovaPesquisaPage() {
                         {formaParcelamento === "lote" ? `Lote ${idx + 1}` : `Item ${idx + 1}`}: {rotulo}
                       </span>
                       {formaParcelamento === "lote" ? (
-                        <span className="text-xs text-[#C9A227] font-medium bg-[#eef2f8] px-2 py-0.5 rounded-full">
+                        <span className="text-xs text-gold-700 font-medium bg-[#eef2f8] px-2 py-0.5 rounded-full">
                           {(item.subitens || []).length} {(item.subitens || []).length === 1 ? "item" : "itens"}
                         </span>
                       ) : (item.quantidade > 0 || item.unidadeMedida) && (
@@ -1942,12 +1945,12 @@ export default function NovaPesquisaPage() {
               ].map(f => (
                 <div key={f.nome} className={`rounded-xl border-2 bg-white p-4 flex items-start gap-3 ${
                   f.cor === "indigo" ? "border-[#d5dce8] bg-[#eef2f8]/40" :
-                  f.cor === "teal"   ? "border-teal-200 bg-teal-50/40" :
+                  f.cor === "teal"   ? "border-slate-200 bg-slate-50/40" :
                   "border-orange-200 bg-orange-50/40"
                 }`}>
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
                     f.cor === "indigo" ? "bg-[#eef2f8] text-[#032650]" :
-                    f.cor === "teal"   ? "bg-teal-100 text-teal-600" :
+                    f.cor === "teal"   ? "bg-slate-100 text-slate-700" :
                     "bg-orange-100 text-orange-600"
                   }`}>{f.icon}</div>
                   <div>
@@ -1990,7 +1993,7 @@ export default function NovaPesquisaPage() {
                 <div className="flex flex-wrap gap-2">
                   {caracteristicasIA.map((c, i) => (
                     <span key={i} className="inline-flex items-center gap-1 bg-white border border-[#d5dce8] text-[#032650] text-xs font-medium px-2.5 py-1 rounded-full">
-                      <span className="text-[#C9A227] font-semibold">{c.caracteristica}:</span> {c.valor}
+                      <span className="text-gold-700 font-semibold">{c.caracteristica}:</span> {c.valor}
                     </span>
                   ))}
                 </div>
@@ -2019,7 +2022,7 @@ export default function NovaPesquisaPage() {
                           )}
                           {e.itemEdital && <span className="font-mono">edital: {e.itemEdital}</span>}
                           {formaParcelamento === "lote" && (e.subitens || []).length > 0 && (
-                            <span className="text-[#C9A227] font-medium">{(e.subitens || []).length} {(e.subitens || []).length === 1 ? "item" : "itens"}</span>
+                            <span className="text-gold-700 font-medium">{(e.subitens || []).length} {(e.subitens || []).length === 1 ? "item" : "itens"}</span>
                           )}
                         </div>
                         {formaParcelamento === "lote" && (e.subitens || []).length > 0 && (
@@ -2226,6 +2229,9 @@ export default function NovaPesquisaPage() {
         };
 
         const totalGeral = Object.values(totalPorItem).reduce((a, b) => a + b, 0);
+        const comPreco = resultados.filter(r => (r.valor_unitario ?? 0) > 0).length;
+        const precosValidos = resultados.map(r => r.valor_unitario).filter((v): v is number => typeof v === "number" && v > 0);
+        const menorPreco = precosValidos.length ? Math.min(...precosValidos) : null;
 
         // Tabela de resultados de um item específico
         const TabelaItem = ({ itemId }: { itemId: string }) => {
@@ -2400,8 +2406,32 @@ export default function NovaPesquisaPage() {
 
         return (
           <div className="flex flex-col">
+            {/* Resumo do que foi encontrado — orienta antes de sair aceitando referências */}
+            {resultados.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 px-6 pt-4 lg:grid-cols-4 lg:px-8">
+                <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Editais encontrados</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-slate-800">{totalGeral.toLocaleString("pt-BR")}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Itens pesquisados</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-slate-800">{itemIds.length}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Com preço</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-slate-800">{comPreco.toLocaleString("pt-BR")}</p>
+                  <p className="mt-0.5 text-[11px] text-slate-500">{menorPreco != null ? `menor: ${formatarMoeda(menorPreco)}` : "buscando preços…"}</p>
+                </div>
+                <div className="rounded-xl border border-green-200 bg-green-50 p-3.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-green-700">Aceitas p/ o cálculo</p>
+                  <p className="mt-1 text-2xl font-bold tabular-nums text-green-800">{nAceitos}</p>
+                  <p className="mt-0.5 text-[11px] text-green-700">marque nas tabelas abaixo</p>
+                </div>
+              </div>
+            )}
+
             {/* Barra de filtros sticky */}
-            <div className="sticky top-[54px] z-10 px-6 lg:px-8 pt-3 pb-3 bg-white border-b border-slate-200 shadow-sm">
+            <div className="sticky top-[56px] z-10 px-6 lg:px-8 pt-3 pb-3 bg-white border-b border-slate-200 shadow-sm">
               {/* Linha 1: busca inteligente */}
               <div className="flex items-center gap-2 mb-2.5">
                 <div className="relative flex-1">
@@ -2450,7 +2480,7 @@ export default function NovaPesquisaPage() {
                     situFiltro === "ia"
                       ? "bg-[#032650] text-white border-[#032650]"
                       : iaAnalisando
-                        ? "bg-white text-[#C9A227] border-[#d5dce8] cursor-wait"
+                        ? "bg-white text-gold-700 border-[#d5dce8] cursor-wait"
                         : "bg-white text-[#032650] border-[#C9A227] hover:border-[#032650]"
                   }`}>
                   {iaAnalisando
@@ -2532,7 +2562,7 @@ export default function NovaPesquisaPage() {
                         <div key={itemId} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2">
                           <div className="flex items-center gap-2 min-w-0">
                             {prog.status === "buscando" ? (
-                              <Loader2 size={13} className="animate-spin text-[#C9A227] shrink-0" />
+                              <Loader2 size={13} className="animate-spin text-gold-700 shrink-0" />
                             ) : prog.status === "ok" ? (
                               <CheckCircle2 size={13} className="text-green-600 shrink-0" />
                             ) : (
@@ -2589,7 +2619,7 @@ export default function NovaPesquisaPage() {
               )}
               {pesquisando ? (
                 <div className="flex flex-col items-center justify-center py-24 gap-4">
-                  <Loader2 className="w-10 h-10 animate-spin text-[#C9A227]" />
+                  <Loader2 className="w-10 h-10 animate-spin text-gold-700" />
                   <p className="text-sm text-slate-500">Consultando o PNCP…</p>
                 </div>
               ) : erroPesquisa ? (
@@ -2613,7 +2643,7 @@ export default function NovaPesquisaPage() {
                   <Btn onClick={() => goToStep(8)}> Configurações</Btn>
                   <button
                     onClick={() => { calcular(); goToStep(12); }}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold cursor-pointer"
                     title="Calcula com as referências aceitas e abre o quadro comparativo com o valor estimado"
                   >
                     <Calculator size={13} />  Calcular direto (quadro comparativo)
@@ -2717,10 +2747,10 @@ export default function NovaPesquisaPage() {
               </div>
               {analiseCritica.sugestaoJustificativa && (
                 <div className="mt-3 rounded-lg bg-white border border-[#d5dce8] p-3">
-                  <p className="text-[11px] font-semibold text-[#C9A227] uppercase tracking-wide mb-1">Sugestão para a justificativa</p>
+                  <p className="text-[11px] font-semibold text-gold-700 uppercase tracking-wide mb-1">Sugestão para a justificativa</p>
                   <p className="text-xs text-slate-700 leading-relaxed">{analiseCritica.sugestaoJustificativa}</p>
                   <button
-                    onClick={() => { navigator.clipboard.writeText(analiseCritica.sugestaoJustificativa); alert("Sugestão copiada para a área de transferência."); }}
+                    onClick={async () => { await navigator.clipboard.writeText(analiseCritica.sugestaoJustificativa); await avisar("Sugestão copiada para a área de transferência.", "Copiado"); }}
                     className="mt-2 inline-flex items-center gap-1 text-[11px] text-[#032650] hover:text-[#042f5e] font-medium cursor-pointer"
                   >
                     <ClipboardList size={12} /> Copiar sugestão
@@ -2829,13 +2859,13 @@ export default function NovaPesquisaPage() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                 <div className="rounded-xl border-2 border-[#d5dce8] bg-[#eef2f8] p-4 text-center">
-                  <p className="text-xs font-semibold text-[#C9A227] uppercase tracking-wide mb-1">Valor unitário estimado</p>
+                  <p className="text-xs font-semibold text-gold-700 uppercase tracking-wide mb-1">Valor unitário estimado</p>
                   <p className="text-2xl font-bold text-[#032650] tabular-nums">{formatarMoeda(precoEstimado.unitario)}</p>
                 </div>
                 <div className="rounded-xl border-2 border-[#d5dce8] bg-[#eef2f8] p-4 text-center">
-                  <p className="text-xs font-semibold text-[#C9A227] uppercase tracking-wide mb-1">Valor total estimado</p>
+                  <p className="text-xs font-semibold text-gold-700 uppercase tracking-wide mb-1">Valor total estimado</p>
                   <p className="text-2xl font-bold text-[#032650] tabular-nums">{formatarMoeda(precoEstimado.total)}</p>
-                  <p className="text-xs text-[#C9A227] mt-1">{quantidade} {unidadeMedida}(s)</p>
+                  <p className="text-xs text-gold-700 mt-1">{quantidade} {unidadeMedida}(s)</p>
                 </div>
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-center">
                   <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-1">Método aplicado</p>
@@ -2863,15 +2893,15 @@ export default function NovaPesquisaPage() {
             </>
           ) : (
             <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 py-8 px-4 text-center">
-              <Sparkles size={20} className="mx-auto mb-2 text-[#C9A227]" />
+              <Sparkles size={20} className="mx-auto mb-2 text-gold-700" />
               <p className="text-sm font-semibold text-slate-700">Antes de calcular, o LEX precisa entender o objeto.</p>
               <p className="mt-1 text-xs text-slate-500">O agente identifica equivalências, possibilidades de busca e quais referências parecem realmente comparáveis. Você não precisa aceitar um resultado qualquer só para destravar o cálculo.</p>
             </div>
           )}
 
           {/* ── CALCULAR DIRETO: SEMPRE visível — botão calcula na hora ── */}
-          <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50/40 overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 bg-emerald-600 text-white flex-wrap gap-2">
+          <div className="mt-6 rounded-xl border border-green-200 bg-green-50/40 overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-green-600 text-white flex-wrap gap-2">
               <div className="flex items-center gap-2">
                 <Calculator size={15} />
                 <p className="text-sm font-bold"> Calcular direto — quadro comparativo</p>
@@ -2888,7 +2918,7 @@ export default function NovaPesquisaPage() {
                       <p className="text-xs text-slate-500 mb-3">Pesquise primeiro (aba Pesquisa  Realizar pesquisa) para buscar os preços. Depois clique abaixo:</p>
                       <button
                         onClick={() => goToStep(5)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded-lg cursor-pointer"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg cursor-pointer"
                       >
                         <Search size={13} /> Ir para a pesquisa
                       </button>
@@ -2910,7 +2940,7 @@ export default function NovaPesquisaPage() {
                         {!analisePrecificacaoIA ? (
                           <div className="rounded-xl border border-[#d5dce8] bg-white p-4">
                             <div className="flex items-start gap-3">
-                              <Sparkles size={18} className="mt-0.5 text-[#C9A227] shrink-0" />
+                              <Sparkles size={18} className="mt-0.5 text-gold-700 shrink-0" />
                               <div className="flex-1">
                                 <p className="text-sm font-semibold text-[#032650]">Primeiro, entender o produto</p>
                                 <p className="mt-1 text-xs text-slate-500 leading-relaxed">O agente vai ler o objeto, identificar o que realmente define comparabilidade, criar variações úteis de busca e separar referências compatíveis das que precisam de revisão.</p>
@@ -2929,7 +2959,7 @@ export default function NovaPesquisaPage() {
                         ) : (
                           <div className="rounded-xl border border-[#d5dce8] bg-white p-4 space-y-4">
                             <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#C9A227]">O que o agente entendeu</p>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-gold-700">O que o agente entendeu</p>
                               <p className="mt-1 text-sm text-slate-700 leading-relaxed">{analisePrecificacaoIA.entendimento}</p>
                             </div>
 
@@ -2965,7 +2995,7 @@ export default function NovaPesquisaPage() {
 
                             <div className="grid grid-cols-3 gap-2 text-center">
                               {[
-                                ["Compatíveis", (analisePrecificacaoIA.referencias || []).filter((r: any) => r.classificacao === "compativel").length, "text-emerald-700"],
+                                ["Compatíveis", (analisePrecificacaoIA.referencias || []).filter((r: any) => r.classificacao === "compativel").length, "text-green-700"],
                                 ["Revisar", (analisePrecificacaoIA.referencias || []).filter((r: any) => r.classificacao === "revisar").length, "text-amber-700"],
                                 ["Incompatíveis", (analisePrecificacaoIA.referencias || []).filter((r: any) => r.classificacao === "incompativel").length, "text-red-700"],
                               ].map(([label, valor, cor]: any) => (
@@ -2987,7 +3017,7 @@ export default function NovaPesquisaPage() {
                               <button
                                 onClick={() => calcularDireto()}
                                 disabled={(analisePrecificacaoIA.referencias || []).filter((r: any) => r.classificacao === "compativel").length === 0}
-                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 px-4 py-2 rounded-lg cursor-pointer"
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-white bg-green-600 hover:bg-green-700 disabled:opacity-40 px-4 py-2 rounded-lg cursor-pointer"
                               >
                                 <Calculator size={13} /> Calcular com referências compatíveis
                               </button>
@@ -3003,7 +3033,7 @@ export default function NovaPesquisaPage() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-xs">
                         <thead>
-                          <tr className="bg-emerald-100 text-emerald-900">
+                          <tr className="bg-green-100 text-green-900">
                             <th className="px-3 py-2 text-left font-semibold rounded-tl-lg">Nº</th>
                             <th className="px-3 py-2 text-left font-semibold">Órgão / Fonte</th>
                             <th className="px-3 py-2 text-left font-semibold">Descrição</th>
@@ -3012,13 +3042,13 @@ export default function NovaPesquisaPage() {
                             <th className="px-3 py-2 text-left font-semibold rounded-tr-lg">Classificação (IN 126)</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-emerald-100">
+                        <tbody className="divide-y divide-green-100">
                           {fonte.map((r, i) => {
                             const v = (r.valor_unitario ?? r.valor_total) as number;
                             const q = r.quantidade ?? 1;
                             const classif = classificarPrecoIN126(v, fonte.map(a => (a.valor_unitario ?? a.valor_total) as number));
                             return (
-                              <tr key={r.id || i} className={`bg-white hover:bg-emerald-50/50 ${classif.tipo !== "válido" ? "opacity-60" : ""}`}>
+                              <tr key={r.id || i} className={`bg-white hover:bg-green-50/50 ${classif.tipo !== "válido" ? "opacity-60" : ""}`}>
                                 <td className="px-3 py-2 font-mono text-slate-500">{i + 1}</td>
                                 <td className="px-3 py-2 text-slate-700">{r.orgao || "—"}</td>
                                 <td className="px-3 py-2 text-slate-500 max-w-[160px] truncate" title={r.descricao}>{r.descricao?.slice(0, 40) || "—"}</td>
@@ -3077,8 +3107,8 @@ export default function NovaPesquisaPage() {
                     })()}
 
                     {/* Explicação da média conforme IN 126 */}
-                    <div className="rounded-lg bg-white border border-emerald-100 p-3 text-xs text-slate-700 leading-relaxed">
-                      <p className="font-bold text-emerald-700 mb-1.5"> Como cheguei ao preço de referência (art. 11 da IN 126/2023-TJRO)</p>
+                    <div className="rounded-lg bg-white border border-green-100 p-3 text-xs text-slate-700 leading-relaxed">
+                      <p className="font-bold text-green-700 mb-1.5"> Como cheguei ao preço de referência (art. 11 da IN 126/2023-TJRO)</p>
                       {(() => {
                         const vals = fonte.map(r => (r.valor_unitario ?? r.valor_total) as number);
                         const validos = vals.filter(v => classificarPrecoIN126(v, vals).tipo === "válido");
@@ -3104,14 +3134,14 @@ export default function NovaPesquisaPage() {
 
                     {/* Sugestão de valor estimado */}
                     {precoEstimado && (
-                      <div className="rounded-lg bg-emerald-600 text-white p-4 flex flex-wrap items-center justify-between gap-3">
+                      <div className="rounded-lg bg-green-600 text-white p-4 flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-100"> Valor estimado sugerido da contratação (art. 11 IN 126)</p>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-green-100"> Valor estimado sugerido da contratação (art. 11 IN 126)</p>
                           <p className="text-xl font-bold tabular-nums">{formatarMoeda(precoEstimado.total)}</p>
-                          <p className="text-[11px] text-emerald-100">({precoEstimado.unitario ? formatarMoeda(precoEstimado.unitario) : ""} × {quantidade} {unidadeMedida}(s) · método {config.metodo.replace(/_/g, " ")})</p>
+                          <p className="text-[11px] text-green-100">({precoEstimado.unitario ? formatarMoeda(precoEstimado.unitario) : ""} × {quantidade} {unidadeMedida}(s) · método {config.metodo.replace(/_/g, " ")})</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[11px] text-emerald-100">Preços válidos</p>
+                          <p className="text-[11px] text-green-100">Preços válidos</p>
                           <p className="text-lg font-bold tabular-nums">{fonte.filter(r => classificarPrecoIN126((r.valor_unitario ?? r.valor_total) as number, fonte.map(a => (a.valor_unitario ?? a.valor_total) as number)).tipo === "válido").length}</p>
                         </div>
                       </div>
@@ -3121,8 +3151,8 @@ export default function NovaPesquisaPage() {
 
                     {/* AGENTE AUDITOR: explica as diferenças de preço */}
                     {precoEstimado && (
-                      <div className="rounded-lg border border-violet-200 bg-violet-50/50 overflow-hidden">
-                        <div className="flex items-center justify-between px-3 py-2 bg-violet-600 text-white flex-wrap gap-2">
+                      <div className="rounded-lg border border-ink-100 bg-ink-50/50 overflow-hidden">
+                        <div className="flex items-center justify-between px-3 py-2 bg-ink-800 text-white flex-wrap gap-2">
                           <div className="flex items-center gap-2">
                             <BarChart3 size={13} />
                             <p className="text-xs font-bold">Agente Auditor — por que os preços diferem</p>
@@ -3130,7 +3160,7 @@ export default function NovaPesquisaPage() {
                           <button
                             onClick={explicarDiferencas}
                             disabled={auditoriaCarregando}
-                            className="inline-flex items-center gap-1 text-[11px] font-bold bg-white text-violet-700 hover:bg-violet-50 px-2.5 py-1 rounded-lg cursor-pointer disabled:opacity-50"
+                            className="inline-flex items-center gap-1 text-[11px] font-bold bg-white text-ink-800 hover:bg-ink-50 px-2.5 py-1 rounded-lg cursor-pointer disabled:opacity-50"
                           >
                             {auditoriaCarregando ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
                             {auditoriaCarregando ? "Analisando…" : auditoriaIA ? "Reanalisar" : "Explicar diferenças"}
@@ -3452,7 +3482,7 @@ export default function NovaPesquisaPage() {
               <ul className="space-y-2">
                 {linksAceitos.map((link, i) => (
                   <li key={i} className="flex items-center gap-2 text-sm">
-                    <ExternalLink className="w-3.5 h-3.5 text-[#C9A227] shrink-0" />
+                    <ExternalLink className="w-3.5 h-3.5 text-gold-700 shrink-0" />
                     {link.url
                       ? <a href={link.url} target="_blank" rel="noopener noreferrer" className="text-[#032650] hover:text-[#042f5e] font-medium truncate">{link.nome}</a>
                       : <span className="text-slate-500">{link.nome}</span>}
@@ -3594,78 +3624,88 @@ export default function NovaPesquisaPage() {
       <h1 className="sr-only">Nova pesquisa de preços</h1>
 
       {/* ── Wizard sticky no topo ──────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 bg-white border-b border-slate-200 shadow-sm">
-        {/* Fases */}
-        <div className="flex items-stretch border-b border-slate-100">
-          {FASES.map((fase, fi) => {
-            const isAtual = fi === faseAtual;
-            const isConcluida = fi < faseAtual;
-            const Icon = fase.icon;
-            return (
-              <button
-                key={fi}
-                type="button"
-                onClick={() => goToStep(fase.steps[0])}
-                className={`flex-1 min-w-0 min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-3 text-[11px] sm:text-xs font-semibold transition-colors border-r border-slate-100 last:border-r-0 ${
-                  isAtual
-                    ? "bg-[#032650] text-white"
-                    : isConcluida
-                    ? "bg-[#eef2f8] text-[#032650] hover:bg-[#e0e8f3]"
-                    : "text-slate-600 hover:bg-slate-50"
-                }`}
-              >
-                <Icon size={13} />
-                <span>{fase.nome}</span>
-                {isConcluida && <Check size={10} />}
-                {isAtual && <span className="text-[11px] opacity-75 font-normal">({step}/{totalSteps})</span>}
-              </button>
-            );
-          })}
+      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white">
+        <div className="flex items-stretch">
+          {/* Fases: número sempre visível; no celular, só a fase atual mostra o nome */}
+          <ol className="flex min-w-0 flex-1" aria-label="Fases da pesquisa">
+            {FASES.map((fase, fi) => {
+              const isAtual = fi === faseAtual;
+              const isConcluida = fi < faseAtual;
+              return (
+                <li key={fi} className={`min-w-0 ${isAtual ? "flex-[2_1_0%] sm:flex-1" : "flex-1"}`}>
+                  <button
+                    type="button"
+                    onClick={() => goToStep(fase.steps[0])}
+                    aria-current={isAtual ? "step" : undefined}
+                    title={fase.nome}
+                    className={`flex h-full min-h-[52px] w-full items-center justify-center gap-2 px-2 text-[13px] font-semibold transition-colors sm:px-3 ${
+                      isAtual
+                        ? "text-ink-950"
+                        : isConcluida
+                        ? "text-ink-700 hover:bg-slate-50"
+                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+                    }`}
+                  >
+                    <span
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full font-mono text-xs font-medium ${
+                        isAtual ? "bg-ink-900 text-white" : isConcluida ? "bg-ink-100 text-ink-800" : "border border-slate-300 text-slate-500"
+                      }`}
+                      aria-hidden
+                    >
+                      {isConcluida ? <Check size={13} /> : fi + 1}
+                    </span>
+                    <span className={`${isAtual ? "inline" : "sr-only sm:not-sr-only sm:inline"} truncate`}>{fase.nome}</span>
+                    {isAtual && <span className="hidden font-mono text-xs font-normal text-slate-500 lg:inline">{step}/{totalSteps}</span>}
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
           {/* contadores à direita */}
-          <div className="flex items-center gap-2 px-4 border-l border-slate-100 shrink-0">
-            {nAceitos > 0 && (
-              <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                <Check size={9}/>{nAceitos}
-              </span>
-            )}
-            {nRejeitados > 0 && (
-              <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 text-[11px] font-bold px-2 py-0.5 rounded-full">
-                <X size={9}/>{nRejeitados}
-              </span>
-            )}
-          </div>
+          {(nAceitos > 0 || nRejeitados > 0) && (
+            <div className="hidden shrink-0 items-center gap-2 border-l border-slate-100 px-4 sm:flex">
+              {nAceitos > 0 && (
+                <span className="pill pill-success" title="Referências aceitas">{nAceitos} aceitas</span>
+              )}
+              {nRejeitados > 0 && (
+                <span className="pill pill-danger" title="Referências rejeitadas">{nRejeitados} rejeitadas</span>
+              )}
+            </div>
+          )}
         </div>
         {/* Barra de progresso */}
-        <div className="h-[3px] bg-slate-100">
+        <div className="h-[3px] bg-slate-100" role="progressbar" aria-valuemin={1} aria-valuemax={totalSteps} aria-valuenow={step} aria-label="Progresso da pesquisa">
           <div
-            className="h-full bg-[#032650] transition-all duration-500"
+            className="h-full bg-ink-800 transition-[width] duration-500"
             style={{ width: `${((step - 1) / (totalSteps - 1)) * 100}%` }}
           />
         </div>
       </div>
 
       {/* ── Guia conversacional do LEX ─────────────────────────────────────── */}
-      <div className="max-w-3xl w-full mx-auto px-6 md:px-10 pt-5">
-        <div className="rounded-2xl border border-[#d5dce8] bg-white px-4 py-3.5 shadow-sm flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[#eef2f8] flex items-center justify-center shrink-0">
-            <Sparkles size={16} className="text-[#032650]" />
-          </div>
+      <div className="mx-auto w-full max-w-3xl px-4 pt-6 md:px-10">
+        <div className="flex items-start gap-3.5 rounded-xl border border-ink-100 bg-white px-4 py-4 shadow-card sm:px-5">
+          <span className="icon-tile h-9 w-9" aria-hidden>
+            <Sparkles size={16} />
+          </span>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2 mb-1">
-              <span className="text-[11px] font-bold uppercase tracking-widest text-[#032650]">LEX te guia</span>
-              <span className="text-xs font-medium text-slate-600">Etapa {step} de {totalSteps} · {STEP_NAMES[step]}</span>
-            </div>
-            <p className="text-sm font-semibold text-slate-900">{GUIA_STEP[step]?.pergunta}</p>
-            <p className="text-sm text-slate-600 mt-1 leading-relaxed">{GUIA_STEP[step]?.orientacao}</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {objetoDesc && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-800 border border-green-100 text-[11px] font-semibold">Objeto entendido</span>}
-              {itens.length > 0 && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-800 border border-green-100 text-[11px] font-semibold">{itens.length} {itens.length === 1 ? "item" : "itens"}</span>}
-              {itensEfetivos.some(i => catalogoPorItem[i.id]?.selecionado) && <span className="px-2 py-1 rounded-lg bg-[#eef2f8] text-[#032650] border border-[#d5dce8] text-[11px] font-semibold">Catálogo conferido: {itensEfetivos.filter(i => catalogoPorItem[i.id]?.selecionado).length}/{itensEfetivos.length}</span>}
-              {localEntrega && <span className="px-2 py-1 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 text-[11px] font-semibold">Local: {localEntrega}</span>}
-              {resultados.length > 0 && <span className="px-2 py-1 rounded-lg bg-[#eef2f8] text-[#032650] border border-[#d5dce8] text-[11px] font-semibold">{resultados.length} preços encontrados</span>}
-              {nAceitos > 0 && <span className="px-2 py-1 rounded-lg bg-green-50 text-green-800 border border-green-100 text-[11px] font-semibold">{nAceitos} aceitas</span>}
-              {precoEstimado && <span className="px-2 py-1 rounded-lg bg-[#032650] text-white text-[11px] font-semibold">Estimativa calculada</span>}
-            </div>
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+              <span className="font-semibold uppercase tracking-[0.12em] text-ink-700">LEX te guia</span>
+              <span className="text-slate-500">Etapa {step} de {totalSteps} · {STEP_NAMES[step]}</span>
+            </p>
+            <p className="mt-1.5 text-[15px] font-semibold text-ink-950">{GUIA_STEP[step]?.pergunta}</p>
+            <p className="mt-1 text-sm leading-relaxed text-slate-600">{GUIA_STEP[step]?.orientacao}</p>
+            {(objetoDesc || itens.length > 0 || localEntrega || resultados.length > 0 || nAceitos > 0 || precoEstimado) && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {objetoDesc && <span className="pill pill-success">Objeto entendido</span>}
+                {itens.length > 0 && <span className="pill pill-success">{itens.length} {itens.length === 1 ? "item" : "itens"}</span>}
+                {itensEfetivos.some(i => catalogoPorItem[i.id]?.selecionado) && <span className="pill pill-info">Catálogo conferido: {itensEfetivos.filter(i => catalogoPorItem[i.id]?.selecionado).length}/{itensEfetivos.length}</span>}
+                {localEntrega && <span className="pill pill-neutral">Local: {localEntrega}</span>}
+                {resultados.length > 0 && <span className="pill pill-info">{resultados.length} preços encontrados</span>}
+                {nAceitos > 0 && <span className="pill pill-success">{nAceitos} aceitas</span>}
+                {precoEstimado && <span className="pill pill-gold">Estimativa calculada</span>}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -3758,21 +3798,21 @@ function StepCard({
   title: string; desc: string; children: React.ReactNode; footer?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col min-h-[calc(100vh-140px)]">
+    <div className="flex min-h-[calc(100vh-140px)] flex-col">
       {/* Conteúdo centralizado */}
-      <div className="flex-1 px-6 md:px-10 py-7 max-w-3xl w-full mx-auto">
-        <div className="mb-4">
-          <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-          {desc && <p className="text-sm text-slate-600 mt-1 leading-relaxed">{desc}</p>}
+      <div className="mx-auto w-full max-w-3xl flex-1 px-4 py-7 md:px-10">
+        <div className="mb-5">
+          <h2 className="text-[22px] font-semibold tracking-[-0.018em] text-ink-950">{title}</h2>
+          {desc && <p className="mt-1.5 text-[15px] leading-relaxed text-slate-600">{desc}</p>}
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm px-4 sm:px-7 py-5 sm:py-6">
+        <div className="card px-4 py-5 sm:px-7 sm:py-6">
           {children}
         </div>
       </div>
-      {/* Footer SEMPRE visível — sticky na base da viewport */}
+      {/* Rodapé SEMPRE visível — fixo na base da área de trabalho */}
       {footer && (
-        <div className="sticky bottom-0 z-10 bg-white border-t border-slate-200 px-4 md:px-10 py-3 shadow-[0_-2px_12px_rgba(3,38,80,0.06)]">
-          <div className="max-w-3xl w-full mx-auto flex flex-wrap items-center justify-between gap-2.5 [&>button]:w-full sm:[&>button]:w-auto [&>div]:w-full sm:[&>div]:w-auto [&>div]:flex-wrap">
+        <div className="sticky bottom-0 z-10 border-t border-slate-200 bg-white px-4 py-3 shadow-[0_-6px_16px_-12px_rgb(3_38_80/0.18)] md:px-10">
+          <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center justify-between gap-2.5 [&>button]:w-full sm:[&>button]:w-auto [&>div]:w-full sm:[&>div]:w-auto [&>div]:flex-wrap">
             {footer}
           </div>
         </div>
@@ -3784,7 +3824,7 @@ function StepCard({
 function Field({ label, children, title }: { label: string; children: React.ReactNode; title?: string }) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-xs font-semibold text-slate-700 tracking-wide" title={title}>{label}</label>
+      <label className="text-[13px] font-medium text-slate-700" title={title}>{label}</label>
       {children}
     </div>
   );
@@ -3799,12 +3839,10 @@ function Btn({
 }: {
   children: React.ReactNode; onClick?: () => void; primary?: boolean; icon?: React.ReactNode; disabled?: boolean;
 }) {
-  const base = "inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-lg text-sm font-semibold transition-all border shadow-sm motion-safe:active:scale-[0.98] whitespace-normal sm:whitespace-nowrap text-center";
-  const style = primary
-    ? "bg-[#032650] text-white border-[#032650] hover:bg-[#0a3a6e] hover:border-[#0a3a6e] shadow-[#032650]/10"
-    : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300";
+  const base = "btn whitespace-normal text-center motion-safe:active:scale-[0.98] sm:whitespace-nowrap";
+  const style = primary ? "btn-primary" : "btn-outline";
   return (
-    <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${style} disabled:opacity-40 disabled:cursor-not-allowed`}>
+    <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${style} disabled:opacity-40`}>
       {icon && <span className="shrink-0">{icon}</span>}
       {children}
     </button>
