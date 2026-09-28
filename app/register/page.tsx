@@ -1,36 +1,43 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Loader2, User, Building2, Eye, EyeOff } from "lucide-react";
+import { Loader2, User, Building2, Eye, EyeOff } from "lucide-react";
+import { PainelInstitucional } from "@/components/PainelInstitucional";
 
 function Field({
-  label, value, onChange, type = "text", placeholder = "", required = false,
+  label, value, onChange, type = "text", placeholder = "", required = false, autoComplete,
 }: {
   label: string; value: string; onChange: (v: string) => void;
-  type?: string; placeholder?: string; required?: boolean;
+  type?: string; placeholder?: string; required?: boolean; autoComplete?: string;
 }) {
   const [show, setShow] = useState(false);
+  const id = useId();
   const isPassword = type === "password";
   return (
     <div>
-      <label className="block text-sm font-medium text-slate-700 mb-1.5">{label}</label>
+      <label htmlFor={id} className="rotulo">
+        {label} {required && <span className="text-red-600" aria-hidden>*</span>}
+      </label>
       <div className="relative">
         <input
+          id={id}
           type={isPassword && show ? "text" : type}
           required={required}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent transition pr-10"
+          autoComplete={autoComplete}
+          className={`inp ${isPassword ? "pr-12" : ""}`}
         />
         {isPassword && (
           <button
             type="button"
             onClick={() => setShow(!show)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            aria-label={show ? "Ocultar senha" : "Mostrar senha"}
+            className="absolute right-0.5 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-100 hover:text-slate-700"
           >
-            {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         )}
       </div>
@@ -40,11 +47,11 @@ function Field({
 
 function SectionTitle({ icon: Icon, label }: { icon: React.ElementType; label: string }) {
   return (
-    <div className="flex items-center gap-2 pt-2">
-      <div className="w-6 h-6 rounded-md bg-[#C9A227]/15 flex items-center justify-center">
-        <Icon className="w-3.5 h-3.5 text-[#C9A227]" />
-      </div>
-      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{label}</span>
+    <div className="flex items-center gap-2.5 border-b border-slate-200 pb-2 pt-3">
+      <span className="flex h-7 w-7 items-center justify-center rounded-md bg-ink-50 text-ink-700" aria-hidden>
+        <Icon className="h-4 w-4" />
+      </span>
+      <h2 className="text-sm font-semibold text-ink-950">{label}</h2>
     </div>
   );
 }
@@ -62,8 +69,8 @@ export default function RegisterPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (form.senha !== form.confirmarSenha) { setError("As senhas não coincidem"); return; }
-    if (form.senha.length < 8) { setError("A senha deve ter no mínimo 8 caracteres"); return; }
+    if (form.senha !== form.confirmarSenha) { setError("As senhas não coincidem. Digite a mesma senha nos dois campos."); return; }
+    if (form.senha.length < 8) { setError("A senha precisa ter pelo menos 8 caracteres."); return; }
 
     setLoading(true);
     setError("");
@@ -78,104 +85,61 @@ export default function RegisterPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) setError(data.error || "Erro ao cadastrar");
+      if (!res.ok) setError(data.error || "Não foi possível concluir o cadastro. Confira os dados e tente de novo.");
       else router.push("/login?registered=1");
     } catch {
-      setError("Erro de conexão");
+      setError("Sem conexão com o servidor. Verifique a internet e tente de novo.");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left panel */}
-      <div className="hidden lg:flex lg:w-5/12 bg-[#032650] flex-col justify-between p-12 relative overflow-hidden">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#C9A227] rounded-full -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#C9A227] rounded-full translate-y-1/2 -translate-x-1/2" />
-        </div>
+    <div className="flex min-h-screen">
+      <PainelInstitucional
+        titulo="Cadastre seu órgão e comece a pesquisar preços."
+        texto="Crie a conta do responsável e tenha pesquisas, relatórios e evidências organizados conforme a legislação."
+      />
 
-        <div className="relative z-10 flex items-center gap-3">
-          <img src="/logo-lex.png" alt="LEX Licitações" className="w-11 h-11 object-contain" />
-          <span className="text-white font-bold text-xl tracking-tight">LEX Licitações</span>
-        </div>
-
-        <div className="relative z-10">
-          <h2 className="text-3xl font-bold text-white leading-tight mb-4">
-            Cadastre seu órgão<br />e comece a pesquisar<br />preços com IA
-          </h2>
-          <p className="text-[#C9A227] text-sm leading-relaxed max-w-xs">
-            Crie sua conta gratuita e tenha acesso a pesquisas de preços automatizadas, relatórios e evidências conformes com a legislação.
-          </p>
-
-          <ul className="mt-8 space-y-3">
-            {[
-              "Acesso às bases PNCP e Compras.gov.br",
-              "Relatórios em PDF e XLSX prontos",
-              "Conformidade com a IN SEGES 65/2021",
-              "Histórico de pesquisas e evidências",
-            ].map((item) => (
-              <li key={item} className="flex items-start gap-2.5 text-sm text-[#e8d9a8]">
-                <span className="mt-0.5 w-4 h-4 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#C9A227]" />
-                </span>
-                {item}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <p className="relative z-10 text-[#C9A227]/80 text-xs">
-          © {new Date().getFullYear()} LEX Licitações — Uso exclusivo de servidores públicos
-        </p>
-      </div>
-
-      {/* Right panel — form */}
-      <div className="flex-1 bg-slate-50 flex items-start justify-center p-6 overflow-y-auto">
-        <div className="w-full max-w-md py-8">
-          {/* Mobile logo */}
-          <div className="flex items-center gap-2 mb-8 lg:hidden">
-            <div className="w-9 h-9 bg-[#032650] rounded-xl flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5 text-white" />
-            </div>
-            <span className="font-bold text-slate-800 text-lg">LEX Licitações</span>
+      <main className="flex flex-1 items-start justify-center overflow-y-auto bg-canvas p-6 sm:p-10">
+        <div className="w-full max-w-md py-4 sm:py-8">
+          <div className="mb-10 flex items-center gap-3 lg:hidden">
+            <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-card ring-1 ring-slate-200">
+              <img src="/logo-lex.png" alt="" className="h-8 w-8 object-contain" />
+            </span>
+            <span className="text-lg font-semibold tracking-[-0.01em] text-ink-950">LEX Licitações</span>
           </div>
 
-          <h1 className="text-2xl font-bold text-slate-800 mb-1">Criar conta</h1>
-          <p className="text-sm text-slate-500 mb-8">Preencha os dados do responsável e do órgão</p>
+          <h1 className="text-[1.75rem] font-semibold tracking-[-0.022em] text-ink-950">Criar conta</h1>
+          <p className="mt-1.5 text-[15px] text-slate-600">Preencha os dados do responsável e do órgão.</p>
 
           {error && (
-            <div className="mb-5 flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600">
-              <span className="shrink-0 w-4 h-4 rounded-full bg-red-200 flex items-center justify-center text-red-600 text-xs font-bold">!</span>
+            <div role="alert" className="mt-6 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+              <span aria-hidden className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-red-200 text-[11px] font-bold text-red-800">!</span>
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <SectionTitle icon={User} label="Dados pessoais" />
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <SectionTitle icon={User} label="Dados do responsável" />
 
-            <Field label="Nome completo" value={form.nome} onChange={set("nome")} placeholder="Fulano de Tal" required />
-            <Field label="Email institucional" value={form.email} onChange={set("email")} type="email" placeholder="fulano@orgao.gov.br" required />
-            <Field label="Cargo / Função" value={form.cargo} onChange={set("cargo")} placeholder="Pregoeiro" />
+            <Field label="Nome completo" value={form.nome} onChange={set("nome")} placeholder="Nome e sobrenome" required autoComplete="name" />
+            <Field label="E-mail institucional" value={form.email} onChange={set("email")} type="email" placeholder="nome@orgao.gov.br" required autoComplete="email" />
+            <Field label="Cargo ou função" value={form.cargo} onChange={set("cargo")} placeholder="Ex.: Pregoeiro" autoComplete="organization-title" />
 
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Senha" value={form.senha} onChange={set("senha")} type="password" placeholder="Mín. 8 caracteres" required />
-              <Field label="Confirmar senha" value={form.confirmarSenha} onChange={set("confirmarSenha")} type="password" placeholder="Repetir senha" required />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Senha" value={form.senha} onChange={set("senha")} type="password" placeholder="Mín. 8 caracteres" required autoComplete="new-password" />
+              <Field label="Confirmar senha" value={form.confirmarSenha} onChange={set("confirmarSenha")} type="password" placeholder="Repita a senha" required autoComplete="new-password" />
             </div>
 
             <SectionTitle icon={Building2} label="Dados do órgão" />
 
-            <Field label="Nome do órgão" value={form.orgaoNome} onChange={set("orgaoNome")} placeholder="Ministério da Educação" required />
+            <Field label="Nome do órgão" value={form.orgaoNome} onChange={set("orgaoNome")} placeholder="Ex.: Secretaria Municipal de Administração" required autoComplete="organization" />
             <Field label="CNPJ (opcional)" value={form.orgaoCnpj} onChange={set("orgaoCnpj")} placeholder="00.000.000/0000-00" />
 
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1.5">Esfera</label>
-              <select
-                value={form.esfera}
-                onChange={(e) => set("esfera")(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-[#C9A227] focus:border-transparent transition"
-              >
+              <label htmlFor="esfera" className="rotulo">Esfera</label>
+              <select id="esfera" value={form.esfera} onChange={(e) => set("esfera")(e.target.value)} className="inp">
                 <option value="federal">Federal</option>
                 <option value="estadual">Estadual</option>
                 <option value="municipal">Municipal</option>
@@ -183,25 +147,21 @@ export default function RegisterPage() {
               </select>
             </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-2.5 bg-[#032650] text-white rounded-lg text-sm font-semibold hover:bg-[#042f5e] active:bg-[#032650] disabled:opacity-60 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2 mt-2"
-            >
+            <button type="submit" disabled={loading} className="btn btn-primary mt-2 w-full">
               {loading ? (
-                <><Loader2 className="w-4 h-4 animate-spin" /> Cadastrando...</>
+                <><Loader2 className="h-4 w-4 animate-spin" /> Cadastrando...</>
               ) : "Cadastrar órgão"}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-500">
+          <p className="mt-8 border-t border-slate-200 pt-6 text-center text-sm text-slate-600">
             Já tem conta?{" "}
-            <a href="/login" className="text-[#032650] font-medium hover:text-[#042f5e] transition-colors">
+            <a href="/login" className="link">
               Entrar
             </a>
           </p>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
