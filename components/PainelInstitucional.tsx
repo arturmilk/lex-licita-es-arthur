@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 /**
  * Painel institucional das telas de acesso (login e cadastro).
  * Em vez de formas decorativas, mostra o próprio trâmite do LEX — os quatro
@@ -33,12 +35,12 @@ export function PainelInstitucional({
       {/* Margem do documento: fio dourado vertical */}
       <div aria-hidden className="pointer-events-none absolute inset-y-0 left-8 w-px bg-gold-500/25 xl:left-10" />
 
-      <div className="relative flex items-center gap-3">
+      <Link href="/" className="relative flex w-fit items-center gap-3 rounded-lg focus-visible:outline-white">
         <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-sm">
           <img src="/logo-lex.png" alt="" className="h-8 w-8 object-contain" />
         </span>
         <span className="text-lg font-semibold tracking-[-0.01em]">LEX Licitações</span>
-      </div>
+      </Link>
 
       <div className="relative py-12">
         <p className="max-w-lg text-[2.5rem] font-semibold leading-[1.08] tracking-[-0.03em] [text-wrap:balance]">{titulo}</p>

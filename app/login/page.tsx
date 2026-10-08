@@ -3,7 +3,8 @@
 import { useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
 import { PainelInstitucional } from "@/components/PainelInstitucional";
 
 function LoginForm() {
@@ -45,6 +46,12 @@ function LoginForm() {
       <main className="flex flex-1 flex-col bg-canvas">
         <div className="flex flex-1 items-center justify-center p-6 sm:p-10">
           <div className="w-full max-w-[400px]">
+            <Link
+              href="/"
+              className="-ml-2 mb-6 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-slate-600 hover:text-ink-900 lg:mb-10"
+            >
+              <ArrowLeft className="h-4 w-4" aria-hidden /> Página inicial
+            </Link>
             <div className="mb-10 flex items-center gap-3 lg:hidden">
               <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-card ring-1 ring-slate-200">
                 <img src="/logo-lex.png" alt="" className="h-8 w-8 object-contain" />

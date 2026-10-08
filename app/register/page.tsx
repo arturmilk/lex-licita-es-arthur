@@ -1,9 +1,11 @@
 "use client";
 
 import { useId, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Loader2, User, Building2, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Loader2, User, Building2, Eye, EyeOff } from "lucide-react";
 import { PainelInstitucional } from "@/components/PainelInstitucional";
+import { TESTE_GRATIS } from "@/lib/assinatura";
 
 function Field({
   label, value, onChange, type = "text", placeholder = "", required = false, autoComplete,
@@ -97,12 +99,18 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen">
       <PainelInstitucional
-        titulo="Cadastre seu órgão e comece a pesquisar preços."
+        titulo={`Cadastre seu órgão e experimente grátis por ${TESTE_GRATIS}.`}
         texto="Crie a conta do responsável e tenha pesquisas, relatórios e evidências organizados conforme a legislação."
       />
 
       <main className="flex flex-1 items-start justify-center overflow-y-auto bg-canvas p-6 sm:p-10">
         <div className="w-full max-w-md py-4 sm:py-8">
+          <Link
+            href="/"
+            className="-ml-2 mb-6 inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-slate-600 hover:text-ink-900 lg:mb-10"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden /> Página inicial
+          </Link>
           <div className="mb-10 flex items-center gap-3 lg:hidden">
             <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-card ring-1 ring-slate-200">
               <img src="/logo-lex.png" alt="" className="h-8 w-8 object-contain" />
@@ -111,7 +119,7 @@ export default function RegisterPage() {
           </div>
 
           <h1 className="text-[1.75rem] font-semibold tracking-[-0.022em] text-ink-950">Criar conta</h1>
-          <p className="mt-1.5 text-[15px] text-slate-600">Preencha os dados do responsável e do órgão.</p>
+          <p className="mt-1.5 text-[15px] text-slate-600">Preencha os dados do responsável e do órgão para começar o teste grátis de {TESTE_GRATIS}.</p>
 
           {error && (
             <div role="alert" className="mt-6 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">

@@ -1,0 +1,128 @@
+/* Animações da página do curso. `prefers-reduced-motion` já é tratado em globals.css
+   (durações zeradas): tudo aparece no estado final, parado. */
+
+/* Capa: cada linha do título sobe de trás de uma máscara */
+.linha {
+  display: block;
+  overflow: hidden;
+  padding-bottom: 0.12em;
+  margin-bottom: -0.12em;
+}
+.linhaTexto {
+  display: block;
+  animation: subir 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--atraso, 0ms);
+}
+@keyframes subir {
+  from { transform: translateY(110%); }
+  to { transform: translateY(0); }
+}
+
+.entrar {
+  animation: entrar 800ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: var(--atraso, 0ms);
+}
+@keyframes entrar {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Grifo dourado que se desenha sob a palavra-chave, como marca-texto em um parecer */
+.grifo {
+  position: relative;
+  isolation: isolate;
+  white-space: nowrap;
+}
+.grifo::after {
+  content: "";
+  position: absolute;
+  left: -0.03em;
+  right: -0.03em;
+  bottom: 0.06em;
+  height: 0.14em;
+  z-index: -1;
+  border-radius: 2px;
+  background: #c9a227;
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: grifar 800ms cubic-bezier(0.65, 0, 0.35, 1) 1000ms forwards;
+}
+@keyframes grifar {
+  to { transform: scaleX(1); }
+}
+
+/* Carimbo: texto circular girando devagar */
+.carimbo {
+  animation: girar 30s linear infinite;
+}
+@keyframes girar {
+  to { transform: rotate(360deg); }
+}
+
+/* Faixa corrida de termos (o conteúdo vem duplicado; -50% fecha o laço sem salto) */
+.faixa {
+  display: flex;
+  width: max-content;
+  animation: correr 45s linear infinite;
+}
+.faixa:hover {
+  animation-play-state: paused;
+}
+@keyframes correr {
+  to { transform: translateX(-50%); }
+}
+
+/* Convite para rolar: um traço dourado desce pela linha */
+.rolar {
+  position: relative;
+  overflow: hidden;
+}
+.rolar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -35%;
+  width: 100%;
+  height: 35%;
+  background: #c9a227;
+  animation: descer 2.2s cubic-bezier(0.6, 0, 0.4, 1) infinite;
+}
+@keyframes descer {
+  to { top: 100%; }
+}
+
+/* Botão dourado: um brilho atravessa no hover */
+.brilho {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.brilho::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.5) 50%, transparent 70%);
+  transform: translateX(-120%);
+}
+.brilho:hover::before {
+  transform: translateX(120%);
+  transition: transform 700ms ease;
+}
+
+/* Fase atual na tela do sistema: anel que pulsa */
+.pulso {
+  position: relative;
+}
+.pulso::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 9999px;
+  border: 2px solid #c9a227;
+  animation: pulso 2s ease-out infinite;
+}
+@keyframes pulso {
+  from { opacity: 0.8; transform: scale(0.9); }
+  to { opacity: 0; transform: scale(1.6); }
+}

@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 const publicRoutes = [
   "/login",
   "/register",
+  "/curso",
   "/api/register",
   "/api/auth",
   "/api/agent",
@@ -19,8 +20,8 @@ const adminRoutes = ["/admin"];
 export default auth((req) => {
   const { pathname } = req.nextUrl;
 
-  // Allow public routes
-  if (publicRoutes.some((r) => pathname.startsWith(r))) {
+  // Allow public routes (a raiz é a página inicial pública; quem já entrou é levado ao painel por ela)
+  if (pathname === "/" || publicRoutes.some((r) => pathname.startsWith(r))) {
     return NextResponse.next();
   }
 
